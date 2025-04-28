@@ -1,0 +1,66 @@
+import 'package:flutter/material.dart';
+// Add this import for AdminHomePage
+import 'package:lessvsfull/admin_page/Admin_home.dart';
+
+class LoginPage extends StatefulWidget {
+  @override
+  _LoginPageState createState() => _LoginPageState();
+}
+
+class _LoginPageState extends State<LoginPage> {
+  final TextEditingController _emailController = TextEditingController();
+  final TextEditingController _passwordController = TextEditingController();
+
+  void _login() {
+    // Get text from controllers
+    final email = _emailController.text.trim();
+    final password = _passwordController.text.trim();
+
+    // Check if admin credentials
+    if (email == 'Admin@gmail.com' && password == 'Admin123') {
+      // Navigate to admin page
+      Navigator.pushReplacement(
+        context,
+        MaterialPageRoute(builder: (context) => AdminHomePage()),
+      );
+    } else {
+      // Existing login logic for regular users
+      // ...existing code for regular user authentication...
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return Scaffold(
+      appBar: AppBar(
+        title: Text('Login'),
+      ),
+      body: Padding(
+        padding: const EdgeInsets.all(16.0),
+        child: Column(
+          children: [
+            TextField(
+              controller: _emailController,
+              decoration: InputDecoration(labelText: 'Email'),
+            ),
+            TextField(
+              controller: _passwordController,
+              decoration: InputDecoration(labelText: 'Password'),
+              obscureText: true,
+            ),
+            SizedBox(height: 20),
+            ElevatedButton(
+              onPressed: _login,
+              child: Text('Login'),
+
+
+
+
+
+
+
+}  }    );      ),        ),          ],            ),        ),
+      ),
+    );
+  }
+}
