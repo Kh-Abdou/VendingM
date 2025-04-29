@@ -3,6 +3,7 @@ import 'package:lessvsfull/Login/inscription.dart';
 import '../admin_page/admin_page.dart'; // Updated import path
 import '../main.dart'; // Import for regular HomePage
 import '../technician_page/technician_home.dart'; // Import for technician page
+import '../implementation/login-imp.dart'; // Import AuthService
 
 class LoginPage extends StatefulWidget {
   @override
@@ -178,7 +179,7 @@ class _LoginPageState extends State<LoginPage> {
     );
   }
 
-  void _login() {
+  void _login() async {
     setState(() {
       _isLoading = true;
       _errorMessage = null;
@@ -187,32 +188,42 @@ class _LoginPageState extends State<LoginPage> {
     final email = _emailController.text.trim();
     final password = _passwordController.text;
 
-    // Simulate network delay
-    Future.delayed(const Duration(seconds: 1), () {
-      if (email == 'Admin@gmail.com' && password == 'Admin123') {
-        // Navigate to Admin page
-        Navigator.pushReplacement(context,
-            MaterialPageRoute(builder: (context) => const AdminHomePage()));
-      } else if (email == 'User@gmail.com' && password == 'User123') {
-        // Navigate to regular user home page
+    try {
+      // Call the backend login API
+      final authService = AuthService();
+      final response = await authService.login(email, password);
+
+      // Debugging: Print the response
+      print("Login response: $response");
+
+      // Handle successful login
+      final role =
+          response['user']['role'].toLowerCase(); // Normalize to lowercase
+      print("User role: $role"); // Debugging: Print the role
+
+      if (role == 'admin') {
         Navigator.pushReplacement(
           context,
-          MaterialPageRoute(builder: (context) => HomePage()),
+          MaterialPageRoute(builder: (context) => const AdminHomePage()),
         );
-      } else if (email == 'Technician@gmail.com' && password == 'Tech123') {
-        // Navigate to technician page
+      } else if (role == 'technician') {
         Navigator.pushReplacement(
           context,
           MaterialPageRoute(builder: (context) => const TechnicianHomePage()),
         );
-      } else {
-        // Show error for invalid credentials
-        setState(() {
-          _errorMessage = 'Email ou mot de passe incorrect';
-          _isLoading = false;
-        });
+      } else if (role == 'client') {
+        Navigator.pushReplacement(
+          context,
+          MaterialPageRoute(builder: (context) => HomePage()),
+        );
       }
-    });
+    } catch (e) {
+      // Handle login failure
+      setState(() {
+        _errorMessage = 'Échec de la connexion : ${e.toString()}';
+        _isLoading = false;
+      });
+    }
   }
 
   void _showForgotPasswordDialog() {
