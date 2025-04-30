@@ -143,16 +143,3 @@ module.exports.updateUserById = async (req, res) => {
         res.status(500).json({ message: 'Server error' });
     }
 }
-
-// Add this function to get all clients
-exports.getClients = async (req, res) => {
-  try {
-    const clients = await Usermodel.find({ role: 'client' })
-      .select('-password') // Exclude password field
-      .sort({ name: 1 }); // Sort by name
-    
-    res.status(200).json(clients);
-  } catch (error) {
-    res.status(500).json({ message: error.message });
-  }
-};

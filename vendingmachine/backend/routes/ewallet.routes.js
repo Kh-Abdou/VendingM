@@ -13,6 +13,4 @@ router.post("/add-funds", addFunds);
 router.post("/payment", processPayment);
 router.get("/transactions/:userId", getTransactionHistory);
 
-// Add this route to get the transaction history
-router.post('/add-funds', ewalletControllers.addFunds);
 module.exports = router;
