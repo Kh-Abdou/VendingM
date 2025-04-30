@@ -1,104 +1,161 @@
-const EWallet = require('../models/ewallet.model');
+const EWalletModel = require("../models/ewallet.model");
+const UserModel = require("../models/user.model");
+const NotificationModel = require("../models/notification.model");
+const OrderModel = require("../models/order.model"); // Add this import
 
-// Get e-wallet balance
+// This function might be missing or not exported
 module.exports.getBalance = async (req, res) => {
-    try {
-        const { clientId } = req.params;
-        const wallet = await EWallet.findOne({ clientId });
-        
-        if (!wallet) {
-            return res.status(404).json({ message: 'E-wallet not found for this client' });
-        }
-        
-        res.status(200).json({ balance: wallet.balance });
-    } catch (error) {
-        console.error(error);
-        res.status(500).json({ message: 'Server error' });
+  try {
+    const userId = req.params.userId;
+    
+    if (!userId) {
+      return res.status(400).json({
+        message: "User ID is required",
+      });
     }
+    
+    const wallet = await EWalletModel.findOne({ userId });
+    
+    if (!wallet) {
+      return res.status(200).json({
+        balance: 0,
+        transactions: []
+      });
+    }
+    
+    res.status(200).json({
+      balance: wallet.balance,
+      transactions: wallet.transactions.slice(0, 10) // Latest 10 transactions
+    });
+  } catch (err) {
+    res.status(500).json({ message: err.message });
+  }
 };
 
-// Add funds to e-wallet
+// The rest of your controller code...
 module.exports.addFunds = async (req, res) => {
-    try {
-        const { clientId, amount } = req.body;
-        const WALLET_LIMIT = 5000; // Set the wallet limit to 5000 DA
-        
-        if (!clientId || !amount || Number(amount) <= 0) {
-            return res.status(400).json({ message: 'Client ID and a positive amount are required' });
-        }
-        
-        let wallet = await EWallet.findOne({ clientId });
-        
-        if (!wallet) {
-            // Create new wallet if it doesn't exist
-            // Check if initial amount exceeds the limit
-            if (Number(amount) > WALLET_LIMIT) {
-                return res.status(400).json({ 
-                    message: `Amount exceeds wallet limit of ${WALLET_LIMIT} DA` 
-                });
-            }
-            
-            wallet = new EWallet({
-                clientId,
-                balance: Number(amount)
-            });
-        } else {
-            // Calculate new balance
-            const newBalance = Number(wallet.balance) + Number(amount);
-            
-            // Check if new balance would exceed the limit
-            if (newBalance > WALLET_LIMIT) {
-                return res.status(400).json({ 
-                    message: `Transaction declined. Balance would exceed the ${WALLET_LIMIT} DA limit`,
-                    currentBalance: wallet.balance,
-                    remainingCapacity: WALLET_LIMIT - wallet.balance
-                });
-            }
-            
-            // Update existing wallet
-            wallet.balance = newBalance;
-        }
-        
-        await wallet.save();
-        res.status(200).json({ 
-            message: 'Funds added successfully', 
-            balance: wallet.balance,
-            limit: WALLET_LIMIT
-        });
-    } catch (error) {
-        console.error(error);
-        res.status(500).json({ message: 'Server error' });
+  try {
+    const { userId, amount } = req.body;
+    
+    if (!userId || !amount || amount <= 0) {
+      return res.status(400).json({
+        message: "User ID and positive amount are required",
+      });
     }
+    
+    // Find or create e-wallet
+    let wallet = await EWalletModel.findOne({ userId });
+    
+    if (!wallet) {
+      wallet = new EWalletModel({
+        userId,
+        balance: amount,
+      });
+    } else {
+      wallet.balance += amount;
+    }
+    
+    // Save transaction history
+    wallet.transactions.push({
+      type: "DEPOSIT",
+      amount,
+      date: new Date(),
+    });
+    
+    await wallet.save();
+    
+    // Create notification
+    const notification = new NotificationModel({
+      userId,
+      title: "Solde rechargé",
+      message: `Votre solde a été rechargé de ${amount.toFixed(2)} DA`,
+      type: "TRANSACTION",
+      amount,
+    });
+    
+    await notification.save();
+    
+    res.status(200).json({
+      message: "Funds added successfully",
+      balance: wallet.balance,
+    });
+  } catch (err) {
+    res.status(500).json({ message: err.message });
+  }
 };
 
-// Pay with e-wallet
-module.exports.payWithWallet = async (req, res) => {
-    try {
-        const { clientId, amount } = req.body;
-        
-        if (!clientId || !amount || amount <= 0) {
-            return res.status(400).json({ message: 'Client ID and a positive amount are required' });
-        }
-        
-        const wallet = await EWallet.findOne({ clientId });
-        
-        if (!wallet) {
-            return res.status(404).json({ message: 'E-wallet not found for this client' });
-        }
-        
-        if (wallet.balance < amount) {
-            return res.status(400).json({ message: 'Insufficient funds' });
-        }
-        
-        wallet.balance -= amount;
-        await wallet.save();
-        
-        res.status(200).json({ 
-            message: 'Payment successful', 
-            remainingBalance: wallet.balance 
-        });
-    } catch (error) {
-        console.error(error);
-        res.status(500).json({ message: 'Server error' });
+module.exports.processPayment = async (req, res) => {
+  try {
+    const { userId, amount, products } = req.body;
+    
+    if (!userId || !amount || amount <= 0) {
+      return res.status(400).json({
+        message: "User ID and positive amount are required",
+      });
     }
+    
+    // Find e-wallet
+    const wallet = await EWalletModel.findOne({ userId });
+    
+    if (!wallet) {
+      return res.status(404).json({
+        message: "E-wallet not found",
+      });
+    }
+    
+    // Check balance
+    if (wallet.balance < amount) {
+      return res.status(400).json({
+        message: "Insufficient funds",
+      });
+    }
+    
+    // Deduct amount
+    wallet.balance -= amount;
+    
+    // Save transaction history
+    wallet.transactions.push({
+      type: "PAYMENT",
+      amount: -amount,
+      date: new Date(),
+    });
+    
+    await wallet.save();
+    
+    // Create order
+    const order = new OrderModel({
+      userId,
+      products,
+      totalAmount: amount,
+      paymentMethod: "EWALLET",
+      status: "COMPLETED",
+    });
+    
+    await order.save();
+    
+    // Create notification
+    const notification = new NotificationModel({
+      userId,
+      title: "Paiement effectué",
+      message: `Votre paiement de ${amount.toFixed(2)} DA a été effectué`,
+      type: "TRANSACTION",
+      amount: -amount,
+      orderId: order._id,
+      products,
+    });
+    
+    await notification.save();
+    
+    res.status(200).json({
+      message: "Payment processed successfully",
+      balance: wallet.balance,
+      orderId: order._id,
+    });
+  } catch (err) {
+    res.status(500).json({ message: err.message });
+  }
+};
+
+module.exports.getTransactionHistory = async (req, res) => {
+  // Implementation...
 };

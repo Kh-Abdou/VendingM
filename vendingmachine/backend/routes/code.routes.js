@@ -1,12 +1,14 @@
-const express = require('express');
-const codeController = require('../controllers/code.controllers');
-
+const express = require("express");
 const router = express.Router();
+const {
+  generateCode,
+  validateCode,
+  // other functions...
+} = require("../controllers/code.controllers"); // Changed from code.controller to code.controllers
 
-// Generate a payment code
-router.post('/generate', codeController.generateCode);
-
-// Use a payment code
-router.post('/use', codeController.useCode);
+// Routes
+router.post("/generate", generateCode);
+router.post("/validate", validateCode);
+// other routes...
 
 module.exports = router;

@@ -23,6 +23,7 @@ app.use("/product", require("./routes/product.routes"));
 app.use("/cart", require("./routes/cart.routes")); // Add cart routes
 app.use("/ewallet", require("./routes/ewallet.routes")); // Add e-wallet routes
 app.use("/code", require("./routes/code.routes")); // Add code routes
+app.use("/notification", require("./routes/notification.routes")); // Add this line with your other routes
 
 
 //Lancer le server

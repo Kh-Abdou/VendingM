@@ -1,15 +1,16 @@
-const express = require('express');
-const ewalletController = require('../controllers/ewallet.controllers');
-
+const express = require("express");
 const router = express.Router();
+const {
+  getBalance,
+  addFunds,
+  processPayment,
+  getTransactionHistory
+} = require("../controllers/ewallet.controllers"); // Note the "s" at the end
 
-// Get e-wallet balance
-router.get('/:clientId', ewalletController.getBalance);
-
-// Add funds to e-wallet
-router.post('/add-funds', ewalletController.addFunds);
-
-// Pay with e-wallet
-router.post('/pay', ewalletController.payWithWallet);
+// Define your routes
+router.get("/:userId", getBalance);
+router.post("/add-funds", addFunds);
+router.post("/payment", processPayment);
+router.get("/transactions/:userId", getTransactionHistory);
 
 module.exports = router;
