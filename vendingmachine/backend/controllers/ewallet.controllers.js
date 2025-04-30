@@ -159,3 +159,33 @@ module.exports.processPayment = async (req, res) => {
 module.exports.getTransactionHistory = async (req, res) => {
   // Implementation...
 };
+
+
+// Add this function to add funds to a user's wallet
+module.exports.addFunds = async (req, res) => {
+  try {
+    const { userId, amount } = req.body;
+    
+    if (!userId || !amount || amount <= 0) {
+      return res.status(400).json({ message: 'Invalid user ID or amount' });
+    }
+    
+    // Find the wallet for this user
+    const wallet = await Walletmodel.findOne({ userId });
+    
+    if (!wallet) {
+      return res.status(404).json({ message: 'Wallet not found for this user' });
+    }
+    
+    // Update the balance
+    wallet.balance += amount;
+    await wallet.save();
+    
+    res.status(200).json({ 
+      message: 'Funds added successfully',
+      wallet
+    });
+  } catch (error) {
+    res.status(500).json({ message: error.message });
+  }
+};

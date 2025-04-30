@@ -1,12 +1,33 @@
 import 'package:flutter/material.dart';
+import 'package:provider/provider.dart';
+import 'implementation/notification-imp.dart';
 import 'Login/login_page.dart';
 import 'admin_page/admin_page.dart'; // Updated import
+import 'client_page/notification_page.dart';
 
 void main() {
-  runApp(DistributeurApp());
+  // Create service and repository
+  final notificationService =
+      NotificationService(baseUrl: 'https://your-api-url.com/api');
+  final notificationRepository = NotificationRepository(notificationService);
+
+  runApp(
+    MultiProvider(
+      providers: [
+        ChangeNotifierProvider(
+          create: (context) => NotificationProvider(
+            repository: notificationRepository,
+            userId: 'current_user_id', // Get the current user ID
+          ),
+        ),
+        // Add other providers if needed
+      ],
+      child: MyApp(),
+    ),
+  );
 }
 
-class DistributeurApp extends StatelessWidget {
+class MyApp extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return MaterialApp(
@@ -368,7 +389,7 @@ class _HomePageState extends State<HomePage> {
               return _buildProduitCard(produits[index]);
             });
       case 1:
-        return _buildNotificationsView();
+        return NotificationPage();
       case 2:
         return _buildProfileView();
       default:

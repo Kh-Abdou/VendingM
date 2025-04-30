@@ -1,4 +1,6 @@
 import 'package:flutter/material.dart';
+import 'dart:convert';
+import 'package:http/http.dart' as http;
 
 class AccountManagementPage extends StatefulWidget {
   const AccountManagementPage({Key? key}) : super(key: key);
@@ -8,755 +10,264 @@ class AccountManagementPage extends StatefulWidget {
 }
 
 class _AccountManagementPageState extends State<AccountManagementPage> {
-  // Placeholder data for customers - update technicians to have no credit
-  final List<Map<String, dynamic>> _customers = [
-    {
-      'id': 1,
-      'name': 'John Doe',
-      'email': 'john@example.com',
-      'credit': 1000.0,
-      'type': 'Client'
-    },
-    {
-      'id': 2,
-      'name': 'Jane Smith',
-      'email': 'jane@example.com',
-      'credit': 500.0,
-      'type': 'Client'
-    },
-    {
-      'id': 3,
-      'name': 'Bob Tech',
-      'email': 'bob@example.com',
-      'type': 'Technicien'
-    },
-  ];
+  final String baseUrl =
+      'http://192.168.56.1:5000'; // Change to your backend URL
+  List<Map<String, dynamic>> _clients = [];
+  bool _isLoading = true;
+  bool _hasError = false;
+  String _errorMessage = '';
 
   @override
-  Widget build(BuildContext context) {
-    return DefaultTabController(
-      length: 2,
-      child: Column(
-        children: [
-          const TabBar(
-            labelColor: Colors.blue, // Replace with your theme color
-            tabs: [
-              Tab(text: 'Clients'),
-              Tab(text: 'Techniciens'),
-            ],
-          ),
-          Expanded(
-            child: TabBarView(
-              children: [
-                _buildAccountsList('Client'),
-                _buildAccountsList('Technicien'),
-              ],
-            ),
-          ),
-        ],
-      ),
-    );
+  void initState() {
+    super.initState();
+    _fetchClients();
   }
 
-  Widget _buildAccountsList(String type) {
-    final filteredAccounts =
-        _customers.where((c) => c['type'] == type).toList();
+  Future<void> _fetchClients() async {
+    setState(() {
+      _isLoading = true;
+      _hasError = false;
+    });
 
-    return Scaffold(
-      body: ListView.builder(
-        itemCount: filteredAccounts.length,
-        padding: const EdgeInsets.all(8.0),
-        itemBuilder: (context, index) {
-          final account = filteredAccounts[index];
-          return Card(
-            elevation: 2,
-            margin: const EdgeInsets.symmetric(vertical: 4, horizontal: 8),
-            child: ListTile(
-              leading: CircleAvatar(
-                backgroundColor: Colors.blue.withOpacity(0.2),
-                child: Text(account['name'].substring(0, 1)),
-              ),
-              title: Text('${account['name']}'),
-              subtitle: Text(type == 'Client'
-                  ? '${account['email']} - Credit: ${account['credit']} DA'
-                  : account['email']),
-              trailing: Row(
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  IconButton(
-                    icon: const Icon(Icons.edit, color: Colors.blue),
-                    onPressed: () {
-                      _showEditAccountDialog(account);
-                    },
-                  ),
-                  IconButton(
-                    icon: const Icon(Icons.delete, color: Colors.red),
-                    onPressed: () {
-                      _showDeleteConfirmationDialog(account);
-                    },
-                  ),
-                ],
-              ),
-            ),
+    try {
+      // Get all users with 'client' role
+      final response = await http.get(
+        Uri.parse('$baseUrl/user/clients'),
+        headers: {'Content-Type': 'application/json'},
+      );
+
+      if (response.statusCode == 200) {
+        final List<dynamic> clientsData = json.decode(response.body);
+
+        // For each client, get their wallet balance
+        final List<Map<String, dynamic>> clientsWithBalance = [];
+
+        for (var client in clientsData) {
+          final walletResponse = await http.get(
+            Uri.parse('$baseUrl/ewallet/${client['_id']}'),
+            headers: {'Content-Type': 'application/json'},
           );
-        },
-      ),
-      floatingActionButton: FloatingActionButton(
-        backgroundColor: Colors.blue, // Replace with your theme color
-        onPressed: () {
-          _showAddAccountDialog(type);
-        },
-        child: const Icon(Icons.add),
-      ),
-    );
+
+          if (walletResponse.statusCode == 200) {
+            final walletData = json.decode(walletResponse.body);
+            client['balance'] = walletData['balance'] ?? 0;
+          } else {
+            client['balance'] = 0;
+          }
+
+          clientsWithBalance.add(client as Map<String, dynamic>);
+        }
+
+        setState(() {
+          _clients = clientsWithBalance;
+          _isLoading = false;
+        });
+      } else {
+        throw Exception('Failed to load clients');
+      }
+    } catch (error) {
+      setState(() {
+        _isLoading = false;
+        _hasError = true;
+        _errorMessage = error.toString();
+      });
+    }
   }
 
-  void _showAddAccountDialog(String type) {
-    final nameController = TextEditingController();
-    final emailController = TextEditingController();
-    final creditController = TextEditingController(text: '0.0');
-    final nfcIdController =
-        TextEditingController(text: 'En attente de scan NFC...');
+  Future<void> _addFunds(String userId, double amount) async {
+    try {
+      final response = await http.post(
+        Uri.parse('$baseUrl/ewallet/add-funds'),
+        headers: {'Content-Type': 'application/json'},
+        body: json.encode({
+          'userId': userId,
+          'amount': amount,
+        }),
+      );
 
-    // Variables pour suivre si les champs sont valides
-    String? nameError;
-    String? emailError;
-    String? creditError;
+      if (response.statusCode == 200) {
+        // Update was successful, refresh the client list
+        _fetchClients();
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Balance updated successfully')),
+        );
+      } else {
+        throw Exception('Failed to update balance');
+      }
+    } catch (error) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('Error: ${error.toString()}')),
+      );
+    }
+  }
 
-    // Variables pour suivre l'état de validation des champs
-    bool isNameValid = false;
-    bool isEmailValid = false;
-    bool isCreditValid = true; // Par défaut à true car c'est initialisé à 0.0
-
-    // Variable pour suivre l'état du scan NFC
-    bool isNfcScanning = true;
-    bool isNfcDetected = false;
+  void _showAddFundsDialog(Map<String, dynamic> client) {
+    final amountController = TextEditingController();
+    bool isAmountValid = false;
+    String? amountError;
 
     showDialog(
       context: context,
       builder: (context) {
         return StatefulBuilder(
           builder: (context, setState) {
-            // Simuler la détection du NFC après un délai
-            if (type == 'Client' && isNfcScanning) {
-              Future.delayed(const Duration(seconds: 3), () {
-                if (context.mounted) {
-                  setState(() {
-                    // Générer un code NFC hexadécimal aléatoire
-                    final String nfcCode =
-                        'A4:F5:${DateTime.now().millisecondsSinceEpoch.toString().substring(6)}';
-                    nfcIdController.text = nfcCode;
-                    isNfcScanning = false;
-                    isNfcDetected = true;
-                  });
-                }
-              });
-            }
-
-            // Fonctions de validation
-            void validateName(String value) {
+            void validateAmount(String value) {
               setState(() {
                 if (value.isEmpty) {
-                  nameError = 'Le nom ne peut pas être vide';
-                  isNameValid = false;
-                } else if (value.length < 2) {
-                  nameError = 'Le nom doit contenir au moins 2 caractères';
-                  isNameValid = false;
+                  amountError = 'Le montant ne peut pas être vide';
+                  isAmountValid = false;
                 } else {
-                  nameError = null;
-                  isNameValid = true;
-                }
-              });
-            }
-
-            void validateEmail(String value) {
-              setState(() {
-                if (value.isEmpty) {
-                  emailError = 'L\'email ne peut pas être vide';
-                  isEmailValid = false;
-                } else if (!RegExp(r'^[\w-\.]+@([\w-]+\.)+[\w-]{2,4}$')
-                    .hasMatch(value)) {
-                  emailError = 'Veuillez entrer un email valide';
-                  isEmailValid = false;
-                } else {
-                  emailError = null;
-                  isEmailValid = true;
-                }
-              });
-            }
-
-            void validateCredit(String value) {
-              setState(() {
-                if (value.isEmpty) {
-                  creditError = 'Le crédit ne peut pas être vide';
-                  isCreditValid = false;
-                } else {
-                  final creditValue = double.tryParse(value);
-                  if (creditValue == null) {
-                    creditError = 'Veuillez entrer un nombre valide';
-                    isCreditValid = false;
-                  } else if (creditValue < 0) {
-                    creditError = 'Le crédit ne peut pas être négatif';
-                    isCreditValid = false;
+                  final amount = double.tryParse(value);
+                  if (amount == null) {
+                    amountError = 'Veuillez entrer un nombre valide';
+                    isAmountValid = false;
+                  } else if (amount <= 0) {
+                    amountError = 'Le montant doit être supérieur à 0';
+                    isAmountValid = false;
                   } else {
-                    creditError = null;
-                    isCreditValid = true;
+                    amountError = null;
+                    isAmountValid = true;
                   }
                 }
               });
             }
 
-            // Validation initiale du crédit
-            validateCredit(creditController.text);
-
             return AlertDialog(
-              title: Text('Add New $type'),
-              content: SingleChildScrollView(
-                child: Column(
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                    // Ajout du champ NFC ID en lecture seule avec meilleure lisibilité
-                    if (type == 'Client') ...[
-                      Container(
-                        padding: const EdgeInsets.all(4),
-                        decoration: BoxDecoration(
-                          borderRadius: BorderRadius.circular(8),
-                          border: Border.all(
-                            color: isNfcDetected ? Colors.green : Colors.blue,
-                            width: 2,
-                          ),
-                        ),
-                        child: Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
+              title: Text('Ajouter des fonds'),
+              content: Column(
+                mainAxisSize: MainAxisSize.min,
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    'Client: ${client['name']}',
+                    style: TextStyle(fontWeight: FontWeight.bold),
+                  ),
+                  SizedBox(height: 8),
+                  Text(
+                    'Solde actuel: ${client['balance']} DA',
+                    style: TextStyle(color: Colors.grey[700]),
+                  ),
+                  SizedBox(height: 16),
+                  TextField(
+                    controller: amountController,
+                    decoration: InputDecoration(
+                      labelText: 'Montant à ajouter (DA)',
+                      border: OutlineInputBorder(),
+                      errorText: amountError,
+                      prefixIcon: Icon(Icons.account_balance_wallet),
+                      suffixText: 'DA',
+                    ),
+                    keyboardType:
+                        TextInputType.numberWithOptions(decimal: true),
+                    onChanged: validateAmount,
+                  ),
+                ],
+              ),
+              actions: [
+                TextButton(
+                  onPressed: () => Navigator.pop(context),
+                  child: Text('Annuler'),
+                ),
+                ElevatedButton(
+                  onPressed: isAmountValid
+                      ? () {
+                          final amount = double.parse(amountController.text);
+                          Navigator.pop(context);
+                          _addFunds(client['_id'], amount);
+                        }
+                      : null,
+                  child: Text('Ajouter'),
+                ),
+              ],
+            );
+          },
+        );
+      },
+    );
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    if (_isLoading) {
+      return Center(child: CircularProgressIndicator());
+    }
+
+    if (_hasError) {
+      return Center(
+        child: Column(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            Text('Erreur: $_errorMessage'),
+            SizedBox(height: 16),
+            ElevatedButton(
+              onPressed: _fetchClients,
+              child: Text('Réessayer'),
+            ),
+          ],
+        ),
+      );
+    }
+
+    return Scaffold(
+      appBar: AppBar(
+        title: Text('Gestion des Clients'),
+        actions: [
+          IconButton(
+            icon: Icon(Icons.refresh),
+            onPressed: _fetchClients,
+            tooltip: 'Rafraîchir',
+          ),
+        ],
+      ),
+      body: _clients.isEmpty
+          ? Center(child: Text('Aucun client trouvé'))
+          : ListView.builder(
+              itemCount: _clients.length,
+              padding: EdgeInsets.all(8),
+              itemBuilder: (context, index) {
+                final client = _clients[index];
+                return Card(
+                  elevation: 2,
+                  margin: EdgeInsets.symmetric(vertical: 4, horizontal: 8),
+                  child: ListTile(
+                    leading: CircleAvatar(
+                      backgroundColor: Colors.blue.withOpacity(0.2),
+                      child: Text(client['name'].substring(0, 1)),
+                    ),
+                    title: Text('${client['name']}'),
+                    subtitle: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text('${client['email']}'),
+                        SizedBox(height: 4),
+                        Row(
                           children: [
-                            Row(
-                              children: [
-                                Icon(
-                                  Icons.nfc,
-                                  color: isNfcDetected
-                                      ? Colors.green
-                                      : Colors.blue,
-                                  size: 24,
-                                ),
-                                const SizedBox(width: 8),
-                                Text(
-                                  'NFC ID',
-                                  style: TextStyle(
-                                    fontWeight: FontWeight.bold,
-                                    color: isNfcDetected
-                                        ? Colors.green
-                                        : Colors.blue,
-                                  ),
-                                ),
-                                const Spacer(),
-                                if (isNfcScanning)
-                                  SizedBox(
-                                    width: 20,
-                                    height: 20,
-                                    child: CircularProgressIndicator(
-                                      strokeWidth: 2,
-                                      valueColor: AlwaysStoppedAnimation<Color>(
-                                          Colors.blue),
-                                    ),
-                                  ),
-                                if (isNfcDetected)
-                                  const Icon(Icons.check_circle,
-                                      color: Colors.green, size: 20),
-                              ],
+                            Icon(
+                              Icons.account_balance_wallet,
+                              size: 16,
+                              color: Colors.green,
                             ),
-                            const SizedBox(height: 8),
-                            Container(
-                              width: double.infinity,
-                              padding: const EdgeInsets.symmetric(
-                                  vertical: 12, horizontal: 16),
-                              decoration: BoxDecoration(
-                                color: isNfcDetected
-                                    ? Colors.green.withOpacity(0.1)
-                                    : Colors.grey[200],
-                                borderRadius: BorderRadius.circular(4),
-                              ),
-                              child: Text(
-                                nfcIdController.text,
-                                style: TextStyle(
-                                  fontFamily: 'Courier', // Police monospace
-                                  fontSize: 18,
-                                  letterSpacing: 1.5,
-                                  fontWeight: FontWeight.bold,
-                                  color: isNfcDetected
-                                      ? Colors.green[800]
-                                      : Colors.grey[600],
-                                ),
-                              ),
-                            ),
-                            Padding(
-                              padding: const EdgeInsets.only(top: 4, left: 4),
-                              child: Text(
-                                isNfcDetected
-                                    ? 'Tag NFC détecté avec succès'
-                                    : 'Scanning en cours...',
-                                style: TextStyle(
-                                  fontSize: 12,
-                                  color: isNfcDetected
-                                      ? Colors.green
-                                      : Colors.grey[600],
-                                  fontStyle: FontStyle.italic,
-                                ),
+                            SizedBox(width: 4),
+                            Text(
+                              'Solde: ${client['balance']} DA',
+                              style: TextStyle(
+                                fontWeight: FontWeight.bold,
+                                color: Colors.green[700],
                               ),
                             ),
                           ],
                         ),
-                      ),
-                      const SizedBox(height: 16),
-                    ],
-                    TextField(
-                      controller: nameController,
-                      decoration: InputDecoration(
-                        labelText: 'Name',
-                        border: const OutlineInputBorder(),
-                        errorText: nameError,
-                        helperText: isNameValid
-                            ? 'Nom valide'
-                            : 'Entrez le nom complet',
-                        helperStyle: TextStyle(
-                          color: isNameValid ? Colors.green : Colors.grey[600],
-                        ),
-                        enabledBorder: OutlineInputBorder(
-                          borderSide: BorderSide(
-                            color: isNameValid ? Colors.green : Colors.grey,
-                            width: isNameValid ? 2.0 : 1.0,
-                          ),
-                        ),
-                        focusedBorder: OutlineInputBorder(
-                          borderSide: BorderSide(
-                            color: isNameValid ? Colors.green : Colors.blue,
-                            width: 2.0,
-                          ),
-                        ),
-                        suffixIcon: isNameValid
-                            ? const Icon(Icons.check_circle,
-                                color: Colors.green)
-                            : null,
-                      ),
-                      onChanged: validateName,
+                      ],
                     ),
-                    const SizedBox(height: 16),
-                    TextField(
-                      controller: emailController,
-                      decoration: InputDecoration(
-                        labelText: 'Email',
-                        border: const OutlineInputBorder(),
-                        errorText: emailError,
-                        helperText: isEmailValid
-                            ? 'Email valide'
-                            : 'Entrez une adresse email valide',
-                        helperStyle: TextStyle(
-                          color: isEmailValid ? Colors.green : Colors.grey[600],
-                        ),
-                        enabledBorder: OutlineInputBorder(
-                          borderSide: BorderSide(
-                            color: isEmailValid ? Colors.green : Colors.grey,
-                            width: isEmailValid ? 2.0 : 1.0,
-                          ),
-                        ),
-                        focusedBorder: OutlineInputBorder(
-                          borderSide: BorderSide(
-                            color: isEmailValid ? Colors.green : Colors.blue,
-                            width: 2.0,
-                          ),
-                        ),
-                        suffixIcon: isEmailValid
-                            ? const Icon(Icons.check_circle,
-                                color: Colors.green)
-                            : null,
-                      ),
-                      keyboardType: TextInputType.emailAddress,
-                      onChanged: validateEmail,
+                    trailing: ElevatedButton.icon(
+                      icon: Icon(Icons.add),
+                      label: Text('Ajouter des fonds'),
+                      onPressed: () => _showAddFundsDialog(client),
                     ),
-                    // Only show credit field for clients
-                    if (type == 'Client') ...[
-                      const SizedBox(height: 16),
-                      TextField(
-                        controller: creditController,
-                        decoration: InputDecoration(
-                          labelText: 'Credit (DA)',
-                          border: const OutlineInputBorder(),
-                          errorText: creditError,
-                          helperText: isCreditValid
-                              ? 'Crédit valide'
-                              : 'Entrez un nombre valide',
-                          helperStyle: TextStyle(
-                            color:
-                                isCreditValid ? Colors.green : Colors.grey[600],
-                          ),
-                          enabledBorder: OutlineInputBorder(
-                            borderSide: BorderSide(
-                              color: isCreditValid ? Colors.green : Colors.grey,
-                              width: isCreditValid ? 2.0 : 1.0,
-                            ),
-                          ),
-                          focusedBorder: OutlineInputBorder(
-                            borderSide: BorderSide(
-                              color: isCreditValid ? Colors.green : Colors.blue,
-                              width: 2.0,
-                            ),
-                          ),
-                          suffixIcon: Row(
-                            mainAxisSize: MainAxisSize.min,
-                            children: [
-                              const Icon(Icons.account_balance_wallet),
-                              if (isCreditValid)
-                                const Icon(Icons.check_circle,
-                                    color: Colors.green),
-                            ],
-                          ),
-                        ),
-                        keyboardType: const TextInputType.numberWithOptions(
-                            decimal: true),
-                        onChanged: validateCredit,
-                      ),
-                    ],
-                  ],
-                ),
-              ),
-              actions: [
-                TextButton(
-                  onPressed: () => Navigator.pop(context),
-                  child: const Text('Cancel'),
-                ),
-                ElevatedButton(
-                  onPressed: (nameError != null ||
-                          emailError != null ||
-                          (type == 'Client' && creditError != null))
-                      ? null // Disable the button if any field is invalid
-                      : () {
-                          // Validation finale avant création
-                          validateName(nameController.text);
-                          validateEmail(emailController.text);
-                          if (type == 'Client')
-                            validateCredit(creditController.text);
-
-                          // Vérifier si tous les champs sont valides après validation finale
-                          if (nameController.text.isEmpty ||
-                              emailController.text.isEmpty ||
-                              (type == 'Client' &&
-                                  (creditError != null ||
-                                      creditController.text.isEmpty))) {
-                            return;
-                          }
-
-                          // Implement add account logic
-                          setState(() {
-                            final Map<String, dynamic> newAccount = {
-                              'id': _customers.length + 1,
-                              'name': nameController.text,
-                              'email': emailController.text,
-                              'type': type,
-                            };
-
-                            // Only add credit for clients
-                            if (type == 'Client') {
-                              newAccount['credit'] =
-                                  double.tryParse(creditController.text) ?? 0.0;
-                            }
-
-                            _customers.add(newAccount);
-                          });
-                          Navigator.pop(context);
-                          ScaffoldMessenger.of(context).showSnackBar(
-                            const SnackBar(
-                                content: Text('Account created successfully')),
-                          );
-                        },
-                  child: const Text('Create'),
-                ),
-              ],
-            );
-          },
-        );
-      },
-    );
-  }
-
-  void _showEditAccountDialog(Map<String, dynamic> account) {
-    final nameController = TextEditingController(text: account['name']);
-    final emailController = TextEditingController(text: account['email']);
-    final creditController = account['type'] == 'Client'
-        ? TextEditingController(text: account['credit'].toString())
-        : null;
-
-    // Variables pour suivre si les champs sont valides
-    String? nameError;
-    String? emailError;
-    String? creditError;
-
-    // Variables pour suivre l'état de validation des champs
-    bool isNameValid =
-        true; // Supposons que les valeurs existantes sont valides
-    bool isEmailValid = true;
-    bool isCreditValid = true;
-
-    showDialog(
-      context: context,
-      builder: (context) {
-        return StatefulBuilder(
-          builder: (context, setState) {
-            // Fonctions de validation
-            void validateName(String value) {
-              setState(() {
-                if (value.isEmpty) {
-                  nameError = 'Le nom ne peut pas être vide';
-                  isNameValid = false;
-                } else if (value.length < 2) {
-                  nameError = 'Le nom doit contenir au moins 2 caractères';
-                  isNameValid = false;
-                } else {
-                  nameError = null;
-                  isNameValid = true;
-                }
-              });
-            }
-
-            void validateEmail(String value) {
-              setState(() {
-                if (value.isEmpty) {
-                  emailError = 'L\'email ne peut pas être vide';
-                  isEmailValid = false;
-                } else if (!RegExp(r'^[\w-\.]+@([\w-]+\.)+[\w-]{2,4}$')
-                    .hasMatch(value)) {
-                  emailError = 'Veuillez entrer un email valide';
-                  isEmailValid = false;
-                } else {
-                  emailError = null;
-                  isEmailValid = true;
-                }
-              });
-            }
-
-            void validateCredit(String value) {
-              setState(() {
-                if (value.isEmpty) {
-                  creditError = 'Le crédit ne peut pas être vide';
-                  isCreditValid = false;
-                } else {
-                  final creditValue = double.tryParse(value);
-                  if (creditValue == null) {
-                    creditError = 'Veuillez entrer un nombre valide';
-                    isCreditValid = false;
-                  } else if (creditValue < 0) {
-                    creditError = 'Le crédit ne peut pas être négatif';
-                    isCreditValid = false;
-                  } else {
-                    creditError = null;
-                    isCreditValid = true;
-                  }
-                }
-              });
-            }
-
-            // Validation initiale
-            validateName(nameController.text);
-            validateEmail(emailController.text);
-            if (account['type'] == 'Client') {
-              validateCredit(creditController!.text);
-            }
-
-            return AlertDialog(
-              title: const Text('Edit Account'),
-              content: SingleChildScrollView(
-                child: Column(
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                    TextField(
-                      controller: nameController,
-                      decoration: InputDecoration(
-                        labelText: 'Name',
-                        border: const OutlineInputBorder(),
-                        errorText: nameError,
-                        helperText: isNameValid
-                            ? 'Nom valide'
-                            : 'Entrez le nom complet',
-                        helperStyle: TextStyle(
-                          color: isNameValid ? Colors.green : Colors.grey[600],
-                        ),
-                        enabledBorder: OutlineInputBorder(
-                          borderSide: BorderSide(
-                            color: isNameValid ? Colors.green : Colors.grey,
-                            width: isNameValid ? 2.0 : 1.0,
-                          ),
-                        ),
-                        focusedBorder: OutlineInputBorder(
-                          borderSide: BorderSide(
-                            color: isNameValid ? Colors.green : Colors.blue,
-                            width: 2.0,
-                          ),
-                        ),
-                        suffixIcon: isNameValid
-                            ? const Icon(Icons.check_circle,
-                                color: Colors.green)
-                            : null,
-                      ),
-                      onChanged: validateName,
-                    ),
-                    const SizedBox(height: 16),
-                    TextField(
-                      controller: emailController,
-                      decoration: InputDecoration(
-                        labelText: 'Email',
-                        border: const OutlineInputBorder(),
-                        errorText: emailError,
-                        helperText: isEmailValid
-                            ? 'Email valide'
-                            : 'Entrez une adresse email valide',
-                        helperStyle: TextStyle(
-                          color: isEmailValid ? Colors.green : Colors.grey[600],
-                        ),
-                        enabledBorder: OutlineInputBorder(
-                          borderSide: BorderSide(
-                            color: isEmailValid ? Colors.green : Colors.grey,
-                            width: isEmailValid ? 2.0 : 1.0,
-                          ),
-                        ),
-                        focusedBorder: OutlineInputBorder(
-                          borderSide: BorderSide(
-                            color: isEmailValid ? Colors.green : Colors.blue,
-                            width: 2.0,
-                          ),
-                        ),
-                        suffixIcon: isEmailValid
-                            ? const Icon(Icons.check_circle,
-                                color: Colors.green)
-                            : null,
-                      ),
-                      keyboardType: TextInputType.emailAddress,
-                      onChanged: validateEmail,
-                    ),
-                    // Only show credit field for clients
-                    if (account['type'] == 'Client') ...[
-                      const SizedBox(height: 16),
-                      TextField(
-                        controller: creditController,
-                        decoration: InputDecoration(
-                          labelText: 'Credit (DA)',
-                          border: const OutlineInputBorder(),
-                          errorText: creditError,
-                          helperText: isCreditValid
-                              ? 'Crédit valide'
-                              : 'Entrez un nombre valide',
-                          helperStyle: TextStyle(
-                            color:
-                                isCreditValid ? Colors.green : Colors.grey[600],
-                          ),
-                          enabledBorder: OutlineInputBorder(
-                            borderSide: BorderSide(
-                              color: isCreditValid ? Colors.green : Colors.grey,
-                              width: isCreditValid ? 2.0 : 1.0,
-                            ),
-                          ),
-                          focusedBorder: OutlineInputBorder(
-                            borderSide: BorderSide(
-                              color: isCreditValid ? Colors.green : Colors.blue,
-                              width: 2.0,
-                            ),
-                          ),
-                          suffixIcon: Row(
-                            mainAxisSize: MainAxisSize.min,
-                            children: [
-                              const Icon(Icons.account_balance_wallet),
-                              if (isCreditValid)
-                                const Icon(Icons.check_circle,
-                                    color: Colors.green),
-                            ],
-                          ),
-                        ),
-                        keyboardType: const TextInputType.numberWithOptions(
-                            decimal: true),
-                        onChanged: validateCredit,
-                      ),
-                    ],
-                  ],
-                ),
-              ),
-              actions: [
-                TextButton(
-                  onPressed: () => Navigator.pop(context),
-                  child: const Text('Cancel'),
-                ),
-                ElevatedButton(
-                  onPressed: (nameError != null ||
-                          emailError != null ||
-                          (account['type'] == 'Client' && creditError != null))
-                      ? null // Disable the button if any field is invalid
-                      : () {
-                          // Implement update account logic
-                          setState(() {
-                            final index = _customers
-                                .indexWhere((c) => c['id'] == account['id']);
-                            if (index != -1) {
-                              final Map<String, dynamic> updatedAccount = {
-                                'id': account['id'],
-                                'name': nameController.text,
-                                'email': emailController.text,
-                                'type': account['type'],
-                              };
-
-                              // Only update credit for clients
-                              if (account['type'] == 'Client') {
-                                updatedAccount['credit'] =
-                                    double.tryParse(creditController!.text) ??
-                                        0.0;
-                              }
-
-                              _customers[index] = updatedAccount;
-                            }
-                          });
-                          Navigator.pop(context);
-                          ScaffoldMessenger.of(context).showSnackBar(
-                            const SnackBar(
-                                content: Text('Account updated successfully')),
-                          );
-                        },
-                  child: const Text('Update'),
-                ),
-              ],
-            );
-          },
-        );
-      },
-    );
-  }
-
-  void _showDeleteConfirmationDialog(Map<String, dynamic> account) {
-    showDialog(
-      context: context,
-      builder: (context) {
-        return AlertDialog(
-          title: const Text('Confirm Delete'),
-          content: Text(
-              'Are you sure you want to delete ${account['name']}\'s account?'),
-          actions: [
-            TextButton(
-              onPressed: () => Navigator.pop(context),
-              child: const Text('Cancel'),
-            ),
-            TextButton(
-              onPressed: () {
-                // Implement delete account logic
-                setState(() {
-                  _customers.removeWhere((c) => c['id'] == account['id']);
-                });
-                Navigator.pop(context);
-                ScaffoldMessenger.of(context).showSnackBar(
-                  const SnackBar(content: Text('Account deleted successfully')),
+                  ),
                 );
               },
-              style: TextButton.styleFrom(
-                foregroundColor: Colors.red,
-              ),
-              child: const Text('Delete'),
             ),
-          ],
-        );
-      },
     );
   }
 }

@@ -1,9 +1,30 @@
 const mongoose = require('mongoose');
 
-const eWalletSchema = new mongoose.Schema({
-    clientId: {
+const transactionSchema = new mongoose.Schema({
+    type: {
+        type: String,
+        enum: ['DEPOSIT', 'PAYMENT', 'REFUND'],
+        required: true
+    },
+    amount: {
+        type: Number,
+        required: true
+    },
+    date: {
+        type: Date,
+        default: Date.now
+    },
+    orderId: {
         type: mongoose.Schema.Types.ObjectId,
-        ref: 'User', // Reference to the User model
+        ref: 'order',
+        default: null
+    }
+});
+
+const eWalletSchema = new mongoose.Schema({
+    userId: {  // Changed from clientId to userId to match your controller
+        type: mongoose.Schema.Types.ObjectId,
+        ref: 'user', // Reference to the User model
         required: true,
     },
     balance: {
@@ -11,6 +32,7 @@ const eWalletSchema = new mongoose.Schema({
         required: true,
         default: 0, // Default balance
     },
+    transactions: [transactionSchema]  // Added transactions array
 }, {
     timestamps: true // Adds createdAt and updatedAt fields
 });
