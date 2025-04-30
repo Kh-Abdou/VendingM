@@ -4,16 +4,16 @@ import 'package:http/http.dart' as http;
 
 class ApiService {
   final String baseUrl;
-
+  
   ApiService({required this.baseUrl});
-
+  
   Future<dynamic> get(String endpoint) async {
     try {
       final response = await http.get(
         Uri.parse('$baseUrl/$endpoint'),
         headers: {'Content-Type': 'application/json'},
       );
-
+      
       if (response.statusCode >= 200 && response.statusCode < 300) {
         return json.decode(response.body);
       } else {
@@ -23,7 +23,7 @@ class ApiService {
       throw Exception('Network error: $e');
     }
   }
-
+  
   Future<dynamic> post(String endpoint, Map<String, dynamic> data) async {
     try {
       final response = await http.post(
@@ -31,7 +31,7 @@ class ApiService {
         headers: {'Content-Type': 'application/json'},
         body: json.encode(data),
       );
-
+      
       if (response.statusCode >= 200 && response.statusCode < 300) {
         return json.decode(response.body);
       } else {
@@ -41,7 +41,7 @@ class ApiService {
       throw Exception('Network error: $e');
     }
   }
-
+  
   Future<dynamic> put(String endpoint, Map<String, dynamic> data) async {
     try {
       final response = await http.put(
@@ -49,7 +49,7 @@ class ApiService {
         headers: {'Content-Type': 'application/json'},
         body: json.encode(data),
       );
-
+      
       if (response.statusCode >= 200 && response.statusCode < 300) {
         return json.decode(response.body);
       } else {
@@ -59,14 +59,14 @@ class ApiService {
       throw Exception('Network error: $e');
     }
   }
-
+  
   Future<dynamic> delete(String endpoint) async {
     try {
       final response = await http.delete(
         Uri.parse('$baseUrl/$endpoint'),
         headers: {'Content-Type': 'application/json'},
       );
-
+      
       if (response.statusCode >= 200 && response.statusCode < 300) {
         return json.decode(response.body);
       } else {

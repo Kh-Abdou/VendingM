@@ -7,9 +7,10 @@ import 'client_page/notification_page.dart';
 
 void main() {
   // Create service and repository
-  final notificationService = NotificationService(baseUrl: 'https://your-api-url.com/api');
+  final notificationService =
+      NotificationService(baseUrl: 'https://your-api-url.com/api');
   final notificationRepository = NotificationRepository(notificationService);
-  
+
   runApp(
     MultiProvider(
       providers: [

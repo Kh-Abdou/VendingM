@@ -1,4 +1,4 @@
-const Usermodel = require('../models/user.model');
+const User = require('../models/user.model');
 const bcrypt = require('bcrypt');
 
 module.exports.setRegister = async (req, res) => {
@@ -9,7 +9,7 @@ module.exports.setRegister = async (req, res) => {
             const { name, email, password, role } = req.body;
 
             // Check if user already exists
-            const existingUser = await Usermodel.findOne({ email });
+            const existingUser = await User.findOne({ email });
             if (existingUser) {
                 return res.status(400).json({ message: 'User already exists' });
             }
@@ -19,11 +19,12 @@ module.exports.setRegister = async (req, res) => {
             const hashedPassword = await bcrypt.hash(password, salt);
 
             // Create new user with hashed password and role
-            const newUser = new Usermodel({
+            const newUser = new User({
                 name,
                 email,
                 password: hashedPassword,
-                role: role || 'client', // Default to 'client' if no role is provided
+                role: role || 'client',
+                credit: 0, // Initialize credit to 0
             });
 
             await newUser.save();
@@ -45,7 +46,7 @@ module.exports.setRegister = async (req, res) => {
 
 module.exports.getUsers = async (req, res) => {
     try {
-        const users = await Usermodel.find();
+        const users = await User.find();
         res.status(200).json(users);
     } catch (error) {
         console.error(error);
@@ -65,7 +66,7 @@ module.exports.login = async (req, res) => {
         const { email, password } = req.body;
 
         // Check if user exists
-        const user = await Usermodel.findOne({ email });
+        const user = await User.findOne({ email });
         if (!user) {
             return res.status(404).json({ message: 'User not found' });
         }
@@ -92,13 +93,11 @@ module.exports.login = async (req, res) => {
     }
 };
 
-
-
 //get user by id
 module.exports.getUserById = async (req, res) => {
     try {
         const userId = req.params.id;
-        const user = await Usermodel.findById(userId);
+        const user = await User.findById(userId);
         if (!user) {
             return res.status(404).json({ message: 'User not found' });
         }
@@ -115,7 +114,7 @@ module.exports.deleteUserById = async (req, res) => {
     try {
         const userId = req.params.id;
         const user
-    = await Usermodel.findByIdAndDelete(userId);
+    = await User.findByIdAndDelete(userId);
         if (!user) {
             return res.status(404).json({ message: 'User not found' });
         }
@@ -131,7 +130,7 @@ module.exports.deleteUserById = async (req, res) => {
 module.exports.updateUserById = async (req, res) => {
     try {
         const userId = req.params.id;
-        const updatedUser = await Usermodel
+        const updatedUser = await User
 .findByIdAndUpdate(userId, req.body, { new: true });
         if (!updatedUser) {
             return res.status(404).json({ message: 'User not found' });
@@ -143,3 +142,58 @@ module.exports.updateUserById = async (req, res) => {
         res.status(500).json({ message: 'Server error' });
     }
 }
+
+// Get all clients (users with role="client")
+const getClients = async (req, res) => {
+    try {
+        const clients = await User.find({ role: 'client' }); // Changed type→role, Client→client
+        res.status(200).json(clients);
+    } catch (error) {
+        console.error('Error fetching clients:', error);
+        res.status(500).json({ message: 'Failed to fetch clients', error: error.message });
+    }
+};
+
+// Recharge a client's balance
+const rechargeClientBalance = async (req, res) => {
+    try {
+        const { id } = req.params;
+        const { amount } = req.body;
+        
+        if (!amount || isNaN(amount) || amount <= 0) {
+            return res.status(400).json({ message: 'Valid amount is required' });
+        }
+        
+        // Find client and update their credit
+        const client = await User.findById(id);
+        
+        if (!client) {
+            return res.status(404).json({ message: 'Client not found' });
+        }
+        
+        if (client.role !== 'client') { // Changed type→role, Client→client
+            return res.status(400).json({ message: 'User is not a client' });
+        }
+        
+        // Add amount to current credit
+        client.credit = (client.credit || 0) + parseFloat(amount);
+        await client.save();
+        
+        res.status(200).json(client);
+    } catch (error) {
+        console.error('Error recharging client balance:', error);
+        res.status(500).json({ message: 'Failed to recharge balance', error: error.message });
+    }
+};
+
+// Export all functions together at the end
+module.exports = {
+    setRegister: module.exports.setRegister,
+    getUsers: module.exports.getUsers,
+    login: module.exports.login,
+    getUserById: module.exports.getUserById,
+    deleteUserById: module.exports.deleteUserById,
+    updateUserById: module.exports.updateUserById,
+    getClients,
+    rechargeClientBalance
+};

@@ -1,26 +1,35 @@
 const express = require('express');
-const { setRegister, login, getUserById, deleteUserById, updateUserById } = require('../controllers/user.controllers');
 const router = express.Router();
+const userController = require('../controllers/user.controllers');
 
-module.exports = router;
+// Import your controller functions ONCE - choose one approach
+// Either import the entire controller:
+// const userController = require('../controllers/user.controllers');
 
+// OR destructure the functions you need:
+const { 
+    setRegister,
+    login, 
+    getUserById, 
+    deleteUserById, 
+    updateUserById, 
+    getClients, 
+    rechargeClientBalance 
+} = require('../controllers/user.controllers');
 
-// router.post('/', (req, res) => {
-    //     console.log(req.body);
-    //     res.json({
-        //         message: req.body.message,
-        //     });
-        // });
-        
-        
+// Define routes - ORDER MATTERS IN EXPRESS!
+// Put specific routes BEFORE parameter routes
+
+// 1. First specific routes
+router.get('/clients', getClients);
+router.post('/clients/:id/recharge', rechargeClientBalance);
+
+// 2. Then parameter routes
 router.get('/:id', getUserById);
 router.post('/', setRegister);
 router.post('/login', login);
-
-
-
-router.put('/:id', updateUserById);  
-
+router.put('/:id', updateUserById);
 router.delete('/:id', deleteUserById);
 
-module.exports = router;  
+// Export the router ONCE at the end
+module.exports = router;

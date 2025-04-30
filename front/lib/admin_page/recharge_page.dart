@@ -1,4 +1,6 @@
 import 'package:flutter/material.dart';
+import '../models/client.dart';
+import '../services/client_service.dart';
 
 class RechargeClientPage extends StatefulWidget {
   const RechargeClientPage({Key? key}) : super(key: key);
@@ -8,43 +10,45 @@ class RechargeClientPage extends StatefulWidget {
 }
 
 class _RechargeClientPageState extends State<RechargeClientPage> {
-  // Placeholder data for customers
-  final List<Map<String, dynamic>> _customers = [
-    {
-      'id': 1,
-      'name': 'John Doe',
-      'email': 'john@example.com',
-      'credit': 100.0,
-      'type': 'Client'
-    },
-    {
-      'id': 2,
-      'name': 'Jane Smith',
-      'email': 'jane@example.com',
-      'credit': 50.0,
-      'type': 'Client'
-    },
-    {
-      'id': 3,
-      'name': 'Bob Tech',
-      'email': 'bob@example.com',
-      'type': 'Technicien'
-    }, // No credit field for technicians
-  ];
+  final ClientService _clientService = ClientService();
 
-  // Only store clients for recharge operations
-  late List<Map<String, dynamic>> _clients;
-  int _selectedClientId = 1;
+  List<Client> _clients = [];
+  String?
+      _selectedClientId; // Changed from int? to String? to match MongoDB ObjectID
   final _amountController = TextEditingController();
+
+  bool _isLoading = false;
+  String? _errorMessage;
 
   @override
   void initState() {
     super.initState();
-    // Filter to include only clients
-    _clients = _customers.where((c) => c['type'] == 'Client').toList();
-    // Set default selected client if available
-    if (_clients.isNotEmpty) {
-      _selectedClientId = _clients.first['id'];
+    _fetchClients();
+  }
+
+  Future<void> _fetchClients() async {
+    setState(() {
+      _isLoading = true;
+      _errorMessage = null;
+    });
+
+    try {
+      final clients = await _clientService.getClients();
+      setState(() {
+        // Change this line - use role instead of type and lowercase 'client'
+        _clients = clients.where((client) => client.role == 'client').toList();
+        _isLoading = false;
+
+        // Set default selected client if available
+        if (_clients.isNotEmpty) {
+          _selectedClientId = _clients.first.id;
+        }
+      });
+    } catch (e) {
+      setState(() {
+        _isLoading = false;
+        _errorMessage = 'Failed to load clients: ${e.toString()}';
+      });
     }
   }
 
@@ -58,12 +62,22 @@ class _RechargeClientPageState extends State<RechargeClientPage> {
           const Text('Recharge Client Credit',
               style: TextStyle(fontSize: 24, fontWeight: FontWeight.bold)),
           const SizedBox(height: 20),
+          if (_errorMessage != null)
+            Padding(
+              padding: const EdgeInsets.only(bottom: 16.0),
+              child: Text(
+                _errorMessage!,
+                style: const TextStyle(color: Colors.red),
+              ),
+            ),
           _buildCreditRechargeForm(),
           const SizedBox(height: 20),
           const Text('Client List',
               style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
           const SizedBox(height: 10),
-          Expanded(child: _buildClientCreditList()),
+          _isLoading
+              ? const Center(child: CircularProgressIndicator())
+              : Expanded(child: _buildClientCreditList()),
         ],
       ),
     );
@@ -80,19 +94,23 @@ class _RechargeClientPageState extends State<RechargeClientPage> {
             const Text('Add Credit',
                 style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
             const SizedBox(height: 16),
-            if (_clients.isEmpty)
+            if (_isLoading)
+              const Center(child: CircularProgressIndicator())
+            else if (_clients.isEmpty)
               const Text('No clients available to recharge.')
             else
-              DropdownButtonFormField<int>(
+              DropdownButtonFormField<String>(
+                // Changed from int to String
                 decoration: const InputDecoration(
                   labelText: 'Select Client',
                   border: OutlineInputBorder(),
                 ),
                 value: _selectedClientId,
                 items: _clients.map((client) {
-                  return DropdownMenuItem<int>(
-                    value: client['id'],
-                    child: Text('${client['name']} (${client['email']})'),
+                  return DropdownMenuItem<String>(
+                    // Changed from int to String
+                    value: client.id,
+                    child: Text('${client.name} (${client.email})'),
                   );
                 }).toList(),
                 onChanged: (value) {
@@ -127,11 +145,13 @@ class _RechargeClientPageState extends State<RechargeClientPage> {
               width: double.infinity,
               child: ElevatedButton(
                 style: ElevatedButton.styleFrom(
-                  backgroundColor: Colors.blue, // Replace with your theme color
+                  backgroundColor: Colors.blue,
                   padding: const EdgeInsets.symmetric(vertical: 12),
                 ),
-                onPressed: _clients.isEmpty ? null : _addCredit,
-                child: const Text('Add Credit'),
+                onPressed: _clients.isEmpty || _isLoading ? null : _addCredit,
+                child: _isLoading
+                    ? const CircularProgressIndicator(color: Colors.white)
+                    : const Text('Add Credit'),
               ),
             ),
           ],
@@ -140,7 +160,7 @@ class _RechargeClientPageState extends State<RechargeClientPage> {
     );
   }
 
-  void _addCredit() {
+  Future<void> _addCredit() async {
     // Validate amount
     if (_amountController.text.isEmpty) {
       ScaffoldMessenger.of(context).showSnackBar(
@@ -157,21 +177,23 @@ class _RechargeClientPageState extends State<RechargeClientPage> {
       return;
     }
 
-    // Find selected client and add credit
-    int customerIndex =
-        _customers.indexWhere((c) => c['id'] == _selectedClientId);
-    if (customerIndex != -1 && _customers[customerIndex]['type'] == 'Client') {
-      setState(() {
-        _customers[customerIndex]['credit'] =
-            (_customers[customerIndex]['credit'] as double) + amount;
+    if (_selectedClientId == null) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Please select a client')),
+      );
+      return;
+    }
 
-        // Also update _clients reference
-        int clientIndex =
-            _clients.indexWhere((c) => c['id'] == _selectedClientId);
-        if (clientIndex != -1) {
-          _clients[clientIndex]['credit'] = _customers[customerIndex]['credit'];
-        }
-      });
+    setState(() {
+      _isLoading = true;
+    });
+
+    try {
+      // Call API to recharge client balance
+      await _clientService.rechargeClientBalance(_selectedClientId! as int, amount);
+
+      // Refresh client list to get updated balances
+      await _fetchClients();
 
       // Clear form
       _amountController.clear();
@@ -179,31 +201,40 @@ class _RechargeClientPageState extends State<RechargeClientPage> {
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(content: Text('Credit added successfully!')),
       );
+    } catch (e) {
+      setState(() {
+        _isLoading = false;
+      });
+
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('Failed to add credit: ${e.toString()}')),
+      );
     }
   }
 
   Widget _buildClientCreditList() {
-    // Only show clients in the credit list
-    final clientsList = _customers.where((c) => c['type'] == 'Client').toList();
+    if (_clients.isEmpty) {
+      return const Center(child: Text('No clients available'));
+    }
 
     return ListView.builder(
-      itemCount: clientsList.length,
+      itemCount: _clients.length,
       itemBuilder: (context, index) {
-        final client = clientsList[index];
+        final client = _clients[index];
         return Card(
           margin: const EdgeInsets.symmetric(vertical: 4),
           child: ListTile(
             leading: CircleAvatar(
-              child: Text(client['name'].substring(0, 1)),
+              child: Text(client.name.substring(0, 1)),
             ),
-            title: Text('${client['name']}'),
-            subtitle: Text('${client['email']}'),
+            title: Text(client.name),
+            subtitle: Text(client.email),
             trailing: Column(
               mainAxisAlignment: MainAxisAlignment.center,
               crossAxisAlignment: CrossAxisAlignment.end,
               children: [
                 Text(
-                  'Credit: ${client['credit']} DA',
+                  'Credit: ${client.credit} DA',
                   style: const TextStyle(
                       fontWeight: FontWeight.bold, fontSize: 16),
                 ),
