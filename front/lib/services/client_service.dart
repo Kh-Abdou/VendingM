@@ -17,17 +17,27 @@ class ClientService {
     }
   }
 
-  Future<Client> rechargeClientBalance(int clientId, double amount) async {
-    final response = await http.post(
-      Uri.parse('$baseUrl/post/clients/$clientId/recharge'),
-      headers: {'Content-Type': 'application/json'},
-      body: json.encode({'amount': amount}),
-    );
+  Future<Client> rechargeClientBalance(String clientId, double amount) async {
+    print('Attempting to recharge client: $clientId with amount: $amount');
 
-    if (response.statusCode == 200) {
-      return Client.fromJson(json.decode(response.body));
-    } else {
-      throw Exception('Failed to recharge client balance');
+    try {
+      final response = await http.post(
+        Uri.parse('$baseUrl/post/clients/$clientId/recharge'),
+        headers: {'Content-Type': 'application/json'},
+        body: json.encode({'amount': amount}),
+      );
+
+      print('Response status: ${response.statusCode}');
+      print('Response body: ${response.body}');
+
+      if (response.statusCode == 200) {
+        return Client.fromJson(json.decode(response.body));
+      } else {
+        throw Exception('Failed to recharge client balance: ${response.body}');
+      }
+    } catch (e) {
+      print('Error in rechargeClientBalance: $e');
+      throw e;
     }
   }
 }

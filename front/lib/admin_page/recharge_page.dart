@@ -161,54 +161,59 @@ class _RechargeClientPageState extends State<RechargeClientPage> {
   }
 
   Future<void> _addCredit() async {
-    // Validate amount
-    if (_amountController.text.isEmpty) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Please enter an amount')),
-      );
-      return;
-    }
-
-    double? amount = double.tryParse(_amountController.text);
-    if (amount == null || amount <= 0) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Please enter a valid amount')),
-      );
-      return;
-    }
-
+    // Validate form
     if (_selectedClientId == null) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Please select a client')),
-      );
+      setState(() {
+        _errorMessage = 'Please select a client';
+      });
+      return;
+    }
+
+    if (_amountController.text.isEmpty) {
+      setState(() {
+        _errorMessage = 'Please enter an amount';
+      });
+      return;
+    }
+
+    // Proper numeric conversion - this will fix the error
+    double amount;
+    try {
+      amount = double.parse(_amountController.text);
+    } catch (e) {
+      setState(() {
+        _errorMessage = 'Please enter a valid number';
+      });
       return;
     }
 
     setState(() {
       _isLoading = true;
+      _errorMessage = null;
     });
 
     try {
-      // Call API to recharge client balance
-      await _clientService.rechargeClientBalance(_selectedClientId! as int, amount);
+      // Send the amount as a number, not a string
+      await _clientService.rechargeClientBalance(_selectedClientId! as String, amount);
 
-      // Refresh client list to get updated balances
+      // Refresh client list after successful recharge
       await _fetchClients();
 
       // Clear form
       _amountController.clear();
 
+      // Show success message
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Credit added successfully!')),
+        const SnackBar(content: Text('Credit added successfully')),
       );
     } catch (e) {
       setState(() {
+        _errorMessage = 'Failed to add credit: ${e.toString()}';
+      });
+    } finally {
+      setState(() {
         _isLoading = false;
       });
-
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('Failed to add credit: ${e.toString()}')),
-      );
     }
   }
 

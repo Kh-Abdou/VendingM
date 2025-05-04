@@ -19,6 +19,7 @@ app.use(express.urlencoded({ extended: false })); // Parse URL-encoded bodies
 
 app.use("/post", require("./routes/post.routes"));
 app.use("/product", require("./routes/product.routes"));
+app.use("/stock", require("./routes/stock.routes")); // Ajout des routes de stock
 
 app.use("/cart", require("./routes/cart.routes")); // Add cart routes
 app.use("/ewallet", require("./routes/ewallet.routes")); // Add e-wallet routes
