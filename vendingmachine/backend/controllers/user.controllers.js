@@ -186,6 +186,49 @@ const rechargeClientBalance = async (req, res) => {
     }
 };
 
+// Mettre à jour le mot de passe
+const updatePassword = async (req, res) => {
+  try {
+    const userId = req.params.id;
+    const { currentPassword, newPassword } = req.body;
+    
+    // Vérifier que les deux mots de passe sont fournis
+    if (!currentPassword || !newPassword) {
+      return res.status(400).json({ message: 'Les mots de passe actuel et nouveau sont requis' });
+    }
+    
+    // Vérifier que le nouveau mot de passe a au moins 6 caractères
+    if (newPassword.length < 6) {
+      return res.status(400).json({ message: 'Le nouveau mot de passe doit contenir au moins 6 caractères' });
+    }
+    
+    // Trouver l'utilisateur
+    const user = await User.findById(userId);
+    if (!user) {
+      return res.status(404).json({ message: 'Utilisateur non trouvé' });
+    }
+    
+    // Vérifier que le mot de passe actuel est correct
+    const isPasswordValid = await bcrypt.compare(currentPassword, user.password);
+    if (!isPasswordValid) {
+      return res.status(401).json({ message: 'Mot de passe actuel incorrect' });
+    }
+    
+    // Hacher le nouveau mot de passe
+    const salt = await bcrypt.genSalt(10);
+    const hashedPassword = await bcrypt.hash(newPassword, salt);
+    
+    // Mettre à jour le mot de passe
+    user.password = hashedPassword;
+    await user.save();
+    
+    res.status(200).json({ message: 'Mot de passe mis à jour avec succès' });
+  } catch (error) {
+    console.error('Erreur lors de la mise à jour du mot de passe:', error);
+    res.status(500).json({ message: 'Erreur serveur lors de la mise à jour du mot de passe' });
+  }
+};
+
 // Export all functions together at the end
 module.exports = {
     setRegister: module.exports.setRegister,
@@ -195,5 +238,6 @@ module.exports = {
     deleteUserById: module.exports.deleteUserById,
     updateUserById: module.exports.updateUserById,
     getClients,
-    rechargeClientBalance
+    rechargeClientBalance,
+    updatePassword
 };

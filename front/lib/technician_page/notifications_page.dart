@@ -6,13 +6,14 @@ import '../providers/notification_provider.dart';
 class NotificationsPage extends StatefulWidget {
   final Color primaryColor;
   final Color buttonColor;
-  final Function(int) onNotificationStatusChanged;
+  final Function(int)?
+      onNotificationStatusChanged; // Rendre le callback optionnel
 
   const NotificationsPage({
     Key? key,
     required this.primaryColor,
     required this.buttonColor,
-    required this.onNotificationStatusChanged,
+    this.onNotificationStatusChanged, // Paramètre optionnel
   }) : super(key: key);
 
   @override
@@ -68,9 +69,12 @@ class _NotificationsPageState extends State<NotificationsPage>
   Widget build(BuildContext context) {
     return Consumer<NotificationProvider>(
       builder: (context, notificationProvider, child) {
-        // Mettre à jour le compteur de notifications
+        // Mettre à jour le compteur de notifications seulement si le callback est fourni
         WidgetsBinding.instance.addPostFrameCallback((_) {
-          widget.onNotificationStatusChanged(notificationProvider.unreadCount);
+          if (widget.onNotificationStatusChanged != null) {
+            widget
+                .onNotificationStatusChanged!(notificationProvider.unreadCount);
+          }
         });
 
         print(

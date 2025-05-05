@@ -1,7 +1,11 @@
 import 'package:flutter/material.dart';
 import '../Login/login_page.dart';
+import '../services/user_service.dart';
+import 'dart:developer' as developer;
 
 class ProfilePage extends StatefulWidget {
+  final String userId; // ID de l'utilisateur connecté
+  final String baseUrl; // URL de base pour les API
   final String userName;
   final String userEmail;
   final double soldeUtilisateur;
@@ -9,9 +13,11 @@ class ProfilePage extends StatefulWidget {
 
   const ProfilePage({
     Key? key,
-    required this.userName,
-    required this.userEmail,
-    required this.soldeUtilisateur,
+    required this.userId,
+    required this.baseUrl,
+    this.userName = '',
+    this.userEmail = '',
+    this.soldeUtilisateur = 0.0,
     required this.isInMaintenance,
   }) : super(key: key);
 
@@ -20,8 +26,99 @@ class ProfilePage extends StatefulWidget {
 }
 
 class _ProfilePageState extends State<ProfilePage> {
+  late UserService _userService;
+  bool _isLoading = true;
+  String _errorMessage = '';
+
+  // Données de l'utilisateur
+  String _userName = '';
+  String _userEmail = '';
+  double _userBalance = 0.0;
+
+  @override
+  void initState() {
+    super.initState();
+    _userService = UserService(baseUrl: widget.baseUrl);
+    _fetchUserData();
+  }
+
+  // Récupérer les données de l'utilisateur
+  Future<void> _fetchUserData() async {
+    if (mounted) {
+      setState(() {
+        _isLoading = true;
+        _errorMessage = '';
+      });
+    }
+
+    try {
+      // Si les données sont déjà fournies, les utiliser
+      if (widget.userName.isNotEmpty && widget.userEmail.isNotEmpty) {
+        _userName = widget.userName;
+        _userEmail = widget.userEmail;
+        _userBalance = widget.soldeUtilisateur;
+        if (mounted) {
+          setState(() {
+            _isLoading = false;
+          });
+        }
+        return;
+      }
+
+      // Sinon, récupérer les données depuis l'API
+      final userDetails = await _userService.getUserDetails(widget.userId);
+      final walletBalance = await _userService.getWalletBalance(widget.userId);
+
+      if (mounted) {
+        setState(() {
+          _userName = userDetails['name'] ?? 'Utilisateur';
+          _userEmail = userDetails['email'] ?? 'email@example.com';
+          _userBalance = walletBalance;
+          _isLoading = false;
+        });
+      }
+    } catch (e) {
+      developer.log('Erreur lors de la récupération des données: $e',
+          name: 'ProfilePage');
+      if (mounted) {
+        setState(() {
+          _errorMessage = 'Impossible de récupérer les informations du profil';
+          _isLoading = false;
+        });
+      }
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
+    if (_isLoading) {
+      return Center(
+        child: CircularProgressIndicator(),
+      );
+    }
+
+    if (_errorMessage.isNotEmpty) {
+      return Center(
+        child: Column(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            Icon(Icons.error_outline, color: Colors.red, size: 60),
+            SizedBox(height: 16),
+            Text(
+              _errorMessage,
+              style: TextStyle(fontSize: 16),
+              textAlign: TextAlign.center,
+            ),
+            SizedBox(height: 16),
+            ElevatedButton(
+              onPressed: _fetchUserData,
+              child: Text('Réessayer'),
+            ),
+          ],
+        ),
+      );
+    }
+
     return SingleChildScrollView(
       padding: EdgeInsets.all(20),
       child: Column(
@@ -43,14 +140,14 @@ class _ProfilePageState extends State<ProfilePage> {
                 ),
                 SizedBox(height: 16),
                 Text(
-                  widget.userName,
+                  _userName,
                   style: TextStyle(
                     fontSize: 24,
                     fontWeight: FontWeight.bold,
                   ),
                 ),
                 Text(
-                  widget.userEmail,
+                  _userEmail,
                   style: TextStyle(
                     fontSize: 16,
                     color: Colors.grey[600],
@@ -88,7 +185,7 @@ class _ProfilePageState extends State<ProfilePage> {
                     ),
                     title: Text('Solde'),
                     trailing: Text(
-                      '${widget.soldeUtilisateur.toStringAsFixed(2)} DA',
+                      '${_userBalance.toStringAsFixed(2)} DA',
                       style: TextStyle(
                         fontWeight: FontWeight.bold,
                         fontSize: 18,
@@ -105,7 +202,7 @@ class _ProfilePageState extends State<ProfilePage> {
                       color: Theme.of(context).primaryColor,
                     ),
                     title: Text('Email'),
-                    subtitle: Text(widget.userEmail),
+                    subtitle: Text(_userEmail),
                   ),
                   Divider(),
 
@@ -211,69 +308,152 @@ class _ProfilePageState extends State<ProfilePage> {
     TextEditingController currentPasswordController = TextEditingController();
     TextEditingController newPasswordController = TextEditingController();
     TextEditingController confirmPasswordController = TextEditingController();
+    bool _isUpdating = false;
+    String _passwordError = '';
 
     showDialog(
       context: context,
       builder: (BuildContext context) {
-        return AlertDialog(
-          title: Text('Changer le mot de passe'),
-          content: SingleChildScrollView(
-            child: Column(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                TextField(
-                  controller: currentPasswordController,
-                  obscureText: true,
-                  decoration: InputDecoration(
-                    labelText: 'Mot de passe actuel',
-                    border: OutlineInputBorder(),
+        return StatefulBuilder(builder: (context, setState) {
+          return AlertDialog(
+            title: Text('Changer le mot de passe'),
+            content: SingleChildScrollView(
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  if (_passwordError.isNotEmpty)
+                    Container(
+                      padding: EdgeInsets.all(8),
+                      color: Colors.red.shade50,
+                      width: double.infinity,
+                      child: Text(
+                        _passwordError,
+                        style: TextStyle(
+                          color: Colors.red,
+                        ),
+                      ),
+                    ),
+                  SizedBox(height: 16),
+                  TextField(
+                    controller: currentPasswordController,
+                    obscureText: true,
+                    decoration: InputDecoration(
+                      labelText: 'Mot de passe actuel',
+                      border: OutlineInputBorder(),
+                    ),
                   ),
-                ),
-                SizedBox(height: 16),
-                TextField(
-                  controller: newPasswordController,
-                  obscureText: true,
-                  decoration: InputDecoration(
-                    labelText: 'Nouveau mot de passe',
-                    border: OutlineInputBorder(),
+                  SizedBox(height: 16),
+                  TextField(
+                    controller: newPasswordController,
+                    obscureText: true,
+                    decoration: InputDecoration(
+                      labelText: 'Nouveau mot de passe',
+                      border: OutlineInputBorder(),
+                      helperText: 'Minimum 6 caractères',
+                    ),
                   ),
-                ),
-                SizedBox(height: 16),
-                TextField(
-                  controller: confirmPasswordController,
-                  obscureText: true,
-                  decoration: InputDecoration(
-                    labelText: 'Confirmer le mot de passe',
-                    border: OutlineInputBorder(),
+                  SizedBox(height: 16),
+                  TextField(
+                    controller: confirmPasswordController,
+                    obscureText: true,
+                    decoration: InputDecoration(
+                      labelText: 'Confirmer le mot de passe',
+                      border: OutlineInputBorder(),
+                    ),
                   ),
-                ),
-              ],
+                  if (_isUpdating)
+                    Padding(
+                      padding: const EdgeInsets.only(top: 16.0),
+                      child: CircularProgressIndicator(),
+                    ),
+                ],
+              ),
             ),
-          ),
-          actions: [
-            TextButton(
-              child: Text('Annuler'),
-              onPressed: () {
-                Navigator.of(context).pop();
-              },
-            ),
-            ElevatedButton(
-              child: Text('Enregistrer'),
-              onPressed: () {
-                // Implement password change logic here
+            actions: [
+              TextButton(
+                child: Text('Annuler'),
+                onPressed: _isUpdating
+                    ? null
+                    : () {
+                        Navigator.of(context).pop();
+                      },
+              ),
+              ElevatedButton(
+                child: Text('Enregistrer'),
+                onPressed: _isUpdating
+                    ? null
+                    : () async {
+                        // Validation
+                        if (currentPasswordController.text.isEmpty ||
+                            newPasswordController.text.isEmpty ||
+                            confirmPasswordController.text.isEmpty) {
+                          setState(() {
+                            _passwordError =
+                                'Tous les champs sont obligatoires';
+                          });
+                          return;
+                        }
 
-                // Show confirmation
-                Navigator.of(context).pop();
-                ScaffoldMessenger.of(context).showSnackBar(
-                  SnackBar(
-                    content: Text('Mot de passe modifié avec succès'),
-                    backgroundColor: Colors.green,
-                  ),
-                );
-              },
-            ),
-          ],
-        );
+                        if (newPasswordController.text.length < 6) {
+                          setState(() {
+                            _passwordError =
+                                'Le mot de passe doit contenir au moins 6 caractères';
+                          });
+                          return;
+                        }
+
+                        if (newPasswordController.text !=
+                            confirmPasswordController.text) {
+                          setState(() {
+                            _passwordError =
+                                'Les mots de passe ne correspondent pas';
+                          });
+                          return;
+                        }
+
+                        setState(() {
+                          _isUpdating = true;
+                          _passwordError = '';
+                        });
+
+                        try {
+                          final success = await _userService.updatePassword(
+                            userId: widget.userId,
+                            currentPassword: currentPasswordController.text,
+                            newPassword: newPasswordController.text,
+                          );
+
+                          Navigator.of(context).pop();
+
+                          if (success) {
+                            ScaffoldMessenger.of(context).showSnackBar(
+                              SnackBar(
+                                content:
+                                    Text('Mot de passe modifié avec succès'),
+                                backgroundColor: Colors.green,
+                              ),
+                            );
+                          } else {
+                            ScaffoldMessenger.of(context).showSnackBar(
+                              SnackBar(
+                                content: Text(
+                                    'Échec de la mise à jour du mot de passe'),
+                                backgroundColor: Colors.red,
+                              ),
+                            );
+                          }
+                        } catch (e) {
+                          setState(() {
+                            _isUpdating = false;
+                            _passwordError =
+                                e.toString().replaceAll('Exception: ', '');
+                          });
+                        }
+                      },
+              ),
+            ],
+          );
+        });
       },
     );
   }

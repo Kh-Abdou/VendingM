@@ -1,11 +1,10 @@
 const express = require("express");
 const connectDB = require("./config/db");
 const dotenv = require("dotenv").config(); // Load environment variables from .env file
+const cors = require("cors"); // Ajout de CORS
 const UserModel = require("./models/user.model");
 const Product = require("./models/product.model");
 const port = 5000;
-
-
 
 //connexion a db
 connectDB(); // Connect to MongoDB
@@ -13,20 +12,24 @@ connectDB(); // Connect to MongoDB
 const app = express();   
 
 //middleware 
+app.use(cors()); // Activer CORS pour toutes les routes
 app.use(express.json()); // Parse JSON bodies
 app.use(express.urlencoded({ extended: false })); // Parse URL-encoded bodies
 
-
-app.use("/post", require("./routes/post.routes"));
+// Routes
+app.use("/user", require("./routes/post.routes")); // Changement de /post à /user pour clarté
 app.use("/product", require("./routes/product.routes"));
-app.use("/stock", require("./routes/stock.routes")); // Ajout des routes de stock
-app.use("/chariot", require("./routes/chariot.routes")); // Ajout des routes de chariot
+app.use("/stock", require("./routes/stock.routes")); 
+app.use("/chariot", require("./routes/chariot.routes")); 
+app.use("/cart", require("./routes/cart.routes")); 
+app.use("/ewallet", require("./routes/ewallet.routes")); 
+app.use("/code", require("./routes/code.routes")); 
+app.use("/notification", require("./routes/notification.routes"));
 
-app.use("/cart", require("./routes/cart.routes")); // Add cart routes
-app.use("/ewallet", require("./routes/ewallet.routes")); // Add e-wallet routes
-app.use("/code", require("./routes/code.routes")); // Add code routes
-app.use("/notification", require("./routes/notification.routes")); // Add this line with your other routes
-
+// Route de test simple pour vérifier que le serveur fonctionne
+app.get("/", (req, res) => {
+  res.json({ message: "API is running correctly" });
+});
 
 //Lancer le server
 app.listen(port, () => {

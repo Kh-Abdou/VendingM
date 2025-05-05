@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import '../models/produit.dart';
 import '../services/produit_service.dart';
+import '../services/order_service.dart'; // Ajout de l'import manquant
 
 class ProduitPanier {
   final Produit produit;
@@ -365,16 +366,34 @@ class _ProductsPageState extends State<ProductsPage> {
 }
 
 class GenerateCodePage extends StatefulWidget {
+  final List<ProduitPanier> panier;
+  final String userId;
+  final String baseUrl;
+
+  const GenerateCodePage({
+    Key? key,
+    required this.panier,
+    required this.userId,
+    required this.baseUrl,
+  }) : super(key: key);
+
   @override
   _GenerateCodePageState createState() => _GenerateCodePageState();
 }
 
 class _GenerateCodePageState extends State<GenerateCodePage> {
   String generatedCode = '';
+  DateTime? expiryTime;
+  bool isLoading = true;
+  String errorMessage = '';
+
+  // Initialisation du service de commande
+  late final OrderService _orderService;
 
   @override
   void initState() {
     super.initState();
+    _orderService = OrderService(baseUrl: widget.baseUrl);
     _generateCode();
   }
 
@@ -393,102 +412,211 @@ class _GenerateCodePageState extends State<GenerateCodePage> {
       body: Center(
         child: Padding(
           padding: EdgeInsets.all(20),
-          child: Column(
-            mainAxisAlignment: MainAxisAlignment.center,
-            children: [
-              Card(
-                elevation: 4,
-                shape: RoundedRectangleBorder(
-                  borderRadius: BorderRadius.circular(15),
-                ),
-                child: Padding(
-                  padding: EdgeInsets.all(30),
-                  child: Column(
-                    mainAxisSize: MainAxisSize.min,
-                    children: [
-                      Icon(
-                        Icons.check_circle,
-                        color: Colors.green,
-                        size: 60,
-                      ),
-                      SizedBox(height: 20),
-                      Text(
-                        'Code Généré',
-                        style: TextStyle(
-                          fontSize: 24,
-                          fontWeight: FontWeight.bold,
-                          color: Colors.green,
-                        ),
-                      ),
-                      SizedBox(height: 30),
-                      Container(
-                        padding: EdgeInsets.symmetric(
-                          horizontal: 30,
-                          vertical: 20,
-                        ),
-                        decoration: BoxDecoration(
-                          color: Colors.grey[100],
-                          borderRadius: BorderRadius.circular(10),
-                          border: Border.all(
-                            color: Theme.of(context).primaryColor,
-                            width: 2,
-                          ),
-                        ),
-                        child: Column(
-                          children: [
-                            Text(
-                              generatedCode,
-                              style: TextStyle(
-                                fontSize: 36,
-                                fontWeight: FontWeight.bold,
-                                letterSpacing: 8,
-                                color: Theme.of(context).primaryColor,
-                              ),
-                            ),
-                            SizedBox(height: 20),
-                            Icon(
-                              Icons.qr_code_2,
-                              size: 120,
-                              color: Theme.of(context).primaryColor,
-                            ),
-                          ],
-                        ),
-                      ),
-                      SizedBox(height: 20),
-                      Text(
-                        'Code valable pendant 5 minutes',
-                        style: TextStyle(
-                          color: Colors.grey[600],
-                          fontSize: 16,
-                        ),
-                      ),
-                    ],
-                  ),
-                ),
-              ),
-              SizedBox(height: 30),
-              Text(
-                'Présentez ce code sur l\'écran du distributeur',
-                style: TextStyle(
-                  fontSize: 16,
-                  color: Colors.grey[700],
-                ),
-                textAlign: TextAlign.center,
-              ),
-            ],
-          ),
+          child: isLoading
+              ? _buildLoadingState()
+              : errorMessage.isNotEmpty
+                  ? _buildErrorState()
+                  : _buildCodeDisplay(),
         ),
       ),
     );
   }
 
-  void _generateCode() {
-    String code = '';
-    for (int i = 0; i < 6; i++) {
-      code += (DateTime.now().millisecondsSinceEpoch % 10).toString();
-    }
+  Widget _buildLoadingState() {
+    return Column(
+      mainAxisAlignment: MainAxisAlignment.center,
+      children: [
+        CircularProgressIndicator(),
+        SizedBox(height: 20),
+        Text(
+          'Génération du code en cours...',
+          style: TextStyle(
+            fontSize: 16,
+            color: Colors.grey[700],
+          ),
+        ),
+      ],
+    );
+  }
+
+  Widget _buildErrorState() {
+    return Column(
+      mainAxisAlignment: MainAxisAlignment.center,
+      children: [
+        Icon(
+          Icons.error_outline,
+          color: Colors.red,
+          size: 60,
+        ),
+        SizedBox(height: 20),
+        Text(
+          'Erreur lors de la génération du code',
+          style: TextStyle(
+            fontSize: 18,
+            fontWeight: FontWeight.bold,
+          ),
+        ),
+        SizedBox(height: 10),
+        Text(
+          errorMessage,
+          style: TextStyle(
+            color: Colors.grey[700],
+          ),
+          textAlign: TextAlign.center,
+        ),
+        SizedBox(height: 20),
+        ElevatedButton(
+          onPressed: _generateCode,
+          child: Text('Réessayer'),
+        ),
+      ],
+    );
+  }
+
+  Widget _buildCodeDisplay() {
+    return Column(
+      mainAxisAlignment: MainAxisAlignment.center,
+      children: [
+        Card(
+          elevation: 4,
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(15),
+          ),
+          child: Padding(
+            padding: EdgeInsets.all(30),
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Icon(
+                  Icons.check_circle,
+                  color: Colors.green,
+                  size: 60,
+                ),
+                SizedBox(height: 20),
+                Text(
+                  'Code Généré',
+                  style: TextStyle(
+                    fontSize: 24,
+                    fontWeight: FontWeight.bold,
+                    color: Colors.green,
+                  ),
+                ),
+                SizedBox(height: 30),
+                Container(
+                  padding: EdgeInsets.symmetric(
+                    horizontal: 30,
+                    vertical: 20,
+                  ),
+                  decoration: BoxDecoration(
+                    color: Colors.grey[100],
+                    borderRadius: BorderRadius.circular(10),
+                    border: Border.all(
+                      color: Theme.of(context).primaryColor,
+                      width: 2,
+                    ),
+                  ),
+                  child: Column(
+                    children: [
+                      Text(
+                        generatedCode,
+                        style: TextStyle(
+                          fontSize: 36,
+                          fontWeight: FontWeight.bold,
+                          letterSpacing: 8,
+                          color: Theme.of(context).primaryColor,
+                        ),
+                      ),
+                      SizedBox(height: 20),
+                      Icon(
+                        Icons.qr_code_2,
+                        size: 120,
+                        color: Theme.of(context).primaryColor,
+                      ),
+                    ],
+                  ),
+                ),
+                SizedBox(height: 20),
+                Text(
+                  'Code valable pendant 5 minutes',
+                  style: TextStyle(
+                    color: Colors.grey[600],
+                    fontSize: 16,
+                  ),
+                ),
+                if (expiryTime != null)
+                  Text(
+                    'Expire le ${_formatExpiryTime(expiryTime!)}',
+                    style: TextStyle(
+                      color: Colors.grey[600],
+                      fontSize: 14,
+                    ),
+                  ),
+              ],
+            ),
+          ),
+        ),
+        SizedBox(height: 30),
+        Text(
+          'Présentez ce code sur l\'écran du distributeur',
+          style: TextStyle(
+            fontSize: 16,
+            color: Colors.grey[700],
+          ),
+          textAlign: TextAlign.center,
+        ),
+      ],
+    );
+  }
+
+  Future<void> _generateCode() async {
     setState(() {
-      generatedCode = code;
+      isLoading = true;
+      errorMessage = '';
     });
+
+    try {
+      // Préparer les données pour l'API
+      final double totalAmount = _calculateTotal();
+      final List<Map<String, dynamic>> productsData = widget.panier
+          .map((item) => {
+                'productId': item.produit.id,
+                'quantity': item.quantite,
+                'price': item.produit.prix,
+              })
+          .toList();
+
+      // Appel à l'API pour générer le code
+      final result = await _orderService.generateCode(
+        userId: widget.userId,
+        totalAmount: totalAmount,
+        products: productsData,
+      );
+
+      // Mise à jour de l'état avec le code généré
+      setState(() {
+        generatedCode = result['code'] ?? '';
+        if (result['expiryTime'] != null) {
+          expiryTime = DateTime.parse(result['expiryTime']);
+        }
+        isLoading = false;
+      });
+    } catch (e) {
+      setState(() {
+        errorMessage = e.toString().replaceAll('Exception: ', '');
+        isLoading = false;
+      });
+    }
+  }
+
+  double _calculateTotal() {
+    double total = 0;
+    for (var item in widget.panier) {
+      total += item.produit.prix * item.quantite;
+    }
+    return total;
+  }
+
+  String _formatExpiryTime(DateTime time) {
+    return '${time.hour.toString().padLeft(2, '0')}:${time.minute.toString().padLeft(2, '0')}';
   }
 }

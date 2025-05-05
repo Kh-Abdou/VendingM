@@ -1,6 +1,5 @@
 const express = require('express');
 const router = express.Router();
-const userController = require('../controllers/user.controllers');
 
 // Import your controller functions ONCE - choose one approach
 // Either import the entire controller:
@@ -14,7 +13,8 @@ const {
     deleteUserById, 
     updateUserById, 
     getClients, 
-    rechargeClientBalance 
+    rechargeClientBalance,
+    updatePassword
 } = require('../controllers/user.controllers');
 
 // Define routes - ORDER MATTERS IN EXPRESS!
@@ -23,6 +23,7 @@ const {
 // 1. First specific routes
 router.get('/clients', getClients);
 router.post('/clients/:id/recharge', rechargeClientBalance);
+router.put('/:id/password', updatePassword); // Ajout de la route pour changer le mot de passe
 
 // 2. Then parameter routes
 router.get('/:id', getUserById);

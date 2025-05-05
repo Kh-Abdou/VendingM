@@ -1,43 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
-import '../implementation/notification-imp.dart';
-
-enum NotificationType {
-  transaction,
-  code,
-}
-
-class NotificationItem {
-  final String message;
-  final DateTime date;
-  final NotificationType type;
-  final bool isRead;
-  final double? montant;
-
-  NotificationItem({
-    required this.message,
-    required this.date,
-    required this.type,
-    this.montant,
-    this.isRead = false,
-  });
-
-  NotificationItem copyWith({
-    String? message,
-    DateTime? date,
-    NotificationType? type,
-    double? montant,
-    bool? isRead,
-  }) {
-    return NotificationItem(
-      message: message ?? this.message,
-      date: date ?? this.date,
-      type: type ?? this.type,
-      montant: montant ?? this.montant,
-      isRead: isRead ?? this.isRead,
-    );
-  }
-}
+import '../providers/notification_provider.dart';
+import '../models/notification.dart' as notification_model;
+import 'package:intl/intl.dart';
 
 class NotificationPage extends StatefulWidget {
   @override
@@ -46,12 +11,57 @@ class NotificationPage extends StatefulWidget {
 
 class _NotificationPageState extends State<NotificationPage> {
   @override
+  void initState() {
+    super.initState();
+    // Forcer le rafraîchissement des notifications au chargement de la page
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      Provider.of<NotificationProvider>(context, listen: false).forceRefresh();
+    });
+  }
+
+  @override
   Widget build(BuildContext context) {
-    // Use the provider
+    // Utiliser le provider
     final notificationProvider = Provider.of<NotificationProvider>(context);
 
     if (notificationProvider.isLoading) {
       return Center(child: CircularProgressIndicator());
+    }
+
+    if (notificationProvider.error != null) {
+      return Center(
+        child: Column(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            Icon(
+              Icons.error_outline,
+              size: 64,
+              color: Colors.red,
+            ),
+            SizedBox(height: 16),
+            Text(
+              'Erreur de chargement',
+              style: TextStyle(
+                fontSize: 18,
+                fontWeight: FontWeight.bold,
+                color: Colors.red,
+              ),
+            ),
+            SizedBox(height: 8),
+            Text(
+              notificationProvider.error!,
+              textAlign: TextAlign.center,
+              style: TextStyle(color: Colors.grey),
+            ),
+            SizedBox(height: 16),
+            ElevatedButton.icon(
+              icon: Icon(Icons.refresh),
+              label: Text('Réessayer'),
+              onPressed: () => notificationProvider.forceRefresh(),
+            ),
+          ],
+        ),
+      );
     }
 
     if (notificationProvider.notifications.isEmpty) {
@@ -72,107 +82,337 @@ class _NotificationPageState extends State<NotificationPage> {
                 color: Colors.grey,
               ),
             ),
+            SizedBox(height: 16),
+            ElevatedButton.icon(
+              icon: Icon(Icons.refresh),
+              label: Text('Actualiser'),
+              onPressed: () => notificationProvider.forceRefresh(),
+            ),
           ],
         ),
       );
     }
 
+    // Filtrer les notifications par type
+    final transactionNotifications = notificationProvider.notifications
+        .where((n) => n.type == 'TRANSACTION')
+        .toList();
+
+    final codeNotifications = notificationProvider.notifications
+        .where((n) => n.type == 'CODE')
+        .toList();
+
     return DefaultTabController(
       length: 2,
       child: Column(
         children: [
-          TabBar(
-            labelColor: Theme.of(context).primaryColor,
-            unselectedLabelColor: Colors.grey,
-            tabs: [
-              Tab(text: 'Commandes'),
-              Tab(text: 'Codes'),
+          Container(
+            color: Theme.of(context).brightness == Brightness.dark
+                ? Colors.black12
+                : Colors.white,
+            child: TabBar(
+              labelColor: Theme.of(context).primaryColor,
+              unselectedLabelColor: Colors.grey,
+              tabs: [
+                Tab(
+                  text: 'Commandes',
+                  icon: Icon(Icons.shopping_cart),
+                ),
+                Tab(
+                  text: 'Codes',
+                  icon: Icon(Icons.qr_code),
+                ),
+              ],
+            ),
+          ),
+          Row(
+            mainAxisAlignment: MainAxisAlignment.end,
+            children: [
+              if (notificationProvider.unreadCount > 0)
+                Padding(
+                  padding: const EdgeInsets.only(right: 16.0, top: 8.0),
+                  child: TextButton.icon(
+                    icon: Icon(Icons.check_circle_outline),
+                    label: Text('Tout marquer comme lu'),
+                    onPressed: () => notificationProvider.markAllAsRead(),
+                  ),
+                ),
             ],
           ),
           Expanded(
             child: TabBarView(
               children: [
                 // Vue des commandes (transactions)
-                ListView.separated(
-                  itemCount:
-                      notificationProvider.transactionNotifications.length,
-                  separatorBuilder: (context, index) => Divider(),
-                  itemBuilder: (context, index) {
-                    final notification =
-                        notificationProvider.transactionNotifications[index];
-                    return ListTile(
-                      leading: CircleAvatar(
-                        backgroundColor: Colors.green[100],
-                        child: Icon(
-                          Icons.euro_symbol,
-                          color: Colors.green,
-                        ),
-                      ),
-                      title: Text(
-                        notification.message,
-                        style: TextStyle(
-                          fontWeight: notification.isRead
-                              ? FontWeight.normal
-                              : FontWeight.bold,
-                        ),
-                      ),
-                      subtitle: Text(
-                        '${notification.date.day}/${notification.date.month}/${notification.date.year} ${notification.date.hour}:${notification.date.minute}',
-                      ),
-                      trailing: notification.montant != null
-                          ? Text(
-                              '${notification.montant! >= 0 ? '+' : ''}${notification.montant!.toStringAsFixed(2)} DA',
-                              style: TextStyle(
-                                color: notification.montant! >= 0
-                                    ? Colors.green
-                                    : Colors.red,
-                                fontWeight: FontWeight.bold,
-                              ),
-                            )
-                          : null,
-                      onTap: () {
-                        notificationProvider.markAsRead(notification);
-                      },
-                    );
-                  },
-                ),
+                _buildTransactionNotificationsList(
+                    context, transactionNotifications, notificationProvider),
 
                 // Vue des codes
-                ListView.separated(
-                  itemCount: notificationProvider.codeNotifications.length,
-                  separatorBuilder: (context, index) => Divider(),
-                  itemBuilder: (context, index) {
-                    final notification =
-                        notificationProvider.codeNotifications[index];
-                    return ListTile(
-                      leading: CircleAvatar(
-                        backgroundColor: Colors.blue[100],
-                        child: Icon(
-                          Icons.qr_code,
-                          color: Colors.blue,
-                        ),
-                      ),
-                      title: Text(
-                        notification.message,
-                        style: TextStyle(
-                          fontWeight: notification.isRead
-                              ? FontWeight.normal
-                              : FontWeight.bold,
-                        ),
-                      ),
-                      subtitle: Text(
-                        '${notification.date.day}/${notification.date.month}/${notification.date.year} ${notification.date.hour}:${notification.date.minute}',
-                      ),
-                      onTap: () {
-                        notificationProvider.markAsRead(notification);
-                      },
-                    );
-                  },
-                ),
+                _buildCodeNotificationsList(
+                    context, codeNotifications, notificationProvider),
               ],
             ),
           ),
         ],
+      ),
+    );
+  }
+
+  Widget _buildTransactionNotificationsList(
+      BuildContext context,
+      List<notification_model.Notification> notifications,
+      NotificationProvider provider) {
+    if (notifications.isEmpty) {
+      return Center(
+        child: Text('Aucune notification de commande'),
+      );
+    }
+
+    return RefreshIndicator(
+      onRefresh: () => provider.forceRefresh(),
+      child: ListView.builder(
+        itemCount: notifications.length,
+        itemBuilder: (context, index) {
+          final notification = notifications[index];
+          final metadata = notification.metadata ?? {};
+
+          // Formatage de la date
+          final dateFormatter = DateFormat('dd/MM/yyyy à HH:mm');
+          final formattedDate = dateFormatter.format(notification.createdAt);
+
+          // Récupérer les détails de la commande depuis les métadonnées
+          final double montant = metadata['montant']?.toDouble() ?? 0.0;
+          final List<dynamic> produitsData = metadata['produits'] ?? [];
+
+          return Card(
+            margin: EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+            child: ExpansionTile(
+              leading: CircleAvatar(
+                backgroundColor: notification.isUnread
+                    ? Colors.green[100]
+                    : Colors.grey[200],
+                child: Icon(
+                  Icons.receipt,
+                  color: notification.isUnread ? Colors.green : Colors.grey,
+                ),
+              ),
+              title: Text(
+                notification.title,
+                style: TextStyle(
+                  fontWeight: notification.isUnread
+                      ? FontWeight.bold
+                      : FontWeight.normal,
+                ),
+              ),
+              subtitle: Text(formattedDate),
+              trailing: Text(
+                '${montant.toStringAsFixed(2)} DA',
+                style: TextStyle(
+                  color: Colors.green[700],
+                  fontWeight: FontWeight.bold,
+                ),
+              ),
+              onExpansionChanged: (expanded) {
+                if (expanded && notification.isUnread) {
+                  provider.markAsRead(notification.id);
+                }
+              },
+              children: [
+                Padding(
+                  padding: const EdgeInsets.all(16.0),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        notification.message,
+                        style: TextStyle(fontSize: 15),
+                      ),
+                      SizedBox(height: 12),
+                      Text(
+                        'Détails de la commande:',
+                        style: TextStyle(
+                          fontWeight: FontWeight.bold,
+                          fontSize: 16,
+                        ),
+                      ),
+                      SizedBox(height: 8),
+                      ...produitsData.map<Widget>((produit) {
+                        return Padding(
+                          padding: const EdgeInsets.only(bottom: 8.0),
+                          child: Row(
+                            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                            children: [
+                              Expanded(
+                                child: Text(
+                                  '${produit['nom']} x${produit['quantite']}',
+                                ),
+                              ),
+                              Text(
+                                '${(produit['prix'] * produit['quantite']).toStringAsFixed(2)} DA',
+                                style: TextStyle(fontWeight: FontWeight.bold),
+                              ),
+                            ],
+                          ),
+                        );
+                      }).toList(),
+                      Divider(),
+                      Row(
+                        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                        children: [
+                          Text(
+                            'Total:',
+                            style: TextStyle(
+                              fontWeight: FontWeight.bold,
+                              fontSize: 16,
+                            ),
+                          ),
+                          Text(
+                            '${montant.toStringAsFixed(2)} DA',
+                            style: TextStyle(
+                              fontWeight: FontWeight.bold,
+                              fontSize: 16,
+                              color: Colors.green[700],
+                            ),
+                          ),
+                        ],
+                      ),
+                    ],
+                  ),
+                ),
+              ],
+            ),
+          );
+        },
+      ),
+    );
+  }
+
+  Widget _buildCodeNotificationsList(
+      BuildContext context,
+      List<notification_model.Notification> notifications,
+      NotificationProvider provider) {
+    if (notifications.isEmpty) {
+      return Center(
+        child: Text('Aucune notification de code'),
+      );
+    }
+
+    return RefreshIndicator(
+      onRefresh: () => provider.forceRefresh(),
+      child: ListView.builder(
+        itemCount: notifications.length,
+        itemBuilder: (context, index) {
+          final notification = notifications[index];
+          final metadata = notification.metadata ?? {};
+
+          // Formatage de la date
+          final dateFormatter = DateFormat('dd/MM/yyyy à HH:mm');
+          final formattedDate = dateFormatter.format(notification.createdAt);
+
+          // Obtenir le statut du code et définir une icône appropriée
+          final String codeStatus = metadata['status'] ?? 'generated';
+          IconData statusIcon;
+          Color statusColor;
+
+          switch (codeStatus.toLowerCase()) {
+            case 'used':
+              statusIcon = Icons.check_circle;
+              statusColor = Colors.green;
+              break;
+            case 'cancelled':
+              statusIcon = Icons.cancel;
+              statusColor = Colors.red;
+              break;
+            case 'expired':
+              statusIcon = Icons.timer_off;
+              statusColor = Colors.orange;
+              break;
+            case 'generated':
+            default:
+              statusIcon = Icons.qr_code;
+              statusColor = Colors.blue;
+          }
+
+          return Card(
+            margin: EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+            child: ListTile(
+              leading: CircleAvatar(
+                backgroundColor: notification.isUnread
+                    ? statusColor.withOpacity(0.2)
+                    : Colors.grey[200],
+                child: Icon(
+                  statusIcon,
+                  color: notification.isUnread ? statusColor : Colors.grey,
+                ),
+              ),
+              title: Text(
+                notification.title,
+                style: TextStyle(
+                  fontWeight: notification.isUnread
+                      ? FontWeight.bold
+                      : FontWeight.normal,
+                ),
+              ),
+              subtitle: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(formattedDate),
+                  SizedBox(height: 4),
+                  Text(notification.message),
+                  if (metadata['code'] != null)
+                    Text(
+                      'Code: ${metadata['code']}',
+                      style: TextStyle(
+                        fontWeight: FontWeight.bold,
+                        color: Theme.of(context).primaryColor,
+                      ),
+                    ),
+                ],
+              ),
+              isThreeLine: true,
+              onTap: () {
+                if (notification.isUnread) {
+                  provider.markAsRead(notification.id);
+                }
+              },
+              // Ajouter un badge pour les codes qui sont utilisés ou annulés
+              trailing: _getStatusBadge(codeStatus),
+            ),
+          );
+        },
+      ),
+    );
+  }
+
+  Widget _getStatusBadge(String status) {
+    switch (status.toLowerCase()) {
+      case 'used':
+        return _buildBadge('Utilisé', Colors.green);
+      case 'cancelled':
+        return _buildBadge('Annulé', Colors.red);
+      case 'expired':
+        return _buildBadge('Expiré', Colors.orange);
+      case 'generated':
+        return _buildBadge('Généré', Colors.blue);
+      default:
+        return _buildBadge(status, Colors.grey);
+    }
+  }
+
+  Widget _buildBadge(String text, Color color) {
+    return Container(
+      padding: EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+      decoration: BoxDecoration(
+        color: color.withOpacity(0.2),
+        borderRadius: BorderRadius.circular(12),
+        border: Border.all(color: color),
+      ),
+      child: Text(
+        text,
+        style: TextStyle(
+          color: color,
+          fontWeight: FontWeight.bold,
+          fontSize: 12,
+        ),
       ),
     );
   }

@@ -5,13 +5,20 @@ import 'package:http/http.dart' as http;
 import 'Login/login_page.dart';
 import 'admin_page/admin_page.dart';
 import 'client_page/notification_page.dart';
+import 'client_page/notification_page.dart'; // Ensure NotificationsPage is imported
 import 'client_page/products_page.dart' as products_page
     show GenerateCodePage, ProductsPage, ProduitPanier;
 import 'client_page/profile_page.dart';
 import 'services/notification_service.dart';
 import 'services/produit_service.dart';
+import 'services/order_service.dart';
+import 'services/user_service.dart';
 import 'providers/notification_provider.dart';
+import 'providers/user_provider.dart'; // Import du nouveau provider
 import 'models/produit.dart';
+import 'dart:developer' as developer;
+
+import 'technician_page/notifications_page.dart';
 
 // Définir l'URL du backend - modifier cette URL selon votre environnement
 // Pour le développement sur émulateur Android, utilisez 10.0.2.2:5000 au lieu de localhost:5000
@@ -23,6 +30,10 @@ const String apiBaseUrl = 'http://10.0.2.2:5000'; // Pour les émulateurs Androi
 // ID de technicien par défaut (sera remplacé par l'ID réel après la connexion)
 const String defaultTechnicianId =
     '681154075cf30e38df588370'; // ID utilisé dans test-notifications.js
+
+// ID client par défaut (à remplacer par l'ID réel après connexion)
+const String defaultClientId =
+    '68120db1321b2ae6e7d61ab2'; // Exemple d'ID client
 
 void main() {
   // Initialiser le service de notification avec l'URL de base de l'API
@@ -36,6 +47,9 @@ void main() {
             service: notificationService,
             userId: defaultTechnicianId, // Utiliser un ID par défaut
           ),
+        ),
+        ChangeNotifierProvider(
+          create: (context) => UserProvider(), // Ajout du provider utilisateur
         ),
       ],
       child: MyApp(),
@@ -127,58 +141,49 @@ class HomePage extends StatefulWidget {
 class _HomePageState extends State<HomePage> {
   int _selectedIndex = 0;
   bool isInMaintenance = false;
-  double soldeUtilisateur = 2500; // Solde de l'utilisateur
-  String userEmail = "User@example.com";
-  String userName = "Username";
+  List<products_page.ProduitPanier> panier = [];
 
-  List<Produit> produits = [
-    Produit(
-      id: '1',
-      nom: 'Bouteille de jus ',
-      prix: 60,
-      image: 'assets/cafe.png',
-      disponible: true,
-    ),
-    Produit(
-      id: '2',
-      nom: 'Chips',
-      prix: 40,
-      image: 'assets/latte.png',
-      disponible: true,
-    ),
-    Produit(
-      id: '3',
-      nom: 'Barre chocolatée',
-      prix: 70,
-      image: 'assets/chocolat.png',
-      disponible: true,
-    ),
-    Produit(
-      id: '4',
-      nom: 'Madelaine',
-      prix: 75,
-      image: 'assets/the.png',
-      disponible: false,
-    ),
-    Produit(
-      id: '5',
-      nom: 'Eau Minérale',
-      prix: 30,
-      image: 'assets/eau.png',
-      disponible: true,
-    ),
-    Produit(
-      id: '6',
-      nom: 'Soda Cola',
-      prix: 100,
-      image: 'assets/soda.png',
-      disponible: true,
-    ),
-  ];
+  // Initialisation du service de commande
+  late final OrderService _orderService;
+  late final UserService _userService;
 
-  // Utiliser ProduitPanier depuis le module products_page
-  List<products_page.ProduitPanier> panier =
-      []; // Ensure ProduitPanier is correctly imported
+  @override
+  void initState() {
+    super.initState();
+    _orderService = OrderService(baseUrl: apiBaseUrl);
+    _userService = UserService(baseUrl: apiBaseUrl);
+
+    // Récupérer le solde de l'utilisateur au démarrage
+    _fetchUserData();
+
+    // Mettre à jour l'ID utilisateur dans le NotificationProvider
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      _updateNotificationProviderUserId();
+    });
+  }
+
+  // Récupérer les données utilisateur
+  Future<void> _fetchUserData() async {
+    final userProvider = Provider.of<UserProvider>(context, listen: false);
+
+    if (userProvider.userId.isEmpty) {
+      // Si l'ID utilisateur n'est pas défini, c'est un problème de connexion
+      developer.log('Erreur: ID utilisateur non défini', name: 'HomePage');
+      return;
+    }
+
+    try {
+      // Récupérer le solde e-wallet
+      final balance =
+          await _orderService.getEWalletBalance(userProvider.userId);
+
+      // Mettre à jour le provider
+      userProvider.updateBalance(balance);
+    } catch (e) {
+      developer.log('Erreur lors de la récupération des données: $e',
+          name: 'HomePage');
+    }
+  }
 
   // Méthode pour récupérer le nombre de notifications non lues
   int get unreadNotificationsCount {
@@ -187,13 +192,13 @@ class _HomePageState extends State<HomePage> {
     return notificationProvider.unreadCount;
   }
 
-  get localProductsPage => null;
-
   String _getTitle() {
+    final userProvider = Provider.of<UserProvider>(context);
+
     switch (_selectedIndex) {
       case 0:
       case 1:
-        return '${soldeUtilisateur.toStringAsFixed(2)} DA'; // Affiche le solde pour les pages produits et notifications
+        return '${userProvider.userBalance.toStringAsFixed(2)} DA'; // Affiche le solde pour les pages produits et notifications
       case 2:
         return 'Mon Profil'; // Titre pour la page profil
       default:
@@ -297,23 +302,40 @@ class _HomePageState extends State<HomePage> {
   }
 
   Widget _getBody() {
+    final userProvider = Provider.of<UserProvider>(context);
+
     switch (_selectedIndex) {
       case 0:
         return ProductsPage(
           panier: panier,
-          soldeUtilisateur: soldeUtilisateur,
+          soldeUtilisateur: userProvider.userBalance,
           onAjouterAuPanier: _ajouterAuPanier,
           onShowPanier: _showPanier,
           isInMaintenance: isInMaintenance,
           baseUrl: apiBaseUrl,
         );
       case 1:
-        return NotificationPage();
+        // Vérifier si l'utilisateur est un technicien ou un client
+        if (userProvider.userRole.toLowerCase() == 'technician') {
+          // Utiliser la page des notifications pour techniciens
+          return NotificationsPage(
+            primaryColor: Theme.of(context).primaryColor,
+            buttonColor: Theme.of(context).colorScheme.secondary,
+            onNotificationStatusChanged: (count) {
+              // Cette fonction est appelée lorsque le statut des notifications change
+            },
+          );
+        } else {
+          // Utiliser la page des notifications pour clients
+          return NotificationPage();
+        }
       case 2:
         return ProfilePage(
-          userName: userName,
-          userEmail: userEmail,
-          soldeUtilisateur: soldeUtilisateur,
+          userId: Provider.of<UserProvider>(context, listen: false).userId,
+          baseUrl: apiBaseUrl,
+          userName: userProvider.userName,
+          userEmail: userProvider.userEmail,
+          soldeUtilisateur: userProvider.userBalance,
           isInMaintenance: isInMaintenance,
         );
       default:
@@ -393,60 +415,144 @@ class _HomePageState extends State<HomePage> {
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  Text(
-                    'Votre Panier',
-                    style: TextStyle(
-                      fontSize: 24,
-                      fontWeight: FontWeight.bold,
-                    ),
+                  Row(
+                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                    children: [
+                      Text(
+                        'Votre Panier',
+                        style: TextStyle(
+                          fontSize: 24,
+                          fontWeight: FontWeight.bold,
+                        ),
+                      ),
+                      Text(
+                        '${panier.length} article${panier.length > 1 ? 's' : ''}',
+                        style: TextStyle(
+                          fontSize: 16,
+                          color: Colors.grey[600],
+                        ),
+                      ),
+                    ],
                   ),
                   SizedBox(height: 20),
                   Expanded(
                     child: ListView.builder(
                       itemCount: panier.length,
                       itemBuilder: (context, index) {
+                        final item = panier[index];
+                        final produit = item.produit;
+                        final subtotal = produit.prix * item.quantite;
+
                         return Card(
                           margin: EdgeInsets.only(bottom: 10),
-                          child: ListTile(
-                            contentPadding: EdgeInsets.symmetric(
-                                horizontal: 16, vertical: 8),
-                            title: Text(
-                              panier[index].produit.nom,
-                              style: TextStyle(fontWeight: FontWeight.bold),
-                            ),
-                            subtitle: Text(
-                              '${panier[index].produit.prix.toStringAsFixed(2)} DA x ${panier[index].quantite}',
-                            ),
-                            trailing: Row(
-                              mainAxisSize: MainAxisSize.min,
+                          elevation: 2,
+                          shape: RoundedRectangleBorder(
+                            borderRadius: BorderRadius.circular(12),
+                          ),
+                          child: Padding(
+                            padding: const EdgeInsets.all(12.0),
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
                               children: [
-                                IconButton(
-                                  icon: Icon(Icons.remove_circle_outline),
-                                  onPressed: () {
-                                    setState(() {
-                                      if (panier[index].quantite > 1) {
-                                        panier[index].quantite--;
-                                      } else {
-                                        panier.removeAt(index);
-                                      }
-                                      // Update parent state too
-                                      this.setState(() {});
-                                    });
-                                  },
+                                Row(
+                                  mainAxisAlignment:
+                                      MainAxisAlignment.spaceBetween,
+                                  children: [
+                                    Expanded(
+                                      child: Text(
+                                        produit.nom,
+                                        style: TextStyle(
+                                          fontWeight: FontWeight.bold,
+                                          fontSize: 16,
+                                        ),
+                                        maxLines: 1,
+                                        overflow: TextOverflow.ellipsis,
+                                      ),
+                                    ),
+                                    IconButton(
+                                      icon: Icon(Icons.delete_outline,
+                                          color: Colors.red[400]),
+                                      onPressed: () {
+                                        setState(() {
+                                          panier.removeAt(index);
+                                          // Update parent state too
+                                          this.setState(() {});
+                                        });
+                                      },
+                                    ),
+                                  ],
                                 ),
-                                Text(
-                                  '${panier[index].quantite}',
-                                  style: TextStyle(fontSize: 16),
+                                SizedBox(height: 8),
+                                Row(
+                                  mainAxisAlignment:
+                                      MainAxisAlignment.spaceBetween,
+                                  children: [
+                                    Text(
+                                      'Prix unitaire: ${produit.prix.toStringAsFixed(2)} DA',
+                                      style: TextStyle(
+                                        color: Colors.grey[700],
+                                      ),
+                                    ),
+                                    Text(
+                                      'Sous-total: ${subtotal.toStringAsFixed(2)} DA',
+                                      style: TextStyle(
+                                        fontWeight: FontWeight.bold,
+                                        color: Theme.of(context).primaryColor,
+                                      ),
+                                    ),
+                                  ],
                                 ),
-                                IconButton(
-                                  icon: Icon(Icons.add_circle_outline),
-                                  onPressed: () {
-                                    setState(() {
-                                      panier[index].quantite++;
-                                      // Update parent state too
-                                      this.setState(() {});
-                                    });
-                                  },
+                                SizedBox(height: 8),
+                                Row(
+                                  mainAxisSize: MainAxisSize.min,
+                                  mainAxisAlignment: MainAxisAlignment.start,
+                                  children: [
+                                    Container(
+                                      decoration: BoxDecoration(
+                                        color: Colors.grey[200],
+                                        borderRadius: BorderRadius.circular(20),
+                                      ),
+                                      child: Row(
+                                        children: [
+                                          IconButton(
+                                            icon: Icon(Icons.remove, size: 18),
+                                            onPressed: () {
+                                              setState(() {
+                                                if (item.quantite > 1) {
+                                                  item.quantite--;
+                                                } else {
+                                                  panier.removeAt(index);
+                                                }
+                                                // Update parent state too
+                                                this.setState(() {});
+                                              });
+                                            },
+                                          ),
+                                          Container(
+                                            padding: EdgeInsets.symmetric(
+                                                horizontal: 10),
+                                            child: Text(
+                                              '${item.quantite}',
+                                              style: TextStyle(
+                                                fontSize: 16,
+                                                fontWeight: FontWeight.bold,
+                                              ),
+                                            ),
+                                          ),
+                                          IconButton(
+                                            icon: Icon(Icons.add, size: 18),
+                                            onPressed: () {
+                                              setState(() {
+                                                item.quantite++;
+                                                // Update parent state too
+                                                this.setState(() {});
+                                              });
+                                            },
+                                          ),
+                                        ],
+                                      ),
+                                    ),
+                                  ],
                                 ),
                               ],
                             ),
@@ -456,24 +562,36 @@ class _HomePageState extends State<HomePage> {
                     ),
                   ),
                   Divider(thickness: 1),
-                  Padding(
-                    padding: EdgeInsets.symmetric(vertical: 10),
-                    child: Row(
-                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                  Container(
+                    padding: EdgeInsets.symmetric(vertical: 16),
+                    decoration: BoxDecoration(
+                      color: Colors.grey[50],
+                      borderRadius: BorderRadius.circular(8),
+                    ),
+                    child: Column(
                       children: [
-                        Text(
-                          'Total:',
-                          style: TextStyle(
-                            fontSize: 18,
-                            fontWeight: FontWeight.bold,
-                          ),
-                        ),
-                        Text(
-                          '${total.toStringAsFixed(2)} DA',
-                          style: TextStyle(
-                            fontSize: 18,
-                            fontWeight: FontWeight.bold,
-                            color: Colors.blue[700],
+                        Padding(
+                          padding:
+                              EdgeInsets.symmetric(horizontal: 16, vertical: 4),
+                          child: Row(
+                            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                            children: [
+                              Text(
+                                'Total:',
+                                style: TextStyle(
+                                  fontSize: 18,
+                                  fontWeight: FontWeight.bold,
+                                ),
+                              ),
+                              Text(
+                                '${total.toStringAsFixed(2)} DA',
+                                style: TextStyle(
+                                  fontSize: 18,
+                                  fontWeight: FontWeight.bold,
+                                  color: Theme.of(context).primaryColor,
+                                ),
+                              ),
+                            ],
                           ),
                         ),
                       ],
@@ -523,44 +641,49 @@ class _HomePageState extends State<HomePage> {
   }
 
   void _finaliserCommande() {
-    showDialog(
-      context: context,
-      builder: (BuildContext context) {
-        return AlertDialog(
-          title: Text('Choisir une option'),
-          content: Column(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              ListTile(
-                leading: Icon(Icons.wallet, color: Colors.green),
-                title: Text('Payer maintenant'),
-                subtitle: Text(
-                    'Payer avec votre e-wallet (${soldeUtilisateur.toStringAsFixed(2)} DA)'),
-                onTap: () {
-                  Navigator.pop(context);
-                  if (soldeUtilisateur < _calculateTotal()) {
-                    _showSoldeInsuffisant();
-                  } else {
-                    _confirmerPaiementEwallet();
-                  }
-                },
-              ),
-              Divider(),
-              ListTile(
-                leading:
-                    Icon(Icons.qr_code, color: Theme.of(context).primaryColor),
-                title: Text('Générer un code'),
-                subtitle: Text('Pour payer directement au distributeur'),
-                onTap: () {
-                  Navigator.pop(context);
-                  _genererCode();
-                },
-              ),
-            ],
-          ),
-        );
-      },
-    );
+    // Récupérer le solde à jour avant d'afficher les options
+    _fetchUserData().then((_) {
+      showDialog(
+        context: context,
+        builder: (BuildContext context) {
+          return AlertDialog(
+            title: Text('Choisir une option'),
+            content: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                ListTile(
+                  leading: Icon(Icons.wallet, color: Colors.green),
+                  title: Text('Payer avec E-wallet'),
+                  subtitle: Text(
+                      'Utiliser votre solde (${Provider.of<UserProvider>(context, listen: false).userBalance.toStringAsFixed(2)} DA)'),
+                  onTap: () {
+                    Navigator.pop(context);
+                    final userProvider =
+                        Provider.of<UserProvider>(context, listen: false);
+                    if (userProvider.userBalance < _calculateTotal()) {
+                      _showSoldeInsuffisant();
+                    } else {
+                      _confirmerPaiementEwallet();
+                    }
+                  },
+                ),
+                Divider(),
+                ListTile(
+                  leading: Icon(Icons.qr_code,
+                      color: Theme.of(context).primaryColor),
+                  title: Text('Générer un code'),
+                  subtitle: Text('Pour payer directement au distributeur'),
+                  onTap: () {
+                    Navigator.pop(context);
+                    _genererCode();
+                  },
+                ),
+              ],
+            ),
+          );
+        },
+      );
+    });
   }
 
   void _confirmerPaiementEwallet() {
@@ -580,7 +703,7 @@ class _HomePageState extends State<HomePage> {
                   Icon(Icons.account_balance_wallet, color: Colors.green),
                   SizedBox(width: 8),
                   Text(
-                    '${soldeUtilisateur.toStringAsFixed(2)} DA',
+                    '${Provider.of<UserProvider>(context, listen: false).userBalance.toStringAsFixed(2)} DA',
                     style: TextStyle(
                       fontSize: 18,
                       fontWeight: FontWeight.bold,
@@ -615,9 +738,16 @@ class _HomePageState extends State<HomePage> {
   }
 
   void _genererCode() {
+    // Ouvrir la page de génération de code avec les données du panier
     Navigator.push(
       context,
-      MaterialPageRoute(builder: (context) => GenerateCodePage()),
+      MaterialPageRoute(
+        builder: (context) => GenerateCodePage(
+          panier: panier,
+          userId: Provider.of<UserProvider>(context, listen: false).userId,
+          baseUrl: apiBaseUrl,
+        ),
+      ),
     );
   }
 
@@ -648,7 +778,22 @@ class _HomePageState extends State<HomePage> {
     );
   }
 
-  void _processPaiement() {
+  void _processPaiement() async {
+    final userProvider = Provider.of<UserProvider>(context, listen: false);
+    final double totalAmount = _calculateTotal();
+
+    // Créer une copie du panier pour l'utiliser après le processus de paiement
+    final List<products_page.ProduitPanier> panierCopy = List.from(panier);
+
+    final List<Map<String, dynamic>> productsData = panier
+        .map((item) => {
+              'productId': item.produit.id,
+              'quantity': item.quantite,
+              'price': item.produit.prix,
+            })
+        .toList();
+
+    // Afficher l'indicateur de progression
     showDialog(
       context: context,
       barrierDismissible: false,
@@ -666,39 +811,163 @@ class _HomePageState extends State<HomePage> {
       },
     );
 
-    Future.delayed(Duration(seconds: 2), () {
+    try {
+      // Appel au service pour effectuer le paiement
+      final result = await _orderService.processPayment(
+        userId: userProvider.userId,
+        amount: totalAmount,
+        products: productsData,
+      );
+
+      // Fermer le dialogue de chargement
+      Navigator.of(context).pop();
+
+      // Récupérer et convertir le solde, en gérant les types int et double
+      double newBalance;
+      if (result['balance'] != null) {
+        // Convertir en double si c'est un int
+        newBalance = result['balance'] is int
+            ? (result['balance'] as int).toDouble()
+            : result['balance'];
+      } else {
+        // Fallback si balance n'est pas présent
+        newBalance = userProvider.userBalance - totalAmount;
+      }
+
+      // Mettre à jour le solde utilisateur
+      userProvider.updateBalance(newBalance);
+
+      // Vider le panier après traitement
       setState(() {
-        soldeUtilisateur -= _calculateTotal();
         panier.clear();
       });
 
+      // Afficher confirmation de paiement réussi avec les détails des produits
+      _showPaiementReussi(userProvider.userBalance, totalAmount, panierCopy);
+
+      // Rafraîchir les notifications (pour afficher la nouvelle notification de transaction)
+      final notificationProvider =
+          Provider.of<NotificationProvider>(context, listen: false);
+      notificationProvider.forceRefresh();
+    } catch (e) {
+      // Fermer le dialogue de chargement
       Navigator.of(context).pop();
-      _showPaiementReussi();
-    });
+
+      // Afficher l'erreur à l'utilisateur
+      showDialog(
+        context: context,
+        builder: (BuildContext context) {
+          return AlertDialog(
+            title: Text('Erreur de paiement'),
+            content: Text(e.toString().replaceAll('Exception: ', '')),
+            actions: [
+              ElevatedButton(
+                child: Text('OK'),
+                onPressed: () => Navigator.pop(context),
+              ),
+            ],
+          );
+        },
+      );
+    }
   }
 
-  void _showPaiementReussi() {
+  void _showPaiementReussi(double soldeActuel, double montantTotal,
+      List<products_page.ProduitPanier> produits) {
     showDialog(
       context: context,
       builder: (BuildContext context) {
         return AlertDialog(
           title: Text('Paiement accepté'),
-          content: Column(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              Icon(
-                Icons.check_circle,
-                color: Colors.green,
-                size: 60,
-              ),
-              SizedBox(height: 20),
-              Text('Votre commande a été validée !'),
-              SizedBox(height: 10),
-              Text(
-                'Nouveau solde: ${soldeUtilisateur.toStringAsFixed(2)} DA',
-                style: TextStyle(fontWeight: FontWeight.bold),
-              ),
-            ],
+          content: Container(
+            width: double.maxFinite,
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Icon(
+                  Icons.check_circle,
+                  color: Colors.green,
+                  size: 60,
+                ),
+                SizedBox(height: 20),
+                Text('Votre commande a été validée !'),
+                SizedBox(height: 15),
+
+                // Détails de la commande
+                Text(
+                  'Détails de la commande:',
+                  style: TextStyle(
+                    fontWeight: FontWeight.bold,
+                    fontSize: 16,
+                  ),
+                ),
+                SizedBox(height: 10),
+
+                // Liste des produits
+                Container(
+                  constraints: BoxConstraints(maxHeight: 150),
+                  child: SingleChildScrollView(
+                    child: Column(
+                      children: produits.map((item) {
+                        return Padding(
+                          padding: const EdgeInsets.symmetric(vertical: 4.0),
+                          child: Row(
+                            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                            children: [
+                              Expanded(
+                                child: Text(
+                                  '${item.quantite}x ${item.produit.nom}',
+                                  overflow: TextOverflow.ellipsis,
+                                ),
+                              ),
+                              Text(
+                                '${(item.produit.prix * item.quantite).toStringAsFixed(2)} DA',
+                                style: TextStyle(fontWeight: FontWeight.bold),
+                              ),
+                            ],
+                          ),
+                        );
+                      }).toList(),
+                    ),
+                  ),
+                ),
+
+                Divider(thickness: 1),
+
+                // Total
+                Row(
+                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                  children: [
+                    Text(
+                      'Total:',
+                      style: TextStyle(
+                        fontWeight: FontWeight.bold,
+                        fontSize: 16,
+                      ),
+                    ),
+                    Text(
+                      '${montantTotal.toStringAsFixed(2)} DA',
+                      style: TextStyle(
+                        fontWeight: FontWeight.bold,
+                        fontSize: 16,
+                        color: Theme.of(context).primaryColor,
+                      ),
+                    ),
+                  ],
+                ),
+
+                SizedBox(height: 15),
+
+                // Nouveau solde
+                Text(
+                  'Nouveau solde: ${soldeActuel.toStringAsFixed(2)} DA',
+                  style: TextStyle(
+                    fontWeight: FontWeight.bold,
+                    color: Colors.green,
+                  ),
+                ),
+              ],
+            ),
           ),
           actions: [
             ElevatedButton(
@@ -754,5 +1023,24 @@ class _HomePageState extends State<HomePage> {
         );
       },
     );
+  }
+
+  // Après avoir effectué un paiement, mettre à jour l'ID utilisateur dans le NotificationProvider
+  void _updateNotificationProviderUserId() {
+    final userProvider = Provider.of<UserProvider>(context, listen: false);
+    final notificationProvider =
+        Provider.of<NotificationProvider>(context, listen: false);
+
+    // Vérifier si l'ID utilisateur dans le NotificationProvider est différent de celui dans UserProvider
+    if (notificationProvider.userId != userProvider.userId &&
+        userProvider.userId.isNotEmpty) {
+      // Technique pour mettre à jour l'ID utilisateur du NotificationProvider
+      // Créer un nouveau NotificationProvider avec le bon ID et remplacer l'ancien
+      final service = NotificationService(baseUrl: apiBaseUrl);
+
+      // Utiliser le même service mais avec le nouvel ID utilisateur
+      Provider.of<NotificationProvider>(context, listen: false)
+          .updateUserId(userProvider.userId);
+    }
   }
 }

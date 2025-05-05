@@ -3,9 +3,9 @@ import 'package:flutter/foundation.dart';
 import '../models/notification.dart';
 import '../services/notification_service.dart';
 
-class NotificationProvider extends ChangeNotifier {
+class NotificationProvider with ChangeNotifier {
   final NotificationService _service;
-  final String userId;
+  String userId; // Modifié pour ne plus être final et pouvoir être changé
 
   List<Notification> _notifications = [];
   bool _isLoading = false;
@@ -37,6 +37,16 @@ class NotificationProvider extends ChangeNotifier {
 
   // Retourne l'URL de l'API utilisée pour le débogage
   String getApiUrl() => _service.baseUrl;
+
+  // Méthode pour mettre à jour l'ID utilisateur
+  void updateUserId(String newUserId) {
+    if (userId != newUserId) {
+      userId = newUserId;
+      print('🔄 ID utilisateur mis à jour: $userId');
+      // Rafraîchir les notifications pour le nouvel utilisateur
+      loadNotifications();
+    }
+  }
 
   // Charger toutes les notifications
   Future<void> loadNotifications() async {

@@ -1,9 +1,11 @@
 import 'package:flutter/material.dart';
 import 'package:lessvsfull/Login/inscription.dart';
+import 'package:provider/provider.dart';
 import '../admin_page/admin_page.dart'; // Updated import path
 import '../main.dart'; // Import for regular HomePage
 import '../technician_page/technician_home.dart'; // Import for technician page
 import '../implementation/login-imp.dart'; // Import AuthService
+import '../providers/user_provider.dart'; // Import UserProvider
 
 class LoginPage extends StatefulWidget {
   @override
@@ -195,6 +197,15 @@ class _LoginPageState extends State<LoginPage> {
 
       // Debugging: Print the response
       print("Login response: $response");
+
+      // Store user info in the UserProvider
+      final userProvider = Provider.of<UserProvider>(context, listen: false);
+      userProvider.setUserInfo(
+        userId: response['user']['_id'],
+        name: response['user']['name'],
+        email: response['user']['email'],
+        role: response['user']['role'].toLowerCase(),
+      );
 
       // Handle successful login
       final role =

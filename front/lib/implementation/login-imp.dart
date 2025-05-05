@@ -6,7 +6,8 @@ class AuthService {
       "http://192.168.56.1:5000"; // Replace with your backend URL
 
   Future<Map<String, dynamic>> login(String email, String password) async {
-    final url = Uri.parse('$baseUrl/post/login');
+    final url = Uri.parse(
+        '$baseUrl/user/login'); // Modifié de /post/login à /user/login
     final response = await http.post(
       url,
       headers: {'Content-Type': 'application/json'},

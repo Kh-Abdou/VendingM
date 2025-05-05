@@ -156,6 +156,85 @@ module.exports.processPayment = async (req, res) => {
   }
 };
 
+module.exports.processCardPayment = async (req, res) => {
+  try {
+    const { userId, amount, products, paymentMethod } = req.body;
+    
+    if (!userId || !amount || amount <= 0) {
+      return res.status(400).json({
+        message: "User ID et montant positif sont requis",
+      });
+    }
+    
+    // Créer une commande
+    const order = new OrderModel({
+      userId,
+      products,
+      totalAmount: amount,
+      paymentMethod: "CARD",
+      status: "COMPLETED",
+    });
+    
+    await order.save();
+    
+    // Créer une notification pour informer l'utilisateur du paiement
+    const userNotification = new NotificationModel({
+      userId,
+      title: "Paiement par carte effectué",
+      message: `Votre paiement par carte de ${amount.toFixed(2)} DA a été effectué avec succès`,
+      type: "TRANSACTION",
+      amount: -amount,
+      orderId: order._id,
+      products,
+      priority: "HIGH", // Haute priorité pour les paiements
+      status: "UNREAD",
+    });
+    
+    await userNotification.save();
+    
+    // Créer une notification pour le technicien
+    // Trouver les techniciens dans le système
+    const technicians = await UserModel.find({ role: "technician" });
+    
+    // Si des techniciens existent, envoyez-leur des notifications
+    if (technicians.length > 0) {
+      const promises = technicians.map(async tech => {
+        const techNotification = new NotificationModel({
+          userId: tech._id,
+          title: "Nouvelle commande reçue",
+          message: `Un client a effectué une commande de ${amount.toFixed(2)} DA payée par carte`,
+          type: "ORDER",
+          amount,
+          orderId: order._id,
+          priority: "MEDIUM",
+          status: "UNREAD",
+        });
+        
+        return techNotification.save();
+      });
+      
+      await Promise.all(promises);
+    }
+    
+    res.status(200).json({
+      message: "Paiement par carte traité avec succès",
+      orderId: order._id,
+    });
+  } catch (err) {
+    console.error("Erreur lors du traitement du paiement par carte:", err);
+    res.status(500).json({ message: err.message });
+  }
+};
+
 module.exports.getTransactionHistory = async (req, res) => {
   // Implementation...
+};
+
+// Export all functions
+module.exports = {
+  getBalance: module.exports.getBalance,
+  addFunds: module.exports.addFunds,
+  processPayment: module.exports.processPayment,
+  getTransactionHistory: module.exports.getTransactionHistory,
+  processCardPayment: module.exports.processCardPayment
 };
