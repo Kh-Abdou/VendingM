@@ -110,7 +110,9 @@ class ProductService {
   static Future<bool> deleteProduct(String id) async {
     try {
       final response = await ApiService.delete('/product/$id');
-      return response['success'] == true;
+      // Considère la suppression comme réussie même si la réponse ne contient pas de propriété 'success'
+      // L'absence d'exception signifie que la requête s'est exécutée correctement
+      return true;
     } catch (e) {
       debugPrint('Erreur lors de la suppression du produit: $e');
       return false;
