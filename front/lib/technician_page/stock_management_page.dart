@@ -209,18 +209,37 @@ class _StockManagementPageState extends State<StockManagementPage> {
                                                           size: 30),
                                                 ),
                                               )
-                                            : ClipRRect(
-                                                borderRadius:
-                                                    BorderRadius.circular(8),
-                                                child: Image.asset(
-                                                  product.imageUrl!,
-                                                  fit: BoxFit.cover,
-                                                  errorBuilder: (context, error,
-                                                          stackTrace) =>
-                                                      const Icon(Icons.fastfood,
-                                                          size: 30),
-                                                ),
-                                              )
+                                            : product.imageUrl!.startsWith('/')
+                                                ? ClipRRect(
+                                                    borderRadius:
+                                                        BorderRadius.circular(
+                                                            8),
+                                                    child: Image.file(
+                                                      File(product.imageUrl!),
+                                                      fit: BoxFit.cover,
+                                                      errorBuilder: (context,
+                                                              error,
+                                                              stackTrace) =>
+                                                          const Icon(
+                                                              Icons.fastfood,
+                                                              size: 30),
+                                                    ),
+                                                  )
+                                                : ClipRRect(
+                                                    borderRadius:
+                                                        BorderRadius.circular(
+                                                            8),
+                                                    child: Image.asset(
+                                                      product.imageUrl!,
+                                                      fit: BoxFit.cover,
+                                                      errorBuilder: (context,
+                                                              error,
+                                                              stackTrace) =>
+                                                          const Icon(
+                                                              Icons.fastfood,
+                                                              size: 30),
+                                                    ),
+                                                  )
                                         : const Icon(Icons.fastfood, size: 30),
                                   ),
                                   title: Text(product.name),
@@ -698,8 +717,8 @@ class _StockManagementPageState extends State<StockManagementPage> {
     final quantityController =
         TextEditingController(text: product.quantity.toString());
 
-    // Valeur par défaut pour le chariot (celui associé actuellement au produit)
     String? selectedChariotId = product.chariotId;
+    String? selectedImagePath;
 
     // Liste des chariots disponibles pour ce produit
     List<Map<String, dynamic>> availableChariots =
@@ -890,6 +909,99 @@ class _StockManagementPageState extends State<StockManagementPage> {
                         ),
                       ),
                     ),
+                    const SizedBox(height: 20),
+                    const Text(
+                      'Image du produit:',
+                      style: TextStyle(fontWeight: FontWeight.bold),
+                    ),
+                    const SizedBox(height: 8),
+                    Center(
+                      child: Column(
+                        children: [
+                          Container(
+                            width: 120,
+                            height: 120,
+                            decoration: BoxDecoration(
+                              color: Colors.grey.shade200,
+                              borderRadius: BorderRadius.circular(8),
+                              border: Border.all(color: Colors.grey.shade400),
+                            ),
+                            child: selectedImagePath != null
+                                ? ClipRRect(
+                                    borderRadius: BorderRadius.circular(8),
+                                    child: Image.file(
+                                      File(selectedImagePath!),
+                                      fit: BoxFit.cover,
+                                    ),
+                                  )
+                                : product.imageUrl != null &&
+                                        product.imageUrl!.isNotEmpty
+                                    ? product.imageUrl!.startsWith('http')
+                                        ? ClipRRect(
+                                            borderRadius:
+                                                BorderRadius.circular(8),
+                                            child: Image.network(
+                                              product.imageUrl!,
+                                              fit: BoxFit.cover,
+                                              errorBuilder: (context, error,
+                                                      stackTrace) =>
+                                                  const Icon(Icons.fastfood,
+                                                      size: 40),
+                                            ),
+                                          )
+                                        : product.imageUrl!.startsWith('/')
+                                            ? ClipRRect(
+                                                borderRadius:
+                                                    BorderRadius.circular(8),
+                                                child: Image.file(
+                                                  File(product.imageUrl!),
+                                                  fit: BoxFit.cover,
+                                                  errorBuilder: (context, error,
+                                                          stackTrace) =>
+                                                      const Icon(Icons.fastfood,
+                                                          size: 40),
+                                                ),
+                                              )
+                                            : ClipRRect(
+                                                borderRadius:
+                                                    BorderRadius.circular(8),
+                                                child: Image.asset(
+                                                  product.imageUrl!,
+                                                  fit: BoxFit.cover,
+                                                  errorBuilder: (context, error,
+                                                          stackTrace) =>
+                                                      const Icon(Icons.fastfood,
+                                                          size: 40),
+                                                ),
+                                              )
+                                    : const Icon(
+                                        Icons.image_outlined,
+                                        size: 40,
+                                        color: Colors.grey,
+                                      ),
+                          ),
+                          const SizedBox(height: 8),
+                          ElevatedButton.icon(
+                            icon: const Icon(Icons.photo_camera),
+                            label: const Text('Choisir une image'),
+                            onPressed: () async {
+                              final picker = ImagePicker();
+                              final pickedFile = await picker.pickImage(
+                                  source: ImageSource.gallery);
+                              if (pickedFile != null) {
+                                setState(() {
+                                  selectedImagePath = pickedFile.path;
+                                });
+                              }
+                            },
+                            style: ElevatedButton.styleFrom(
+                              backgroundColor: widget.primaryColor,
+                              foregroundColor: Colors.white,
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
                   ],
                 ),
               ),
@@ -956,7 +1068,7 @@ class _StockManagementPageState extends State<StockManagementPage> {
                         name: nameController.text,
                         price: price,
                         quantity: quantity,
-                        imageUrl: product.imageUrl,
+                        imageUrl: selectedImagePath ?? product.imageUrl,
                         chariotId: selectedChariotId,
                       );
 
