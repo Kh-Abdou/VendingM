@@ -17,7 +17,7 @@ const NotificationSchema = mongoose.Schema(
     },
     type: {
       type: String,
-      enum: ["TRANSACTION", "CODE", "SYSTEM", "MAINTENANCE"],
+      enum: ["TRANSACTION", "CODE", "SYSTEM", "MAINTENANCE", "STOCK"],
       required: true,
     },
     status: {

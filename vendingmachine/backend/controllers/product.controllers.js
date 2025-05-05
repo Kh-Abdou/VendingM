@@ -57,10 +57,20 @@ exports.getProductWithStock = async (req, res) => {
 // Mettre à jour un produit
 exports.updateProduct = async (req, res) => {
     try {
-        const product = await Product.findByIdAndUpdate(req.params.id, req.body, { new: true });
-        if (!product) {
+        const { quantity } = req.body;
+        const previousProduct = await Product.findById(req.params.id);
+        
+        if (!previousProduct) {
             return res.status(404).json({ error: 'Produit non trouvé' });
         }
+        
+        const product = await Product.findByIdAndUpdate(req.params.id, req.body, { new: true });
+        
+        // Si la quantité a été modifiée, vérifier les seuils de stock
+        if (quantity !== undefined && quantity !== previousProduct.quantity) {
+            await checkStockThresholds(product, quantity);
+        }
+        
         res.status(200).json(product);
     } catch (error) {
         res.status(400).json({ error: error.message });
@@ -80,8 +90,14 @@ exports.updateProductQuantity = async (req, res) => {
             return res.status(404).json({ error: 'Produit non trouvé' });
         }
 
+        const previousQuantity = product.quantity;
         product.quantity = quantity;
         await product.save();
+
+        // Vérifier les seuils de stock et envoyer des notifications si nécessaire
+        if (quantity !== previousQuantity) {
+            await checkStockThresholds(product, quantity);
+        }
 
         res.status(200).json(product);
     } catch (error) {
@@ -186,3 +202,43 @@ exports.getProductsWithStock = async (req, res) => {
         res.status(500).json({ error: error.message });
     }
 };
+
+// Fonction pour vérifier les seuils de stock et envoyer des notifications
+async function checkStockThresholds(product, quantity) {
+    try {
+        const axios = require('axios');
+        
+        let title, message, priority;
+        
+        if (quantity === 0) {
+            title = 'Stock épuisé';
+            message = `Le produit ${product.name} est épuisé (0 unité)`;
+            priority = 5; // Critique
+        } else if (quantity <= 2) {
+            title = 'Stock critique';
+            message = `Le produit ${product.name} est critique (${quantity} unité${quantity > 1 ? 's' : ''})`;
+            priority = 5; // Critique
+        } else if (quantity <= 4) {
+            title = 'Stock faible détecté';
+            message = `Le produit ${product.name} est bas (${quantity} unités)`;
+            priority = 3; // Normal
+        } else {
+            // Pas besoin de notification
+            return;
+        }
+        
+        // Envoyer la notification
+        await axios.post('http://localhost:5000/notification/stock', {
+            title,
+            message,
+            productName: product.name,
+            currentStock: quantity,
+            priority
+        });
+        
+        console.log(`Notification envoyée pour le produit ${product.name} avec quantité ${quantity}`);
+    } catch (error) {
+        console.error('Erreur lors de l\'envoi de la notification:', error);
+        // Ne pas bloquer l'opération principale en cas d'erreur avec les notifications
+    }
+}

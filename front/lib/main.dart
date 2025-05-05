@@ -1,26 +1,35 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
-import 'implementation/notification-imp.dart';
 import 'Login/login_page.dart';
-import 'admin_page/admin_page.dart'; // Updated import
+import 'admin_page/admin_page.dart';
 import 'client_page/notification_page.dart';
+import 'services/notification_service.dart';
+import 'providers/notification_provider.dart';
+
+// Définir l'URL du backend - modifier cette URL selon votre environnement
+// Pour le développement sur émulateur Android, utilisez 10.0.2.2:5000 au lieu de localhost:5000
+// Pour le développement sur appareil physique, utilisez l'IP de votre machine sur le réseau local
+// const String apiBaseUrl = 'http://localhost:5000'; // Fonctionne uniquement sur le web
+const String apiBaseUrl = 'http://10.0.2.2:5000'; // Pour les émulateurs Android
+// const String apiBaseUrl = 'http://[IP_DE_VOTRE_MACHINE]:5000'; // Pour les appareils physiques
+
+// ID de technicien par défaut (sera remplacé par l'ID réel après la connexion)
+const String defaultTechnicianId =
+    '681154075cf30e38df588370'; // ID utilisé dans test-notifications.js
 
 void main() {
-  // Create service and repository
-  final notificationService =
-      NotificationService(baseUrl: 'https://your-api-url.com/api');
-  final notificationRepository = NotificationRepository(notificationService);
+  // Initialiser le service de notification avec l'URL de base de l'API
+  final notificationService = NotificationService(baseUrl: apiBaseUrl);
 
   runApp(
     MultiProvider(
       providers: [
         ChangeNotifierProvider(
           create: (context) => NotificationProvider(
-            repository: notificationRepository,
-            userId: 'current_user_id', // Get the current user ID
+            service: notificationService,
+            userId: defaultTechnicianId, // Utiliser un ID par défaut
           ),
         ),
-        // Add other providers if needed
       ],
       child: MyApp(),
     ),

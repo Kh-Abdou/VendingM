@@ -2,6 +2,8 @@ import 'dart:convert';
 import 'package:http/http.dart' as http;
 import 'package:flutter/material.dart';
 import '../client_page/notification_page.dart';
+import '../services/notification_service.dart';
+import '../providers/notification_provider.dart';
 
 // API service to handle notification endpoints
 class NotificationService {
@@ -85,7 +87,7 @@ class NotificationService {
 class NotificationRepository {
   final NotificationService _service;
 
-  NotificationRepository(this._service);
+  NotificationRepository(this._service, {required String apiUrl});
 
   // Convert backend notification to app's NotificationItem
   NotificationItem _mapToNotificationItem(Map<String, dynamic> data) {
@@ -153,6 +155,7 @@ class NotificationProvider with ChangeNotifier {
   NotificationProvider({
     required NotificationRepository repository,
     required this.userId,
+    required NotificationService service,
   }) : _repository = repository {
     // Initialize by loading notifications
     fetchNotifications();

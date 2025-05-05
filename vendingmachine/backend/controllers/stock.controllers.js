@@ -134,9 +134,10 @@ exports.updateStock = async (req, res) => {
     
     // Mettre à jour lastUpdated et isLowStock
     updatedFields.lastUpdated = Date.now();
-    updatedFields.isLowStock = (quantity !== undefined) 
-      ? quantity <= (threshold !== undefined ? threshold : stock.threshold)
-      : stock.quantity <= (threshold !== undefined ? threshold : stock.threshold);
+    const newThreshold = threshold !== undefined ? threshold : stock.threshold;
+    const newQuantity = quantity !== undefined ? quantity : stock.quantity;
+    const isLowStock = newQuantity <= newThreshold;
+    updatedFields.isLowStock = isLowStock;
     
     const updatedStock = await Stock.findByIdAndUpdate(
       id,
@@ -144,6 +145,50 @@ exports.updateStock = async (req, res) => {
       { new: true, runValidators: true }
     ).populate('product', 'name price image category');
     
+    // Vérifier si le stock est bas et envoyer une notification si nécessaire
+    if (isLowStock) {
+      try {
+        // Créer une notification pour les techniciens
+        const axios = require('axios');
+        
+        let title, message, priority;
+        
+        if (newQuantity <= 2) {
+          title = 'Stock critique';
+          message = `Le produit ${updatedStock.product.name} est critique (${newQuantity} unités) à l'emplacement ${updatedStock.location}`;
+          priority = 5; // Critique
+        } else if (newQuantity <= 4) {
+          title = 'Stock bas';
+          message = `Le produit ${updatedStock.product.name} est bas (${newQuantity} unités) à l'emplacement ${updatedStock.location}`;
+          priority = 3; // Normal
+        } else {
+          // Si on arrive ici, c'est que la quantité est supérieure à 4 mais inférieure au seuil
+          // Dans ce cas, on n'envoie pas de notification
+          console.log('Stock bas mais pas assez pour notification');
+          // Ne pas retourner ici, continuer l'exécution
+        }
+        
+        // Envoyer la notification seulement si un titre a été défini
+        if (title) {
+          await axios.post('http://localhost:5000/notification/stock', {
+            title,
+            message,
+            stockId: updatedStock._id,
+            productName: updatedStock.product.name,
+            quantity: newQuantity,
+            priority,
+            location: updatedStock.location
+          });
+          
+          console.log('Notification de stock envoyée avec succès');
+        }
+      } catch (notificationError) {
+        console.error('Erreur lors de l\'envoi de la notification de stock:', notificationError);
+        // Ne pas échouer toute l'opération à cause d'une erreur de notification
+      }
+    }
+    
+    // Toujours envoyer la réponse, même après notification
     res.status(200).json(updatedStock);
   } catch (error) {
     console.error('Error updating stock:', error);
@@ -222,14 +267,69 @@ exports.adjustStock = async (req, res) => {
       });
     }
     
+    // Récupérer les infos du produit avant mise à jour
+    const stockWithProduct = await Stock.findById(id).populate('product', 'name price image category');
+    
     // Mettre à jour le stock
     stock.quantity = newQuantity;
     stock.lastUpdated = Date.now();
-    stock.isLowStock = newQuantity <= stock.threshold;
+    const isLowStock = newQuantity <= stock.threshold;
+    stock.isLowStock = isLowStock;
     
     await stock.save();
     
     const updatedStock = await Stock.findById(id).populate('product', 'name price image category');
+    
+    // Vérifier si le stock est bas et envoyer une notification si nécessaire
+    if (isLowStock) {
+      try {
+        // Créer une notification pour les techniciens
+        const axios = require('axios');
+        
+        let title, message, priority;
+        
+        if (newQuantity === 0) {
+          title = 'Stock épuisé';
+          message = `Le produit ${stockWithProduct.product.name} est totalement épuisé à l'emplacement ${stockWithProduct.location}`;
+          priority = 5; // Critique
+        } else if (newQuantity <= 2) {
+          title = 'Stock critique';
+          message = `Le produit ${stockWithProduct.product.name} est critique (${newQuantity} unités) à l'emplacement ${stockWithProduct.location}`;
+          priority = 5; // Critique
+        } else if (newQuantity <= 4) {
+          title = 'Stock bas';
+          message = `Le produit ${stockWithProduct.product.name} est bas (${newQuantity} unités) à l'emplacement ${stockWithProduct.location}`;
+          priority = 3; // Normal
+        } else {
+          // Si on arrive ici, c'est que la quantité est supérieure à 4 mais inférieure au seuil
+          // Dans ce cas, on n'envoie pas de notification
+          console.log('Stock bas mais pas assez pour notification');
+          return res.status(200).json({
+            message: `Stock ${adjustment > 0 ? 'augmenté' : 'diminué'} avec succès`,
+            previousQuantity: stock.quantity - adjustment,
+            adjustment,
+            currentQuantity: stock.quantity,
+            reason: reason || 'Non spécifié',
+            stock: updatedStock
+          });
+        }
+        
+        await axios.post('http://localhost:5000/notification/stock', {
+          title,
+          message,
+          stockId: updatedStock._id,
+          productName: stockWithProduct.product.name,
+          quantity: newQuantity,
+          priority,
+          location: stock.location
+        });
+        
+        console.log('Notification de stock envoyée avec succès');
+      } catch (notificationError) {
+        console.error('Erreur lors de l\'envoi de la notification de stock:', notificationError);
+        // Ne pas échouer toute l'opération à cause d'une erreur de notification
+      }
+    }
     
     res.status(200).json({
       message: `Stock ${adjustment > 0 ? 'augmenté' : 'diminué'} avec succès`,

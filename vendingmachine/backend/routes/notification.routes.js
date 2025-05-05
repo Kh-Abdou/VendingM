@@ -6,6 +6,7 @@ const {
   createTransactionNotification,
   createCodeNotification,
   createMaintenanceNotification,
+  createStockNotification,
   updateCodeNotification,
   getUnreadCount,
   deleteOldNotifications
@@ -28,6 +29,9 @@ router.post("/code", createCodeNotification);
 
 // Create maintenance notification
 router.post("/maintenance", createMaintenanceNotification);
+
+// Create stock notification
+router.post("/stock", createStockNotification);
 
 // Update code notification
 router.put("/code", updateCodeNotification);

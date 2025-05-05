@@ -29,6 +29,11 @@ const productSchema = new mongoose.Schema({
     isActive: {
         type: Boolean,
         default: true
+    },
+    chariotId: {
+        type: mongoose.Schema.Types.ObjectId,
+        ref: 'Chariot',
+        default: null
     }
 }, {
     timestamps: true

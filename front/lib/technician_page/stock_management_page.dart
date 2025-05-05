@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:image_picker/image_picker.dart';
 import '../services/product_service.dart';
+import '../services/chariot_service.dart'; // Import du service de gestion des chariots
 import 'dart:io';
 
 class StockManagementPage extends StatefulWidget {
@@ -21,51 +22,27 @@ class StockManagementPage extends StatefulWidget {
 
 class _StockManagementPageState extends State<StockManagementPage> {
   List<Product> _products = [];
-  bool _isLoading = true;
+  List<Chariot> _chariots = [];
+  bool _isLoadingProducts = true;
+  bool _isLoadingChariots = true;
   String _errorMessage = '';
-
-  // Liste des chariots (à terme, cela devrait aussi venir d'une API)
-  final List<Map<String, dynamic>> _chariots = [
-    {
-      'id': '1',
-      'name': 'Chariot 1',
-      'capacity': 10,
-      'currentProducts': 10, // Complet
-      'status': 'Complet',
-    },
-    {
-      'id': '2',
-      'name': 'Chariot 2',
-      'capacity': 10,
-      'currentProducts': 10, // Complet
-      'status': 'Complet',
-    },
-    {
-      'id': '3',
-      'name': 'Chariot 3',
-      'capacity': 10,
-      'currentProducts': 5, // À moitié plein
-      'status': 'Disponible',
-    },
-    {
-      'id': '4',
-      'name': 'Chariot 4',
-      'capacity': 10,
-      'currentProducts': 0, // Vide
-      'status': 'Disponible',
-    },
-  ];
 
   @override
   void initState() {
     super.initState();
-    _loadProducts();
+    _loadData();
+  }
+
+  // Chargement des données (produits et chariots) depuis l'API
+  Future<void> _loadData() async {
+    await _loadProducts();
+    await _loadChariots();
   }
 
   // Chargement des produits depuis l'API
   Future<void> _loadProducts() async {
     setState(() {
-      _isLoading = true;
+      _isLoadingProducts = true;
       _errorMessage = '';
     });
 
@@ -73,15 +50,37 @@ class _StockManagementPageState extends State<StockManagementPage> {
       final products = await ProductService.getProducts();
       setState(() {
         _products = products;
-        _isLoading = false;
+        _isLoadingProducts = false;
       });
     } catch (e) {
       setState(() {
         _errorMessage = 'Erreur lors du chargement des produits: $e';
-        _isLoading = false;
+        _isLoadingProducts = false;
       });
       _showErrorSnackBar(
           'Impossible de charger les produits. Veuillez réessayer.');
+    }
+  }
+
+  // Chargement des chariots depuis l'API
+  Future<void> _loadChariots() async {
+    setState(() {
+      _isLoadingChariots = true;
+    });
+
+    try {
+      final chariots = await ChariotService.getAllChariots();
+      setState(() {
+        _chariots = chariots;
+        _isLoadingChariots = false;
+      });
+    } catch (e) {
+      setState(() {
+        _errorMessage = 'Erreur lors du chargement des chariots: $e';
+        _isLoadingChariots = false;
+      });
+      _showErrorSnackBar(
+          'Impossible de charger les chariots. Veuillez réessayer.');
     }
   }
 
@@ -97,6 +96,8 @@ class _StockManagementPageState extends State<StockManagementPage> {
 
   @override
   Widget build(BuildContext context) {
+    bool isLoading = _isLoadingProducts || _isLoadingChariots;
+
     return Column(
       children: [
         Container(
@@ -117,7 +118,7 @@ class _StockManagementPageState extends State<StockManagementPage> {
                   // Bouton de rafraîchissement
                   IconButton(
                     icon: const Icon(Icons.refresh),
-                    onPressed: _loadProducts,
+                    onPressed: _loadData,
                     tooltip: 'Rafraîchir la liste',
                     color: widget.primaryColor,
                   ),
@@ -148,7 +149,7 @@ class _StockManagementPageState extends State<StockManagementPage> {
           ),
         ),
         Expanded(
-          child: _isLoading
+          child: isLoading
               ? const Center(child: CircularProgressIndicator())
               : _errorMessage.isNotEmpty
                   ? Center(
@@ -162,7 +163,7 @@ class _StockManagementPageState extends State<StockManagementPage> {
                           ),
                           const SizedBox(height: 16),
                           ElevatedButton(
-                            onPressed: _loadProducts,
+                            onPressed: _loadData,
                             child: const Text('Réessayer'),
                             style: ElevatedButton.styleFrom(
                               backgroundColor: widget.buttonColor,
@@ -175,7 +176,7 @@ class _StockManagementPageState extends State<StockManagementPage> {
                   : _products.isEmpty
                       ? const Center(child: Text('Aucun produit disponible'))
                       : RefreshIndicator(
-                          onRefresh: _loadProducts,
+                          onRefresh: _loadData,
                           child: ListView.builder(
                             itemCount: _products.length,
                             itemBuilder: (context, index) {
@@ -281,22 +282,85 @@ class _StockManagementPageState extends State<StockManagementPage> {
   // Récupérer le nom du chariot à partir de son ID
   String _getChariotName(String chariotId) {
     final chariot = _chariots.firstWhere(
-      (c) => c['id'] == chariotId,
-      orElse: () => {'name': 'Chariot inconnu'},
+      (c) => c.id == chariotId,
+      orElse: () => Chariot(
+        name: 'Chariot inconnu',
+        capacity: 0,
+        status: 'Inconnu',
+        currentProducts: [],
+      ),
     );
-    return chariot['name'];
+    return chariot.name;
   }
 
-  void _showAddProductDialog() {
+  // Pour vérifier si un chariot contient déjà un produit d'un type différent
+  bool _isChariotOccupiedWithDifferentProduct(
+      String chariotId, String productName) {
+    // Trouver le chariot par ID
+    final chariot = _chariots.firstWhere(
+      (c) => c.id == chariotId,
+      orElse: () => Chariot(
+        name: 'Chariot inconnu',
+        capacity: 0,
+        status: 'Inconnu',
+        currentProducts: [],
+      ),
+    );
+
+    // Si le chariot est disponible, ou s'il contient déjà le même type de produit, c'est OK
+    return chariot.status != 'Disponible' &&
+        chariot.currentProductType != null &&
+        chariot.currentProductType != productName;
+  }
+
+  // Mettre à jour la liste des chariots disponibles pour un produit spécifique
+  Future<List<Map<String, dynamic>>> _getAvailableChariotsForProduct(
+      String productName) async {
+    try {
+      // Récupérer les chariots disponibles pour ce produit
+      final availableChariots =
+          await ChariotService.getAvailableChariotsForProduct(productName);
+
+      // Convertir en format compatible avec l'interface
+      return availableChariots.map((chariot) {
+        return {
+          'id': chariot.id,
+          'name': chariot.name,
+          'capacity': chariot.capacity,
+          'status': chariot.status,
+          'isAvailable': chariot.status == 'Disponible' ||
+              (chariot.currentProductType == productName &&
+                  chariot.status != 'Complet')
+        };
+      }).toList();
+    } catch (e) {
+      debugPrint('Erreur lors de la récupération des chariots disponibles: $e');
+      // En cas d'erreur, utiliser les données en cache
+      return _chariots.map((chariot) {
+        bool isAvailable = chariot.status == 'Disponible' ||
+            (chariot.currentProductType == productName &&
+                chariot.status != 'Complet');
+        return {
+          'id': chariot.id,
+          'name': chariot.name,
+          'capacity': chariot.capacity,
+          'status': chariot.status,
+          'isAvailable': isAvailable
+        };
+      }).toList();
+    }
+  }
+
+  void _showAddProductDialog() async {
     final nameController = TextEditingController();
     final priceController = TextEditingController();
     final quantityController = TextEditingController();
 
-    // Valeur par défaut pour le chariot (premier chariot disponible)
-    String? selectedChariotId = _chariots
-        .where((c) => c['status'] == 'Disponible')
-        .map((c) => c['id'])
-        .firstOrNull;
+    // Valeur par défaut pour le chariot (aucun sélectionné initialement)
+    String? selectedChariotId;
+    // Liste des chariots disponibles (sera mise à jour quand l'utilisateur entre un nom de produit)
+    List<Map<String, dynamic>> availableChariots =
+        await _getAvailableChariotsForProduct('');
 
     String? selectedImagePath;
 
@@ -318,6 +382,26 @@ class _StockManagementPageState extends State<StockManagementPage> {
                         labelText: 'Nom du produit',
                         border: OutlineInputBorder(),
                       ),
+                      onChanged: (productName) async {
+                        // Mettre à jour la liste des chariots disponibles quand le nom de produit change
+                        final updatedChariots =
+                            await _getAvailableChariotsForProduct(productName);
+                        setState(() {
+                          availableChariots = updatedChariots;
+
+                          // Si le chariot sélectionné n'est plus disponible pour ce produit, réinitialiser la sélection
+                          if (selectedChariotId != null) {
+                            final selectedChariot =
+                                availableChariots.firstWhere(
+                              (c) => c['id'] == selectedChariotId,
+                              orElse: () => {'isAvailable': false},
+                            );
+                            if (!selectedChariot['isAvailable']) {
+                              selectedChariotId = null;
+                            }
+                          }
+                        });
+                      },
                     ),
                     const SizedBox(height: 16),
                     TextField(
@@ -354,9 +438,9 @@ class _StockManagementPageState extends State<StockManagementPage> {
                           isExpanded: true,
                           value: selectedChariotId,
                           hint: const Text('Sélectionner un chariot'),
-                          items: _chariots.map((chariot) {
+                          items: availableChariots.map((chariot) {
                             final bool isAvailable =
-                                chariot['status'] == 'Disponible';
+                                chariot['isAvailable'] ?? false;
                             return DropdownMenuItem<String>(
                               value: chariot['id'],
                               enabled: isAvailable,
@@ -506,8 +590,6 @@ class _StockManagementPageState extends State<StockManagementPage> {
                       name: nameController.text,
                       price: price,
                       quantity: quantity,
-                      // Pour une vraie application, vous devrez implémenter un service
-                      // de téléchargement d'images et utiliser l'URL retournée
                       imageUrl:
                           selectedImagePath ?? 'assets/default_product.png',
                       chariotId: selectedChariotId,
@@ -527,16 +609,43 @@ class _StockManagementPageState extends State<StockManagementPage> {
                       final addedProduct =
                           await ProductService.addProduct(newProduct);
 
+                      // Si l'ajout a réussi et que le produit a un chariot, ajoutons-le au chariot aussi
+                      if (addedProduct.id != null &&
+                          addedProduct.chariotId != null) {
+                        final result = await ChariotService.addProductToChariot(
+                            addedProduct.chariotId!, addedProduct.id!);
+
+                        // Vérifier si l'ajout au chariot a échoué
+                        if (!result['success']) {
+                          // Si l'ajout du produit au chariot a échoué, supprimer le produit
+                          if (addedProduct.id != null) {
+                            await ProductService.deleteProduct(
+                                addedProduct.id!);
+                          }
+
+                          // Fermer le dialogue de chargement
+                          Navigator.pop(context);
+
+                          // Afficher un message d'erreur
+                          ScaffoldMessenger.of(context).hideCurrentSnackBar();
+                          ScaffoldMessenger.of(context).showSnackBar(
+                            SnackBar(
+                              content: Text('Erreur: ${result['message']}'),
+                              backgroundColor: Colors.red,
+                            ),
+                          );
+                          return;
+                        }
+                      }
+
+                      // Recharger les données pour obtenir l'état le plus récent
+                      await _loadData();
+
                       // Fermer le dialogue de chargement
                       Navigator.pop(context);
 
                       // Fermer le dialogue d'ajout
                       Navigator.pop(context);
-
-                      // Mettre à jour la liste des produits
-                      setState(() {
-                        _products.add(addedProduct);
-                      });
 
                       // Afficher un message de succès
                       ScaffoldMessenger.of(context).hideCurrentSnackBar();
@@ -582,13 +691,50 @@ class _StockManagementPageState extends State<StockManagementPage> {
     );
   }
 
-  void _showEditProductDialog(Product product) {
+  void _showEditProductDialog(Product product) async {
     final nameController = TextEditingController(text: product.name);
     final priceController =
         TextEditingController(text: product.price.toString());
     final quantityController =
         TextEditingController(text: product.quantity.toString());
+
+    // Valeur par défaut pour le chariot (celui associé actuellement au produit)
     String? selectedChariotId = product.chariotId;
+
+    // Liste des chariots disponibles pour ce produit
+    List<Map<String, dynamic>> availableChariots =
+        await _getAvailableChariotsForProduct(product.name);
+
+    // Vérifier si le chariot actuel du produit est dans la liste des chariots disponibles
+    // Si non, l'ajouter pour éviter l'erreur de dropdown
+    if (selectedChariotId != null) {
+      bool chariotExists =
+          availableChariots.any((c) => c['id'] == selectedChariotId);
+
+      if (!chariotExists) {
+        // Trouver les informations du chariot actuel
+        final currentChariot = _chariots.firstWhere(
+          (c) => c.id == selectedChariotId,
+          orElse: () => Chariot(
+            id: selectedChariotId,
+            name: 'Chariot actuel',
+            capacity: 0,
+            status: 'Actuel',
+            currentProducts: [],
+          ),
+        );
+
+        // Ajouter le chariot actuel à la liste des chariots disponibles
+        availableChariots.add({
+          'id': currentChariot.id,
+          'name': currentChariot.name,
+          'capacity': currentChariot.capacity,
+          'status': currentChariot.status,
+          'isAvailable':
+              true // Le chariot actuel est toujours disponible pour ce produit
+        });
+      }
+    }
 
     showDialog(
       context: context,
@@ -607,6 +753,53 @@ class _StockManagementPageState extends State<StockManagementPage> {
                         labelText: 'Nom du produit',
                         border: OutlineInputBorder(),
                       ),
+                      onChanged: (productName) async {
+                        // Mettre à jour la liste des chariots disponibles quand le nom de produit change
+                        final updatedChariots =
+                            await _getAvailableChariotsForProduct(productName);
+
+                        // S'assurer que le chariot actuel est toujours inclus
+                        if (product.chariotId != null) {
+                          bool chariotExists = updatedChariots
+                              .any((c) => c['id'] == product.chariotId);
+
+                          if (!chariotExists) {
+                            final currentChariot = _chariots.firstWhere(
+                              (c) => c.id == product.chariotId,
+                              orElse: () => Chariot(
+                                id: product.chariotId,
+                                name: 'Chariot actuel',
+                                capacity: 0,
+                                status: 'Actuel',
+                                currentProducts: [],
+                              ),
+                            );
+
+                            updatedChariots.add({
+                              'id': currentChariot.id,
+                              'name': currentChariot.name,
+                              'capacity': currentChariot.capacity,
+                              'status': currentChariot.status,
+                              'isAvailable':
+                                  true // Le chariot actuel est toujours disponible pour ce produit
+                            });
+                          }
+                        }
+
+                        setState(() {
+                          availableChariots = updatedChariots;
+
+                          // Si le chariot sélectionné n'est pas dans la liste mise à jour,
+                          // revenir au chariot actuel du produit
+                          if (selectedChariotId != null) {
+                            bool selectedExists = availableChariots
+                                .any((c) => c['id'] == selectedChariotId);
+                            if (!selectedExists) {
+                              selectedChariotId = product.chariotId;
+                            }
+                          }
+                        });
+                      },
                     ),
                     const SizedBox(height: 16),
                     TextField(
@@ -643,10 +836,12 @@ class _StockManagementPageState extends State<StockManagementPage> {
                           isExpanded: true,
                           value: selectedChariotId,
                           hint: const Text('Sélectionner un chariot'),
-                          items: _chariots.map((chariot) {
+                          items: availableChariots.map((chariot) {
+                            // Le chariot actuel du produit est toujours disponible, les autres suivent la règle normale
                             final bool isAvailable =
-                                chariot['status'] == 'Disponible' ||
-                                    chariot['id'] == product.chariotId;
+                                chariot['id'] == product.chariotId ||
+                                    chariot['isAvailable'] == true;
+
                             return DropdownMenuItem<String>(
                               value: chariot['id'],
                               enabled: isAvailable,
@@ -672,7 +867,9 @@ class _StockManagementPageState extends State<StockManagementPage> {
                                       borderRadius: BorderRadius.circular(4),
                                     ),
                                     child: Text(
-                                      chariot['status'],
+                                      chariot['id'] == product.chariotId
+                                          ? 'Chariot actuel'
+                                          : chariot['status'],
                                       style: TextStyle(
                                         fontSize: 12,
                                         color: isAvailable
@@ -740,6 +937,19 @@ class _StockManagementPageState extends State<StockManagementPage> {
                         ),
                       );
 
+                      // Vérifier si le chariot a changé
+                      final bool chariotChanged =
+                          product.chariotId != selectedChariotId;
+
+                      // Si le chariot a changé, supprimer le produit de l'ancien chariot et l'ajouter au nouveau
+                      if (chariotChanged) {
+                        // Supprimer de l'ancien chariot si existant
+                        if (product.chariotId != null && product.id != null) {
+                          await ChariotService.removeProductFromChariot(
+                              product.chariotId!, product.id!);
+                        }
+                      }
+
                       // Créer l'objet produit mis à jour
                       final updatedProduct = Product(
                         id: product.id,
@@ -754,20 +964,22 @@ class _StockManagementPageState extends State<StockManagementPage> {
                       final result =
                           await ProductService.updateProduct(updatedProduct);
 
+                      // Si le chariot a changé, ajouter le produit au nouveau chariot
+                      if (chariotChanged &&
+                          result.id != null &&
+                          result.chariotId != null) {
+                        await ChariotService.addProductToChariot(
+                            result.chariotId!, result.id!);
+                      }
+
+                      // Recharger les données pour obtenir l'état le plus récent
+                      await _loadData();
+
                       // Fermer le dialogue de chargement
                       Navigator.pop(context);
 
                       // Fermer le dialogue de modification
                       Navigator.pop(context);
-
-                      // Mettre à jour la liste des produits
-                      setState(() {
-                        final index =
-                            _products.indexWhere((p) => p.id == product.id);
-                        if (index != -1) {
-                          _products[index] = result;
-                        }
-                      });
 
                       ScaffoldMessenger.of(context).showSnackBar(
                         const SnackBar(
@@ -825,10 +1037,10 @@ class _StockManagementPageState extends State<StockManagementPage> {
                 Navigator.pop(context); // Fermer le dialogue de confirmation
 
                 // Afficher un indicateur de chargement
-                showDialog(
+                final loadingDialogContext = await showDialog(
                   context: context,
                   barrierDismissible: false,
-                  builder: (context) => const Center(
+                  builder: (dialogContext) => const Center(
                     child: CircularProgressIndicator(),
                   ),
                 );
@@ -836,7 +1048,8 @@ class _StockManagementPageState extends State<StockManagementPage> {
                 try {
                   // Produit sans ID, message d'erreur
                   if (product.id == null) {
-                    Navigator.pop(context); // Fermer le dialogue de chargement
+                    Navigator.of(loadingDialogContext)
+                        .pop(); // Fermer le dialogue de chargement
                     ScaffoldMessenger.of(context).showSnackBar(
                       const SnackBar(
                         content: Text(
@@ -847,19 +1060,44 @@ class _StockManagementPageState extends State<StockManagementPage> {
                     return;
                   }
 
-                  // Appel API pour supprimer le produit
+                  // Si le produit est associé à un chariot, le retirer d'abord avec timeout
+                  if (product.chariotId != null) {
+                    final removeResult =
+                        await ChariotService.removeProductFromChariot(
+                            product.chariotId!, product.id!);
+
+                    // Si l'opération a échoué sans timeout, afficher l'erreur et arrêter
+                    if (!removeResult['success'] && !removeResult['timeout']) {
+                      Navigator.of(loadingDialogContext).pop();
+                      ScaffoldMessenger.of(context).showSnackBar(
+                        SnackBar(
+                          content: Text('Erreur: ${removeResult['message']}'),
+                          backgroundColor: Colors.red,
+                        ),
+                      );
+                      return;
+                    }
+
+                    // Si timeout mais qu'on continue quand même, informer l'utilisateur
+                    if (removeResult['timeout']) {
+                      debugPrint(
+                          'Timeout lors de la suppression du produit du chariot, on continue...');
+                    }
+                  }
+
+                  // Appel API pour supprimer le produit avec timeout
                   final success =
                       await ProductService.deleteProduct(product.id!);
 
-                  // Fermer le dialogue de chargement
-                  Navigator.pop(context);
+                  // Recharger les données
+                  await _loadData();
+
+                  // Fermer le dialogue de chargement (s'il est encore ouvert)
+                  if (Navigator.canPop(loadingDialogContext)) {
+                    Navigator.of(loadingDialogContext).pop();
+                  }
 
                   if (success) {
-                    // Supprimer le produit de la liste locale
-                    setState(() {
-                      _products.removeWhere((p) => p.id == product.id);
-                    });
-
                     ScaffoldMessenger.of(context).showSnackBar(
                       SnackBar(
                         content: Text('${product.name} supprimé avec succès'),
@@ -876,8 +1114,10 @@ class _StockManagementPageState extends State<StockManagementPage> {
                     );
                   }
                 } catch (e) {
-                  // Fermer le dialogue de chargement
-                  Navigator.pop(context);
+                  // Fermer le dialogue de chargement (s'il est encore ouvert)
+                  if (Navigator.canPop(loadingDialogContext)) {
+                    Navigator.of(loadingDialogContext).pop();
+                  }
 
                   ScaffoldMessenger.of(context).showSnackBar(
                     SnackBar(

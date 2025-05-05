@@ -133,24 +133,28 @@ module.exports.createMaintenanceNotification = async (req, res) => {
   try {
     const { title, message, vendingMachineId, priority, metadata } = req.body;
 
-    // Find technician users
-    const technicians = await UserModel.find({ role: "TECHNICIAN" });
+    // Utiliser "technician" en minuscules pour correspondre à la base de données
+    const technicians = await UserModel.find({ role: "technician" });
 
     if (technicians.length === 0) {
       return res.status(404).json({ message: "No technicians found" });
     }
 
+    // Si un userId spécifique est fourni, utiliser celui-là au lieu d'envoyer à tous les techniciens
     const notifications = [];
+    const targetTechnicians = req.body.userId ? 
+      technicians.filter(tech => tech._id.toString() === req.body.userId) : 
+      technicians;
 
-    // Create a notification for each technician
-    for (const technician of technicians) {
+    // Créer une notification pour chaque technicien
+    for (const technician of targetTechnicians) {
       const notification = new NotificationModel({
         userId: technician._id,
         title,
         message,
         type: "MAINTENANCE",
         vendingMachineId,
-        priority,
+        priority: priority || 3, // Priorité par défaut si non fournie
         metadata,
       });
 
@@ -159,7 +163,66 @@ module.exports.createMaintenanceNotification = async (req, res) => {
     }
 
     res.status(201).json({
-      message: `Notifications sent to ${notifications.length} technicians`,
+      message: `Maintenance notifications sent to ${notifications.length} technicians`,
+      notifications,
+    });
+  } catch (err) {
+    console.error("Error creating maintenance notification:", err);
+    res.status(500).json({ message: err.message });
+  }
+};
+
+// Create a stock notification (for low stock items)
+module.exports.createStockNotification = async (req, res) => {
+  try {
+    const { title, message, stockId, productName, quantity, threshold, priority, location } = req.body;
+
+    // Find technician users who should receive stock notifications
+    const technicians = await UserModel.find({ role: "technician" });
+
+    if (technicians.length === 0) {
+      return res.status(404).json({ message: "No technicians found" });
+    }
+
+    const notifications = [];
+
+    // Determine notification priority based on stock level
+    let stockPriority = priority;
+    if (!stockPriority) {
+      if (quantity === 0) {
+        stockPriority = 5; // Critical - out of stock
+      } else if (quantity <= Math.ceil(threshold / 3)) {
+        stockPriority = 4; // High - very low stock
+      } else if (quantity <= threshold) {
+        stockPriority = 3; // Medium - low stock
+      } else {
+        stockPriority = 2; // Low - normal stock
+      }
+    }
+
+    // Create a notification for each technician
+    for (const technician of technicians) {
+      const notification = new NotificationModel({
+        userId: technician._id,
+        title: title || "Niveau de stock",
+        message: message || `Le produit ${productName} est presque épuisé (${quantity} restants)`,
+        type: "STOCK",
+        priority: stockPriority,
+        metadata: {
+          stockId,
+          quantity,
+          threshold,
+          location,
+          productName
+        }
+      });
+
+      await notification.save();
+      notifications.push(notification);
+    }
+
+    res.status(201).json({
+      message: `Stock notifications sent to ${notifications.length} technicians`,
       notifications,
     });
   } catch (err) {
