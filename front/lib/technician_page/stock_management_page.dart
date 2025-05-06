@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:image_picker/image_picker.dart';
+import 'package:flutter_staggered_animations/flutter_staggered_animations.dart';
 import '../services/product_service.dart';
 import '../services/chariot_service.dart'; // Import du service de gestion des chariots
 import 'dart:io';
@@ -177,120 +178,148 @@ class _StockManagementPageState extends State<StockManagementPage> {
                       ? const Center(child: Text('Aucun produit disponible'))
                       : RefreshIndicator(
                           onRefresh: _loadData,
-                          child: ListView.builder(
-                            itemCount: _products.length,
-                            itemBuilder: (context, index) {
-                              final product = _products[index];
-                              return Card(
-                                margin: const EdgeInsets.symmetric(
-                                  horizontal: 16,
-                                  vertical: 4,
-                                ),
-                                child: ListTile(
-                                  leading: Container(
-                                    width: 50,
-                                    height: 50,
-                                    decoration: BoxDecoration(
-                                      color: Colors.grey.shade200,
-                                      borderRadius: BorderRadius.circular(8),
-                                    ),
-                                    child: product.imageUrl != null &&
-                                            product.imageUrl!.isNotEmpty
-                                        ? product.imageUrl!.startsWith('http')
-                                            ? ClipRRect(
-                                                borderRadius:
-                                                    BorderRadius.circular(8),
-                                                child: Image.network(
-                                                  product.imageUrl!,
-                                                  fit: BoxFit.cover,
-                                                  errorBuilder: (context, error,
-                                                          stackTrace) =>
-                                                      const Icon(Icons.fastfood,
-                                                          size: 30),
-                                                ),
-                                              )
-                                            : product.imageUrl!.startsWith('/')
-                                                ? ClipRRect(
-                                                    borderRadius:
-                                                        BorderRadius.circular(
-                                                            8),
-                                                    child: Image.file(
-                                                      File(product.imageUrl!),
-                                                      fit: BoxFit.cover,
-                                                      errorBuilder: (context,
-                                                              error,
-                                                              stackTrace) =>
-                                                          const Icon(
-                                                              Icons.fastfood,
-                                                              size: 30),
-                                                    ),
-                                                  )
-                                                : ClipRRect(
-                                                    borderRadius:
-                                                        BorderRadius.circular(
-                                                            8),
-                                                    child: Image.asset(
-                                                      product.imageUrl!,
-                                                      fit: BoxFit.cover,
-                                                      errorBuilder: (context,
-                                                              error,
-                                                              stackTrace) =>
-                                                          const Icon(
-                                                              Icons.fastfood,
-                                                              size: 30),
-                                                    ),
-                                                  )
-                                        : const Icon(Icons.fastfood, size: 30),
-                                  ),
-                                  title: Text(product.name),
-                                  subtitle: Column(
-                                    crossAxisAlignment:
-                                        CrossAxisAlignment.start,
-                                    children: [
-                                      Text(
-                                          'Prix: ${product.price} DA • Stock: ${product.quantity}'),
-                                      if (product.chariotId != null)
-                                        Row(
-                                          children: [
-                                            const Icon(Icons.shopping_cart,
-                                                size: 14, color: Colors.grey),
-                                            const SizedBox(width: 4),
-                                            Text(
-                                              _getChariotName(
-                                                  product.chariotId!),
-                                              style: TextStyle(
-                                                fontSize: 12,
-                                                color: Colors.grey[600],
-                                                fontWeight: FontWeight.w500,
-                                              ),
-                                            ),
-                                          ],
+                          child: AnimationLimiter(
+                            child: ListView.builder(
+                              itemCount: _products.length,
+                              itemBuilder: (context, index) {
+                                final product = _products[index];
+                                return AnimationConfiguration.staggeredList(
+                                  position: index,
+                                  duration: const Duration(milliseconds: 375),
+                                  child: SlideAnimation(
+                                    verticalOffset: 50.0,
+                                    child: FadeInAnimation(
+                                      child: Card(
+                                        margin: const EdgeInsets.symmetric(
+                                          horizontal: 16,
+                                          vertical: 4,
                                         ),
-                                    ],
-                                  ),
-                                  trailing: Row(
-                                    mainAxisSize: MainAxisSize.min,
-                                    children: [
-                                      IconButton(
-                                        icon: const Icon(Icons.edit,
-                                            color: Colors.blue),
-                                        onPressed: () {
-                                          _showEditProductDialog(product);
-                                        },
+                                        child: ListTile(
+                                          leading: Container(
+                                            width: 50,
+                                            height: 50,
+                                            decoration: BoxDecoration(
+                                              color: Colors.grey.shade200,
+                                              borderRadius:
+                                                  BorderRadius.circular(8),
+                                            ),
+                                            child: product.imageUrl != null &&
+                                                    product.imageUrl!.isNotEmpty
+                                                ? product.imageUrl!
+                                                        .startsWith('http')
+                                                    ? ClipRRect(
+                                                        borderRadius:
+                                                            BorderRadius
+                                                                .circular(8),
+                                                        child: Image.network(
+                                                          product.imageUrl!,
+                                                          fit: BoxFit.cover,
+                                                          errorBuilder: (context,
+                                                                  error,
+                                                                  stackTrace) =>
+                                                              const Icon(
+                                                                  Icons
+                                                                      .fastfood,
+                                                                  size: 30),
+                                                        ),
+                                                      )
+                                                    : product.imageUrl!
+                                                            .startsWith('/')
+                                                        ? ClipRRect(
+                                                            borderRadius:
+                                                                BorderRadius
+                                                                    .circular(
+                                                                        8),
+                                                            child: Image.file(
+                                                              File(product
+                                                                  .imageUrl!),
+                                                              fit: BoxFit.cover,
+                                                              errorBuilder: (context,
+                                                                      error,
+                                                                      stackTrace) =>
+                                                                  const Icon(
+                                                                      Icons
+                                                                          .fastfood,
+                                                                      size: 30),
+                                                            ),
+                                                          )
+                                                        : ClipRRect(
+                                                            borderRadius:
+                                                                BorderRadius
+                                                                    .circular(
+                                                                        8),
+                                                            child: Image.asset(
+                                                              product.imageUrl!,
+                                                              fit: BoxFit.cover,
+                                                              errorBuilder: (context,
+                                                                      error,
+                                                                      stackTrace) =>
+                                                                  const Icon(
+                                                                      Icons
+                                                                          .fastfood,
+                                                                      size: 30),
+                                                            ),
+                                                          )
+                                                : const Icon(Icons.fastfood,
+                                                    size: 30),
+                                          ),
+                                          title: Text(product.name),
+                                          subtitle: Column(
+                                            crossAxisAlignment:
+                                                CrossAxisAlignment.start,
+                                            children: [
+                                              Text(
+                                                  'Prix: ${product.price} DA • Stock: ${product.quantity}'),
+                                              if (product.chariotId != null)
+                                                Row(
+                                                  children: [
+                                                    const Icon(
+                                                        Icons.shopping_cart,
+                                                        size: 14,
+                                                        color: Colors.grey),
+                                                    const SizedBox(width: 4),
+                                                    Text(
+                                                      _getChariotName(
+                                                          product.chariotId!),
+                                                      style: TextStyle(
+                                                        fontSize: 12,
+                                                        color: Colors.grey[600],
+                                                        fontWeight:
+                                                            FontWeight.w500,
+                                                      ),
+                                                    ),
+                                                  ],
+                                                ),
+                                            ],
+                                          ),
+                                          trailing: Row(
+                                            mainAxisSize: MainAxisSize.min,
+                                            children: [
+                                              IconButton(
+                                                icon: const Icon(Icons.edit,
+                                                    color: Colors.blue),
+                                                onPressed: () {
+                                                  _showEditProductDialog(
+                                                      product);
+                                                },
+                                              ),
+                                              IconButton(
+                                                icon: const Icon(Icons.delete,
+                                                    color: Colors.red),
+                                                onPressed: () {
+                                                  _showDeleteProductConfirmation(
+                                                      product);
+                                                },
+                                              ),
+                                            ],
+                                          ),
+                                        ),
                                       ),
-                                      IconButton(
-                                        icon: const Icon(Icons.delete,
-                                            color: Colors.red),
-                                        onPressed: () {
-                                          _showDeleteProductConfirmation(
-                                              product);
-                                        },
-                                      ),
-                                    ],
+                                    ),
                                   ),
-                                ),
-                              );
-                            },
+                                );
+                              },
+                            ),
                           ),
                         ),
         ),

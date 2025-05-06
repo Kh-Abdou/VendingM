@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_staggered_animations/flutter_staggered_animations.dart';
 import '../models/produit.dart';
 import '../services/produit_service.dart';
 import '../services/order_service.dart'; // Ajout de l'import manquant
@@ -147,18 +148,29 @@ class _ProductsPageState extends State<ProductsPage> {
 
     return RefreshIndicator(
       onRefresh: _fetchProducts,
-      child: GridView.builder(
-        padding: const EdgeInsets.all(10),
-        gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
-          crossAxisCount: 2,
-          childAspectRatio: 0.75,
-          crossAxisSpacing: 10,
-          mainAxisSpacing: 10,
+      child: AnimationLimiter(
+        child: GridView.builder(
+          padding: const EdgeInsets.all(10),
+          gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
+            crossAxisCount: 2,
+            childAspectRatio: 0.75,
+            crossAxisSpacing: 10,
+            mainAxisSpacing: 10,
+          ),
+          itemCount: _produits.length,
+          itemBuilder: (context, index) {
+            return AnimationConfiguration.staggeredGrid(
+              position: index,
+              duration: const Duration(milliseconds: 375),
+              columnCount: 2,
+              child: ScaleAnimation(
+                child: FadeInAnimation(
+                  child: _buildProduitCard(_produits[index]),
+                ),
+              ),
+            );
+          },
         ),
-        itemCount: _produits.length,
-        itemBuilder: (context, index) {
-          return _buildProduitCard(_produits[index]);
-        },
       ),
     );
   }
