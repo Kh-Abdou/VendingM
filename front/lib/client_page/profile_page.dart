@@ -12,14 +12,14 @@ class ProfilePage extends StatefulWidget {
   final bool isInMaintenance;
 
   const ProfilePage({
-    Key? key,
+    super.key,
     required this.userId,
     required this.baseUrl,
     this.userName = '',
     this.userEmail = '',
     this.soldeUtilisateur = 0.0,
     required this.isInMaintenance,
-  }) : super(key: key);
+  });
 
   @override
   _ProfilePageState createState() => _ProfilePageState();
@@ -92,7 +92,7 @@ class _ProfilePageState extends State<ProfilePage> {
   @override
   Widget build(BuildContext context) {
     if (_isLoading) {
-      return Center(
+      return const Center(
         child: CircularProgressIndicator(),
       );
     }
@@ -102,17 +102,17 @@ class _ProfilePageState extends State<ProfilePage> {
         child: Column(
           mainAxisAlignment: MainAxisAlignment.center,
           children: [
-            Icon(Icons.error_outline, color: Colors.red, size: 60),
-            SizedBox(height: 16),
+            const Icon(Icons.error_outline, color: Colors.red, size: 60),
+            const SizedBox(height: 16),
             Text(
               _errorMessage,
-              style: TextStyle(fontSize: 16),
+              style: const TextStyle(fontSize: 16),
               textAlign: TextAlign.center,
             ),
-            SizedBox(height: 16),
+            const SizedBox(height: 16),
             ElevatedButton(
               onPressed: _fetchUserData,
-              child: Text('Réessayer'),
+              child: const Text('Réessayer'),
             ),
           ],
         ),
@@ -120,7 +120,7 @@ class _ProfilePageState extends State<ProfilePage> {
     }
 
     return SingleChildScrollView(
-      padding: EdgeInsets.all(20),
+      padding: const EdgeInsets.all(20),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
@@ -138,10 +138,10 @@ class _ProfilePageState extends State<ProfilePage> {
                     color: Theme.of(context).primaryColor,
                   ),
                 ),
-                SizedBox(height: 16),
+                const SizedBox(height: 16),
                 Text(
                   _userName,
-                  style: TextStyle(
+                  style: const TextStyle(
                     fontSize: 24,
                     fontWeight: FontWeight.bold,
                   ),
@@ -157,24 +157,24 @@ class _ProfilePageState extends State<ProfilePage> {
             ),
           ),
 
-          SizedBox(height: 30),
+          const SizedBox(height: 30),
 
           // Account details section
-          Text(
+          const Text(
             'Informations du compte',
             style: TextStyle(
               fontSize: 18,
               fontWeight: FontWeight.bold,
             ),
           ),
-          SizedBox(height: 15),
+          const SizedBox(height: 15),
 
           Card(
             shape: RoundedRectangleBorder(
               borderRadius: BorderRadius.circular(15),
             ),
             child: Padding(
-              padding: EdgeInsets.all(16),
+              padding: const EdgeInsets.all(16),
               child: Column(
                 children: [
                   // Solde row
@@ -183,17 +183,17 @@ class _ProfilePageState extends State<ProfilePage> {
                       Icons.account_balance_wallet,
                       color: Theme.of(context).primaryColor,
                     ),
-                    title: Text('Solde'),
+                    title: const Text('Solde'),
                     trailing: Text(
                       '${_userBalance.toStringAsFixed(2)} DA',
-                      style: TextStyle(
+                      style: const TextStyle(
                         fontWeight: FontWeight.bold,
                         fontSize: 18,
                         color: Colors.green,
                       ),
                     ),
                   ),
-                  Divider(),
+                  const Divider(),
 
                   // Email row
                   ListTile(
@@ -201,10 +201,10 @@ class _ProfilePageState extends State<ProfilePage> {
                       Icons.email,
                       color: Theme.of(context).primaryColor,
                     ),
-                    title: Text('Email'),
+                    title: const Text('Email'),
                     subtitle: Text(_userEmail),
                   ),
-                  Divider(),
+                  const Divider(),
 
                   // Password row (masked)
                   ListTile(
@@ -212,10 +212,10 @@ class _ProfilePageState extends State<ProfilePage> {
                       Icons.lock,
                       color: Theme.of(context).primaryColor,
                     ),
-                    title: Text('Mot de passe'),
-                    subtitle: Text('••••••••'),
+                    title: const Text('Mot de passe'),
+                    subtitle: const Text('••••••••'),
                     trailing: IconButton(
-                      icon: Icon(Icons.edit),
+                      icon: const Icon(Icons.edit),
                       onPressed: () {
                         // Implement password change functionality
                         _showChangePasswordDialog();
@@ -227,40 +227,40 @@ class _ProfilePageState extends State<ProfilePage> {
             ),
           ),
 
-          SizedBox(height: 30),
+          const SizedBox(height: 30),
 
           // Actions section
-          Text(
+          const Text(
             'Actions',
             style: TextStyle(
               fontSize: 18,
               fontWeight: FontWeight.bold,
             ),
           ),
-          SizedBox(height: 15),
+          const SizedBox(height: 15),
 
           Card(
             shape: RoundedRectangleBorder(
               borderRadius: BorderRadius.circular(15),
             ),
             child: Padding(
-              padding: EdgeInsets.all(16),
+              padding: const EdgeInsets.all(16),
               child: Column(
                 children: [
                   // Support button
                   ListTile(
-                    leading: Icon(
+                    leading: const Icon(
                       Icons.support_agent,
                       color: Colors.blue,
                     ),
-                    title: Text('Support'),
-                    subtitle: Text('Besoin d\'aide ? Contactez-nous'),
-                    trailing: Icon(Icons.chevron_right),
+                    title: const Text('Support'),
+                    subtitle: const Text('Besoin d\'aide ? Contactez-nous'),
+                    trailing: const Icon(Icons.chevron_right),
                     onTap: () {
                       _showSupportDialog();
                     },
                   ),
-                  Divider(),
+                  const Divider(),
 
                   // Status of the distributor
                   ListTile(
@@ -271,25 +271,25 @@ class _ProfilePageState extends State<ProfilePage> {
                       color:
                           widget.isInMaintenance ? Colors.amber : Colors.green,
                     ),
-                    title: Text('Statut du distributeur'),
+                    title: const Text('Statut du distributeur'),
                     subtitle: Text(
                       widget.isInMaintenance ? 'En maintenance' : 'Disponible',
                     ),
-                    trailing: Icon(Icons.chevron_right),
+                    trailing: const Icon(Icons.chevron_right),
                     onTap: () {
                       _showStatusDialog();
                     },
                   ),
-                  Divider(),
+                  const Divider(),
 
                   // Logout button
                   ListTile(
-                    leading: Icon(
+                    leading: const Icon(
                       Icons.logout,
                       color: Colors.red,
                     ),
-                    title: Text('Se déconnecter'),
-                    trailing: Icon(Icons.chevron_right),
+                    title: const Text('Se déconnecter'),
+                    trailing: const Icon(Icons.chevron_right),
                     onTap: () {
                       _confirmLogout();
                     },
@@ -308,62 +308,62 @@ class _ProfilePageState extends State<ProfilePage> {
     TextEditingController currentPasswordController = TextEditingController();
     TextEditingController newPasswordController = TextEditingController();
     TextEditingController confirmPasswordController = TextEditingController();
-    bool _isUpdating = false;
-    String _passwordError = '';
+    bool isUpdating = false;
+    String passwordError = '';
 
     showDialog(
       context: context,
       builder: (BuildContext context) {
         return StatefulBuilder(builder: (context, setState) {
           return AlertDialog(
-            title: Text('Changer le mot de passe'),
+            title: const Text('Changer le mot de passe'),
             content: SingleChildScrollView(
               child: Column(
                 mainAxisSize: MainAxisSize.min,
                 children: [
-                  if (_passwordError.isNotEmpty)
+                  if (passwordError.isNotEmpty)
                     Container(
-                      padding: EdgeInsets.all(8),
+                      padding: const EdgeInsets.all(8),
                       color: Colors.red.shade50,
                       width: double.infinity,
                       child: Text(
-                        _passwordError,
-                        style: TextStyle(
+                        passwordError,
+                        style: const TextStyle(
                           color: Colors.red,
                         ),
                       ),
                     ),
-                  SizedBox(height: 16),
+                  const SizedBox(height: 16),
                   TextField(
                     controller: currentPasswordController,
                     obscureText: true,
-                    decoration: InputDecoration(
+                    decoration: const InputDecoration(
                       labelText: 'Mot de passe actuel',
                       border: OutlineInputBorder(),
                     ),
                   ),
-                  SizedBox(height: 16),
+                  const SizedBox(height: 16),
                   TextField(
                     controller: newPasswordController,
                     obscureText: true,
-                    decoration: InputDecoration(
+                    decoration: const InputDecoration(
                       labelText: 'Nouveau mot de passe',
                       border: OutlineInputBorder(),
                       helperText: 'Minimum 6 caractères',
                     ),
                   ),
-                  SizedBox(height: 16),
+                  const SizedBox(height: 16),
                   TextField(
                     controller: confirmPasswordController,
                     obscureText: true,
-                    decoration: InputDecoration(
+                    decoration: const InputDecoration(
                       labelText: 'Confirmer le mot de passe',
                       border: OutlineInputBorder(),
                     ),
                   ),
-                  if (_isUpdating)
-                    Padding(
-                      padding: const EdgeInsets.only(top: 16.0),
+                  if (isUpdating)
+                    const Padding(
+                      padding: EdgeInsets.only(top: 16.0),
                       child: CircularProgressIndicator(),
                     ),
                 ],
@@ -371,16 +371,15 @@ class _ProfilePageState extends State<ProfilePage> {
             ),
             actions: [
               TextButton(
-                child: Text('Annuler'),
-                onPressed: _isUpdating
+                onPressed: isUpdating
                     ? null
                     : () {
                         Navigator.of(context).pop();
                       },
+                child: Text('Annuler'),
               ),
               ElevatedButton(
-                child: Text('Enregistrer'),
-                onPressed: _isUpdating
+                onPressed: isUpdating
                     ? null
                     : () async {
                         // Validation
@@ -388,7 +387,7 @@ class _ProfilePageState extends State<ProfilePage> {
                             newPasswordController.text.isEmpty ||
                             confirmPasswordController.text.isEmpty) {
                           setState(() {
-                            _passwordError =
+                            passwordError =
                                 'Tous les champs sont obligatoires';
                           });
                           return;
@@ -396,7 +395,7 @@ class _ProfilePageState extends State<ProfilePage> {
 
                         if (newPasswordController.text.length < 6) {
                           setState(() {
-                            _passwordError =
+                            passwordError =
                                 'Le mot de passe doit contenir au moins 6 caractères';
                           });
                           return;
@@ -405,15 +404,15 @@ class _ProfilePageState extends State<ProfilePage> {
                         if (newPasswordController.text !=
                             confirmPasswordController.text) {
                           setState(() {
-                            _passwordError =
+                            passwordError =
                                 'Les mots de passe ne correspondent pas';
                           });
                           return;
                         }
 
                         setState(() {
-                          _isUpdating = true;
-                          _passwordError = '';
+                          isUpdating = true;
+                          passwordError = '';
                         });
 
                         try {
@@ -427,7 +426,7 @@ class _ProfilePageState extends State<ProfilePage> {
 
                           if (success) {
                             ScaffoldMessenger.of(context).showSnackBar(
-                              SnackBar(
+                              const SnackBar(
                                 content:
                                     Text('Mot de passe modifié avec succès'),
                                 backgroundColor: Colors.green,
@@ -435,7 +434,7 @@ class _ProfilePageState extends State<ProfilePage> {
                             );
                           } else {
                             ScaffoldMessenger.of(context).showSnackBar(
-                              SnackBar(
+                              const SnackBar(
                                 content: Text(
                                     'Échec de la mise à jour du mot de passe'),
                                 backgroundColor: Colors.red,
@@ -444,12 +443,13 @@ class _ProfilePageState extends State<ProfilePage> {
                           }
                         } catch (e) {
                           setState(() {
-                            _isUpdating = false;
-                            _passwordError =
+                            isUpdating = false;
+                            passwordError =
                                 e.toString().replaceAll('Exception: ', '');
                           });
                         }
                       },
+                child: Text('Enregistrer'),
               ),
             ],
           );
@@ -463,17 +463,17 @@ class _ProfilePageState extends State<ProfilePage> {
       context: context,
       builder: (BuildContext context) {
         return AlertDialog(
-          title: Text('Se déconnecter'),
-          content: Text('Êtes-vous sûr de vouloir vous déconnecter ?'),
+          title: const Text('Se déconnecter'),
+          content: const Text('Êtes-vous sûr de vouloir vous déconnecter ?'),
           actions: [
             TextButton(
-              child: Text('Annuler'),
+              child: const Text('Annuler'),
               onPressed: () {
                 Navigator.of(context).pop();
               },
             ),
             ElevatedButton(
-              child: Text('Déconnecter'),
+              child: const Text('Déconnecter'),
               onPressed: () {
                 Navigator.of(context).pop();
                 // Navigate to login page
@@ -501,11 +501,11 @@ class _ProfilePageState extends State<ProfilePage> {
                 color: Theme.of(context).primaryColor,
                 size: 28,
               ),
-              SizedBox(width: 10),
-              Text('Assistance'),
+              const SizedBox(width: 10),
+              const Text('Assistance'),
             ],
           ),
-          content: Column(
+          content: const Column(
             mainAxisSize: MainAxisSize.min,
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
@@ -562,7 +562,7 @@ class _ProfilePageState extends State<ProfilePage> {
           ),
           actions: [
             ElevatedButton(
-              child: Text('Fermer'),
+              child: const Text('Fermer'),
               onPressed: () {
                 Navigator.of(context).pop();
               },
@@ -578,7 +578,7 @@ class _ProfilePageState extends State<ProfilePage> {
       context: context,
       builder: (BuildContext context) {
         return AlertDialog(
-          title: Text('Statut du Distributeur'),
+          title: const Text('Statut du Distributeur'),
           content: Column(
             mainAxisSize: MainAxisSize.min,
             crossAxisAlignment: CrossAxisAlignment.start,
@@ -589,23 +589,23 @@ class _ProfilePageState extends State<ProfilePage> {
                     widget.isInMaintenance ? Icons.warning : Icons.check_circle,
                     color: widget.isInMaintenance ? Colors.amber : Colors.green,
                   ),
-                  SizedBox(width: 10),
+                  const SizedBox(width: 10),
                   Text(
                     widget.isInMaintenance ? 'En maintenance' : 'Disponible',
-                    style: TextStyle(
+                    style: const TextStyle(
                       fontWeight: FontWeight.bold,
                     ),
                   ),
                 ],
               ),
-              SizedBox(height: 15),
-              Text('ID Distributeur: DIS-42501'),
-              Text('Dernière mise à jour: 16/03/2025'),
+              const SizedBox(height: 15),
+              const Text('ID Distributeur: DIS-42501'),
+              const Text('Dernière mise à jour: 16/03/2025'),
             ],
           ),
           actions: [
             TextButton(
-              child: Text('Fermer'),
+              child: const Text('Fermer'),
               onPressed: () {
                 Navigator.of(context).pop();
               },

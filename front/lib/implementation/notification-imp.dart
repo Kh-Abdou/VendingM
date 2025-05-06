@@ -2,8 +2,6 @@ import 'dart:convert';
 import 'package:http/http.dart' as http;
 import 'package:flutter/material.dart';
 import '../models/notification.dart' as notification_model;
-import '../services/notification_service.dart' as existing_service;
-import '../providers/notification_provider.dart' as existing_provider;
 
 // API service to handle notification endpoints
 class NotificationService {

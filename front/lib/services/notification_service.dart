@@ -27,7 +27,7 @@ class NotificationService {
       if (status != null) queryParams['status'] = status;
 
       if (queryParams.isNotEmpty) {
-        url += '?' + Uri(queryParameters: queryParams).query;
+        url += '?${Uri(queryParameters: queryParams).query}';
       }
 
       print('🔗 URL complète: $url');

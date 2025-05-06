@@ -8,6 +8,8 @@ import '../implementation/login-imp.dart'; // Import AuthService
 import '../providers/user_provider.dart'; // Import UserProvider
 
 class LoginPage extends StatefulWidget {
+  const LoginPage({super.key});
+
   @override
   _LoginPageState createState() => _LoginPageState();
 }
@@ -23,7 +25,7 @@ class _LoginPageState extends State<LoginPage> {
   Widget build(BuildContext context) {
     return Scaffold(
       body: Container(
-        decoration: BoxDecoration(
+        decoration: const BoxDecoration(
           gradient: LinearGradient(
             begin: Alignment.topCenter,
             end: Alignment.bottomCenter,
@@ -56,7 +58,7 @@ class _LoginPageState extends State<LoginPage> {
                           color: Theme.of(context).primaryColor,
                         ),
                         const SizedBox(height: 20),
-                        Text(
+                        const Text(
                           'Connectez-vous',
                           style: TextStyle(
                             fontSize: 24,
@@ -249,16 +251,16 @@ class _LoginPageState extends State<LoginPage> {
         return StatefulBuilder(
           builder: (context, setState) {
             return AlertDialog(
-              title: Text('Réinitialisation du mot de passe'),
+              title: const Text('Réinitialisation du mot de passe'),
               content: SingleChildScrollView(
                 child: Column(
                   mainAxisSize: MainAxisSize.min,
                   children: [
-                    Text(
+                    const Text(
                       'Veuillez entrer votre adresse email pour recevoir un lien de réinitialisation de mot de passe.',
                       style: TextStyle(fontSize: 14),
                     ),
-                    SizedBox(height: 20),
+                    const SizedBox(height: 20),
                     if (errorMessage != null)
                       Container(
                         padding: const EdgeInsets.all(8),
@@ -304,7 +306,7 @@ class _LoginPageState extends State<LoginPage> {
                   onPressed: () {
                     Navigator.of(context).pop();
                   },
-                  child: Text('Annuler'),
+                  child: const Text('Annuler'),
                 ),
                 ElevatedButton(
                   onPressed: isLoading
@@ -335,7 +337,7 @@ class _LoginPageState extends State<LoginPage> {
                           });
 
                           // Simulate API call delay
-                          await Future.delayed(Duration(seconds: 2));
+                          await Future.delayed(const Duration(seconds: 2));
 
                           // Close the dialog
                           Navigator.pop(context);
@@ -347,12 +349,12 @@ class _LoginPageState extends State<LoginPage> {
                                 'Un lien de réinitialisation a été envoyé à $email si ce compte existe.',
                               ),
                               backgroundColor: Colors.green,
-                              duration: Duration(seconds: 5),
+                              duration: const Duration(seconds: 5),
                             ),
                           );
                         },
                   child: isLoading
-                      ? SizedBox(
+                      ? const SizedBox(
                           height: 20,
                           width: 20,
                           child: CircularProgressIndicator(
@@ -360,7 +362,7 @@ class _LoginPageState extends State<LoginPage> {
                             strokeWidth: 2,
                           ),
                         )
-                      : Text('Envoyer'),
+                      : const Text('Envoyer'),
                 ),
               ],
             );

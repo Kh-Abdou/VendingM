@@ -37,7 +37,7 @@ class ClientService {
       }
     } catch (e) {
       print('Error in rechargeClientBalance: $e');
-      throw e;
+      rethrow;
     }
   }
 }

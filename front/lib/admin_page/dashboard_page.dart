@@ -51,7 +51,7 @@ class DashboardPage extends StatelessWidget {
     },
   ];
 
-  DashboardPage({Key? key}) : super(key: key);
+  DashboardPage({super.key});
 
   @override
   Widget build(BuildContext context) {

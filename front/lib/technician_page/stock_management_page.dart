@@ -10,11 +10,11 @@ class StockManagementPage extends StatefulWidget {
   final Color buttonTextColor;
 
   const StockManagementPage({
-    Key? key,
+    super.key,
     required this.primaryColor,
     required this.buttonColor,
     required this.buttonTextColor,
-  }) : super(key: key);
+  });
 
   @override
   _StockManagementPageState createState() => _StockManagementPageState();
@@ -164,11 +164,11 @@ class _StockManagementPageState extends State<StockManagementPage> {
                           const SizedBox(height: 16),
                           ElevatedButton(
                             onPressed: _loadData,
-                            child: const Text('Réessayer'),
                             style: ElevatedButton.styleFrom(
                               backgroundColor: widget.buttonColor,
                               foregroundColor: Colors.white,
                             ),
+                            child: const Text('Réessayer'),
                           ),
                         ],
                       ),

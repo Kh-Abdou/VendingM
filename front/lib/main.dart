@@ -58,6 +58,8 @@ void main() {
 }
 
 class MyApp extends StatelessWidget {
+  const MyApp({super.key});
+
   @override
   Widget build(BuildContext context) {
     return MaterialApp(
@@ -65,17 +67,16 @@ class MyApp extends StatelessWidget {
       title: 'Distributeur Automatique',
       theme: ThemeData(
         primarySwatch: Colors.deepPurple,
-        primaryColor: Color(0xFF6B2FEB),
-        colorScheme: ColorScheme.light(
+        primaryColor: const Color(0xFF6B2FEB),
+        colorScheme: const ColorScheme.light(
           primary: Color(0xFF6B2FEB),
           secondary: Color(0xFF9C27B0),
           surface: Color(0xFFF8F9FA),
-          background: Color(0xFFF8F9FA),
           onPrimary: Colors.white,
         ),
         brightness: Brightness.light,
         fontFamily: 'Roboto',
-        appBarTheme: AppBarTheme(
+        appBarTheme: const AppBarTheme(
           elevation: 0,
           centerTitle: true,
           backgroundColor: Color(0xFF6B2FEB),
@@ -94,24 +95,23 @@ class MyApp extends StatelessWidget {
             shape: RoundedRectangleBorder(
               borderRadius: BorderRadius.circular(15),
             ),
-            padding: EdgeInsets.symmetric(vertical: 15),
+            padding: const EdgeInsets.symmetric(vertical: 15),
           ),
         ),
       ),
       darkTheme: ThemeData(
         primarySwatch: Colors.deepPurple,
-        primaryColor: Color(0xFF6B2FEB),
-        colorScheme: ColorScheme.dark(
+        primaryColor: const Color(0xFF6B2FEB),
+        colorScheme: const ColorScheme.dark(
           primary: Color(0xFF6B2FEB),
           secondary: Color(0xFF9C27B0),
           surface: Color(0xFF1E1E1E),
-          background: Color(0xFF121212),
           onPrimary: Colors.white,
         ),
         brightness: Brightness.dark,
         fontFamily: 'Roboto',
-        scaffoldBackgroundColor: Color(0xFF121212),
-        appBarTheme: AppBarTheme(
+        scaffoldBackgroundColor: const Color(0xFF121212),
+        appBarTheme: const AppBarTheme(
           elevation: 0,
           centerTitle: true,
           backgroundColor: Color(0xFF1E1E1E),
@@ -134,6 +134,8 @@ class MyApp extends StatelessWidget {
 }
 
 class HomePage extends StatefulWidget {
+  const HomePage({super.key});
+
   @override
   _HomePageState createState() => _HomePageState();
 }
@@ -227,7 +229,7 @@ class _HomePageState extends State<HomePage> {
           Stack(
             children: [
               IconButton(
-                icon: Icon(Icons.shopping_cart),
+                icon: const Icon(Icons.shopping_cart),
                 onPressed: () => _showPanier(),
               ),
               if (panier.isNotEmpty)
@@ -235,14 +237,14 @@ class _HomePageState extends State<HomePage> {
                   right: 5,
                   top: 5,
                   child: Container(
-                    padding: EdgeInsets.all(4),
+                    padding: const EdgeInsets.all(4),
                     decoration: BoxDecoration(
                       color: Theme.of(context).colorScheme.secondary,
                       shape: BoxShape.circle,
                     ),
                     child: Text(
                       '${panier.length}',
-                      style: TextStyle(
+                      style: const TextStyle(
                         color: Colors.white,
                         fontSize: 12,
                         fontWeight: FontWeight.bold,
@@ -252,7 +254,7 @@ class _HomePageState extends State<HomePage> {
                 ),
             ],
           ),
-          SizedBox(width: 8),
+          const SizedBox(width: 8),
         ],
       ),
       body: _getBody(),
@@ -260,27 +262,27 @@ class _HomePageState extends State<HomePage> {
         currentIndex: _selectedIndex,
         onTap: _onItemTapped,
         items: [
-          BottomNavigationBarItem(
+          const BottomNavigationBarItem(
             icon: Icon(Icons.store),
             label: 'Produits',
           ),
           BottomNavigationBarItem(
             icon: Stack(
               children: [
-                Icon(Icons.notifications),
+                const Icon(Icons.notifications),
                 if (unreadNotificationsCount > 0)
                   Positioned(
                     right: 0,
                     top: 0,
                     child: Container(
-                      padding: EdgeInsets.all(4),
-                      decoration: BoxDecoration(
+                      padding: const EdgeInsets.all(4),
+                      decoration: const BoxDecoration(
                         color: Colors.red,
                         shape: BoxShape.circle,
                       ),
                       child: Text(
                         '$unreadNotificationsCount',
-                        style: TextStyle(
+                        style: const TextStyle(
                           color: Colors.white,
                           fontSize: 10,
                           fontWeight: FontWeight.bold,
@@ -292,7 +294,7 @@ class _HomePageState extends State<HomePage> {
             ),
             label: 'Notifications',
           ),
-          BottomNavigationBarItem(
+          const BottomNavigationBarItem(
             icon: Icon(Icons.person),
             label: 'Profil',
           ),
@@ -370,7 +372,7 @@ class _HomePageState extends State<HomePage> {
     ScaffoldMessenger.of(context).showSnackBar(
       SnackBar(
         content: Text('${produit.nom} ajouté au panier'),
-        duration: Duration(seconds: 1),
+        duration: const Duration(seconds: 1),
         action: SnackBarAction(
           label: 'Voir',
           textColor: Colors.white, // Ensuring text is visible
@@ -380,7 +382,7 @@ class _HomePageState extends State<HomePage> {
         ),
         behavior:
             SnackBarBehavior.floating, // Makes SnackBar float and more visible
-        margin: EdgeInsets.all(10),
+        margin: const EdgeInsets.all(10),
       ),
     );
   }
@@ -388,7 +390,7 @@ class _HomePageState extends State<HomePage> {
   void _showPanier() {
     if (panier.isEmpty) {
       ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
+        const SnackBar(
           content: Text('Votre panier est vide'),
         ),
       );
@@ -398,7 +400,7 @@ class _HomePageState extends State<HomePage> {
     showModalBottomSheet(
       context: context,
       isScrollControlled: true,
-      shape: RoundedRectangleBorder(
+      shape: const RoundedRectangleBorder(
         borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
       ),
       builder: (context) {
@@ -410,7 +412,7 @@ class _HomePageState extends State<HomePage> {
             }
 
             return Container(
-              padding: EdgeInsets.all(20),
+              padding: const EdgeInsets.all(20),
               height: MediaQuery.of(context).size.height * 0.7,
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
@@ -418,7 +420,7 @@ class _HomePageState extends State<HomePage> {
                   Row(
                     mainAxisAlignment: MainAxisAlignment.spaceBetween,
                     children: [
-                      Text(
+                      const Text(
                         'Votre Panier',
                         style: TextStyle(
                           fontSize: 24,
@@ -434,7 +436,7 @@ class _HomePageState extends State<HomePage> {
                       ),
                     ],
                   ),
-                  SizedBox(height: 20),
+                  const SizedBox(height: 20),
                   Expanded(
                     child: ListView.builder(
                       itemCount: panier.length,
@@ -444,7 +446,7 @@ class _HomePageState extends State<HomePage> {
                         final subtotal = produit.prix * item.quantite;
 
                         return Card(
-                          margin: EdgeInsets.only(bottom: 10),
+                          margin: const EdgeInsets.only(bottom: 10),
                           elevation: 2,
                           shape: RoundedRectangleBorder(
                             borderRadius: BorderRadius.circular(12),
@@ -461,7 +463,7 @@ class _HomePageState extends State<HomePage> {
                                     Expanded(
                                       child: Text(
                                         produit.nom,
-                                        style: TextStyle(
+                                        style: const TextStyle(
                                           fontWeight: FontWeight.bold,
                                           fontSize: 16,
                                         ),
@@ -482,7 +484,7 @@ class _HomePageState extends State<HomePage> {
                                     ),
                                   ],
                                 ),
-                                SizedBox(height: 8),
+                                const SizedBox(height: 8),
                                 Row(
                                   mainAxisAlignment:
                                       MainAxisAlignment.spaceBetween,
@@ -502,7 +504,7 @@ class _HomePageState extends State<HomePage> {
                                     ),
                                   ],
                                 ),
-                                SizedBox(height: 8),
+                                const SizedBox(height: 8),
                                 Row(
                                   mainAxisSize: MainAxisSize.min,
                                   mainAxisAlignment: MainAxisAlignment.start,
@@ -515,7 +517,7 @@ class _HomePageState extends State<HomePage> {
                                       child: Row(
                                         children: [
                                           IconButton(
-                                            icon: Icon(Icons.remove, size: 18),
+                                            icon: const Icon(Icons.remove, size: 18),
                                             onPressed: () {
                                               setState(() {
                                                 if (item.quantite > 1) {
@@ -529,18 +531,18 @@ class _HomePageState extends State<HomePage> {
                                             },
                                           ),
                                           Container(
-                                            padding: EdgeInsets.symmetric(
+                                            padding: const EdgeInsets.symmetric(
                                                 horizontal: 10),
                                             child: Text(
                                               '${item.quantite}',
-                                              style: TextStyle(
+                                              style: const TextStyle(
                                                 fontSize: 16,
                                                 fontWeight: FontWeight.bold,
                                               ),
                                             ),
                                           ),
                                           IconButton(
-                                            icon: Icon(Icons.add, size: 18),
+                                            icon: const Icon(Icons.add, size: 18),
                                             onPressed: () {
                                               setState(() {
                                                 item.quantite++;
@@ -561,9 +563,9 @@ class _HomePageState extends State<HomePage> {
                       },
                     ),
                   ),
-                  Divider(thickness: 1),
+                  const Divider(thickness: 1),
                   Container(
-                    padding: EdgeInsets.symmetric(vertical: 16),
+                    padding: const EdgeInsets.symmetric(vertical: 16),
                     decoration: BoxDecoration(
                       color: Colors.grey[50],
                       borderRadius: BorderRadius.circular(8),
@@ -572,11 +574,11 @@ class _HomePageState extends State<HomePage> {
                       children: [
                         Padding(
                           padding:
-                              EdgeInsets.symmetric(horizontal: 16, vertical: 4),
+                              const EdgeInsets.symmetric(horizontal: 16, vertical: 4),
                           child: Row(
                             mainAxisAlignment: MainAxisAlignment.spaceBetween,
                             children: [
-                              Text(
+                              const Text(
                                 'Total:',
                                 style: TextStyle(
                                   fontSize: 18,
@@ -597,15 +599,15 @@ class _HomePageState extends State<HomePage> {
                       ],
                     ),
                   ),
-                  SizedBox(height: 20),
+                  const SizedBox(height: 20),
                   Row(
                     children: [
                       Expanded(
                         child: OutlinedButton(
                           style: OutlinedButton.styleFrom(
-                            padding: EdgeInsets.symmetric(vertical: 15),
+                            padding: const EdgeInsets.symmetric(vertical: 15),
                           ),
-                          child: Text('Vider le panier'),
+                          child: const Text('Vider le panier'),
                           onPressed: () {
                             setState(() {
                               panier.clear();
@@ -616,13 +618,13 @@ class _HomePageState extends State<HomePage> {
                           },
                         ),
                       ),
-                      SizedBox(width: 10),
+                      const SizedBox(width: 10),
                       Expanded(
                         child: ElevatedButton(
                           style: ElevatedButton.styleFrom(
-                            padding: EdgeInsets.symmetric(vertical: 15),
+                            padding: const EdgeInsets.symmetric(vertical: 15),
                           ),
-                          child: Text('Commander'),
+                          child: const Text('Commander'),
                           onPressed: () {
                             Navigator.pop(context);
                             _finaliserCommande();
@@ -647,13 +649,13 @@ class _HomePageState extends State<HomePage> {
         context: context,
         builder: (BuildContext context) {
           return AlertDialog(
-            title: Text('Choisir une option'),
+            title: const Text('Choisir une option'),
             content: Column(
               mainAxisSize: MainAxisSize.min,
               children: [
                 ListTile(
-                  leading: Icon(Icons.wallet, color: Colors.green),
-                  title: Text('Payer avec E-wallet'),
+                  leading: const Icon(Icons.wallet, color: Colors.green),
+                  title: const Text('Payer avec E-wallet'),
                   subtitle: Text(
                       'Utiliser votre solde (${Provider.of<UserProvider>(context, listen: false).userBalance.toStringAsFixed(2)} DA)'),
                   onTap: () {
@@ -667,12 +669,12 @@ class _HomePageState extends State<HomePage> {
                     }
                   },
                 ),
-                Divider(),
+                const Divider(),
                 ListTile(
                   leading: Icon(Icons.qr_code,
                       color: Theme.of(context).primaryColor),
-                  title: Text('Générer un code'),
-                  subtitle: Text('Pour payer directement au distributeur'),
+                  title: const Text('Générer un code'),
+                  subtitle: const Text('Pour payer directement au distributeur'),
                   onTap: () {
                     Navigator.pop(context);
                     _genererCode();
@@ -691,20 +693,20 @@ class _HomePageState extends State<HomePage> {
       context: context,
       builder: (BuildContext context) {
         return AlertDialog(
-          title: Text('Confirmer le paiement'),
+          title: const Text('Confirmer le paiement'),
           content: Column(
             mainAxisSize: MainAxisSize.min,
             children: [
-              Text('Payer avec votre e-wallet'),
-              SizedBox(height: 15),
+              const Text('Payer avec votre e-wallet'),
+              const SizedBox(height: 15),
               Row(
                 mainAxisAlignment: MainAxisAlignment.center,
                 children: [
-                  Icon(Icons.account_balance_wallet, color: Colors.green),
-                  SizedBox(width: 8),
+                  const Icon(Icons.account_balance_wallet, color: Colors.green),
+                  const SizedBox(width: 8),
                   Text(
                     '${Provider.of<UserProvider>(context, listen: false).userBalance.toStringAsFixed(2)} DA',
-                    style: TextStyle(
+                    style: const TextStyle(
                       fontSize: 18,
                       fontWeight: FontWeight.bold,
                       color: Colors.green,
@@ -712,20 +714,20 @@ class _HomePageState extends State<HomePage> {
                   ),
                 ],
               ),
-              SizedBox(height: 15),
+              const SizedBox(height: 15),
               Text(
                 'Montant à débiter: ${_calculateTotal().toStringAsFixed(2)} DA',
-                style: TextStyle(fontWeight: FontWeight.bold),
+                style: const TextStyle(fontWeight: FontWeight.bold),
               ),
             ],
           ),
           actions: [
             TextButton(
-              child: Text('Annuler'),
+              child: const Text('Annuler'),
               onPressed: () => Navigator.pop(context),
             ),
             ElevatedButton(
-              child: Text('Confirmer'),
+              child: const Text('Confirmer'),
               onPressed: () {
                 Navigator.pop(context);
                 _processPaiement();
@@ -764,12 +766,12 @@ class _HomePageState extends State<HomePage> {
       context: context,
       builder: (BuildContext context) {
         return AlertDialog(
-          title: Text('Solde insuffisant'),
+          title: const Text('Solde insuffisant'),
           content:
-              Text('Votre solde est insuffisant pour effectuer cet achat.'),
+              const Text('Votre solde est insuffisant pour effectuer cet achat.'),
           actions: [
             ElevatedButton(
-              child: Text('OK'),
+              child: const Text('OK'),
               onPressed: () => Navigator.pop(context),
             ),
           ],
@@ -798,7 +800,7 @@ class _HomePageState extends State<HomePage> {
       context: context,
       barrierDismissible: false,
       builder: (BuildContext context) {
-        return AlertDialog(
+        return const AlertDialog(
           content: Column(
             mainAxisSize: MainAxisSize.min,
             children: [
@@ -858,11 +860,11 @@ class _HomePageState extends State<HomePage> {
         context: context,
         builder: (BuildContext context) {
           return AlertDialog(
-            title: Text('Erreur de paiement'),
+            title: const Text('Erreur de paiement'),
             content: Text(e.toString().replaceAll('Exception: ', '')),
             actions: [
               ElevatedButton(
-                child: Text('OK'),
+                child: const Text('OK'),
                 onPressed: () => Navigator.pop(context),
               ),
             ],
@@ -878,34 +880,34 @@ class _HomePageState extends State<HomePage> {
       context: context,
       builder: (BuildContext context) {
         return AlertDialog(
-          title: Text('Paiement accepté'),
-          content: Container(
+          title: const Text('Paiement accepté'),
+          content: SizedBox(
             width: double.maxFinite,
             child: Column(
               mainAxisSize: MainAxisSize.min,
               children: [
-                Icon(
+                const Icon(
                   Icons.check_circle,
                   color: Colors.green,
                   size: 60,
                 ),
-                SizedBox(height: 20),
-                Text('Votre commande a été validée !'),
-                SizedBox(height: 15),
+                const SizedBox(height: 20),
+                const Text('Votre commande a été validée !'),
+                const SizedBox(height: 15),
 
                 // Détails de la commande
-                Text(
+                const Text(
                   'Détails de la commande:',
                   style: TextStyle(
                     fontWeight: FontWeight.bold,
                     fontSize: 16,
                   ),
                 ),
-                SizedBox(height: 10),
+                const SizedBox(height: 10),
 
                 // Liste des produits
                 Container(
-                  constraints: BoxConstraints(maxHeight: 150),
+                  constraints: const BoxConstraints(maxHeight: 150),
                   child: SingleChildScrollView(
                     child: Column(
                       children: produits.map((item) {
@@ -922,7 +924,7 @@ class _HomePageState extends State<HomePage> {
                               ),
                               Text(
                                 '${(item.produit.prix * item.quantite).toStringAsFixed(2)} DA',
-                                style: TextStyle(fontWeight: FontWeight.bold),
+                                style: const TextStyle(fontWeight: FontWeight.bold),
                               ),
                             ],
                           ),
@@ -932,13 +934,13 @@ class _HomePageState extends State<HomePage> {
                   ),
                 ),
 
-                Divider(thickness: 1),
+                const Divider(thickness: 1),
 
                 // Total
                 Row(
                   mainAxisAlignment: MainAxisAlignment.spaceBetween,
                   children: [
-                    Text(
+                    const Text(
                       'Total:',
                       style: TextStyle(
                         fontWeight: FontWeight.bold,
@@ -956,12 +958,12 @@ class _HomePageState extends State<HomePage> {
                   ],
                 ),
 
-                SizedBox(height: 15),
+                const SizedBox(height: 15),
 
                 // Nouveau solde
                 Text(
                   'Nouveau solde: ${soldeActuel.toStringAsFixed(2)} DA',
-                  style: TextStyle(
+                  style: const TextStyle(
                     fontWeight: FontWeight.bold,
                     color: Colors.green,
                   ),
@@ -971,7 +973,7 @@ class _HomePageState extends State<HomePage> {
           ),
           actions: [
             ElevatedButton(
-              child: Text('OK'),
+              child: const Text('OK'),
               onPressed: () {
                 Navigator.pop(context);
               },
@@ -987,7 +989,7 @@ class _HomePageState extends State<HomePage> {
       context: context,
       builder: (BuildContext context) {
         return AlertDialog(
-          title: Text('Statut du Distributeur'),
+          title: const Text('Statut du Distributeur'),
           content: Column(
             mainAxisSize: MainAxisSize.min,
             crossAxisAlignment: CrossAxisAlignment.start,
@@ -998,23 +1000,23 @@ class _HomePageState extends State<HomePage> {
                     isInMaintenance ? Icons.warning : Icons.check_circle,
                     color: isInMaintenance ? Colors.amber : Colors.green,
                   ),
-                  SizedBox(width: 10),
+                  const SizedBox(width: 10),
                   Text(
                     isInMaintenance ? 'En maintenance' : 'Disponible',
-                    style: TextStyle(
+                    style: const TextStyle(
                       fontWeight: FontWeight.bold,
                     ),
                   ),
                 ],
               ),
-              SizedBox(height: 15),
-              Text('ID Distributeur: DIS-42501'),
-              Text('Dernière mise à jour: 16/03/2025'),
+              const SizedBox(height: 15),
+              const Text('ID Distributeur: DIS-42501'),
+              const Text('Dernière mise à jour: 16/03/2025'),
             ],
           ),
           actions: [
             TextButton(
-              child: Text('Fermer'),
+              child: const Text('Fermer'),
               onPressed: () {
                 Navigator.of(context).pop();
               },

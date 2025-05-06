@@ -46,11 +46,6 @@ class EWalletProvider with ChangeNotifier {
       _isLoading = true;
       notifyListeners();
 
-      // S'assurer que amount est bien un double
-      if (amount is! double) {
-        amount = double.parse(amount.toString());
-      }
-
       print("Adding funds: $amount to user: $userId"); // Débogage
 
       final result = await _ewalletService.addFunds(userId, amount);
@@ -131,7 +126,7 @@ void _showWallet(BuildContext context) async {
   // Montrer un indicateur de chargement
   showDialog(
     context: context,
-    builder: (context) => Center(child: CircularProgressIndicator()),
+    builder: (context) => const Center(child: CircularProgressIndicator()),
     barrierDismissible: false,
   );
 

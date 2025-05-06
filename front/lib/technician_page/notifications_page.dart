@@ -10,11 +10,11 @@ class NotificationsPage extends StatefulWidget {
       onNotificationStatusChanged; // Rendre le callback optionnel
 
   const NotificationsPage({
-    Key? key,
+    super.key,
     required this.primaryColor,
     required this.buttonColor,
     this.onNotificationStatusChanged, // Paramètre optionnel
-  }) : super(key: key);
+  });
 
   @override
   _NotificationsPageState createState() => _NotificationsPageState();
@@ -106,7 +106,7 @@ class _NotificationsPageState extends State<NotificationsPage>
                   BoxShadow(
                     color: Colors.black.withOpacity(0.1),
                     blurRadius: 4,
-                    offset: Offset(0, 2),
+                    offset: const Offset(0, 2),
                   ),
                 ],
               ),
@@ -150,13 +150,13 @@ class _NotificationsPageState extends State<NotificationsPage>
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  Text('Infos de débogage',
+                  const Text('Infos de débogage',
                       style:
                           TextStyle(fontWeight: FontWeight.bold, fontSize: 12)),
                   Text('API: ${notificationProvider.getApiUrl()}',
-                      style: TextStyle(fontSize: 10)),
+                      style: const TextStyle(fontSize: 10)),
                   Text('ID Technicien: ${notificationProvider.userId}',
-                      style: TextStyle(fontSize: 10)),
+                      style: const TextStyle(fontSize: 10)),
                 ],
               ),
             ),
@@ -178,7 +178,7 @@ class _NotificationsPageState extends State<NotificationsPage>
               size: 64,
               color: Colors.grey[400],
             ),
-            SizedBox(height: 16),
+            const SizedBox(height: 16),
             Text(
               'Aucune notification ${type == 'stock' ? 'de stock' : 'de maintenance'}',
               style: TextStyle(
@@ -236,7 +236,7 @@ class _NotificationsPageState extends State<NotificationsPage>
         '${notification.createdAt.day}/${notification.createdAt.month}/${notification.createdAt.year} ${notification.createdAt.hour}:${notification.createdAt.minute.toString().padLeft(2, '0')}';
 
     return Card(
-      margin: EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+      margin: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
       elevation: notification.isUnread ? 3 : 1,
       shape: RoundedRectangleBorder(
         borderRadius: BorderRadius.circular(12),
@@ -256,7 +256,7 @@ class _NotificationsPageState extends State<NotificationsPage>
           _showNotificationDetails(notification);
         },
         child: Padding(
-          padding: EdgeInsets.all(16),
+          padding: const EdgeInsets.all(16),
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
@@ -266,7 +266,7 @@ class _NotificationsPageState extends State<NotificationsPage>
                     backgroundColor: priorityColor.withOpacity(0.2),
                     child: Icon(iconData, color: priorityColor),
                   ),
-                  SizedBox(width: 12),
+                  const SizedBox(width: 12),
                   Expanded(
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
@@ -282,7 +282,7 @@ class _NotificationsPageState extends State<NotificationsPage>
                           maxLines: 1,
                           overflow: TextOverflow.ellipsis,
                         ),
-                        SizedBox(height: 4),
+                        const SizedBox(height: 4),
                         Text(
                           dateStr,
                           style: TextStyle(
@@ -304,19 +304,19 @@ class _NotificationsPageState extends State<NotificationsPage>
                     ),
                 ],
               ),
-              SizedBox(height: 12),
+              const SizedBox(height: 12),
               Text(
                 notification.message,
-                style: TextStyle(fontSize: 14),
+                style: const TextStyle(fontSize: 14),
                 maxLines: 2,
                 overflow: TextOverflow.ellipsis,
               ),
-              SizedBox(height: 8),
+              const SizedBox(height: 8),
               Row(
                 mainAxisAlignment: MainAxisAlignment.spaceBetween,
                 children: [
                   Container(
-                    padding: EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                    padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
                     decoration: BoxDecoration(
                       color: priorityColor.withOpacity(0.1),
                       borderRadius: BorderRadius.circular(12),
@@ -383,12 +383,12 @@ class _NotificationsPageState extends State<NotificationsPage>
     showModalBottomSheet(
       context: context,
       isScrollControlled: true,
-      shape: RoundedRectangleBorder(
+      shape: const RoundedRectangleBorder(
         borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
       ),
       builder: (context) {
         return Container(
-          padding: EdgeInsets.all(20),
+          padding: const EdgeInsets.all(20),
           constraints: BoxConstraints(
             maxHeight: MediaQuery.of(context).size.height * 0.7,
           ),
@@ -407,15 +407,15 @@ class _NotificationsPageState extends State<NotificationsPage>
                     ),
                   ),
                 ),
-                SizedBox(height: 20),
+                const SizedBox(height: 20),
                 Text(
                   notification.title,
-                  style: TextStyle(
+                  style: const TextStyle(
                     fontSize: 20,
                     fontWeight: FontWeight.bold,
                   ),
                 ),
-                SizedBox(height: 10),
+                const SizedBox(height: 10),
                 Text(
                   'Reçu le ${notification.createdAt.day}/${notification.createdAt.month}/${notification.createdAt.year} à ${notification.createdAt.hour}:${notification.createdAt.minute.toString().padLeft(2, '0')}',
                   style: TextStyle(
@@ -423,36 +423,36 @@ class _NotificationsPageState extends State<NotificationsPage>
                     fontSize: 14,
                   ),
                 ),
-                SizedBox(height: 20),
-                Text(
+                const SizedBox(height: 20),
+                const Text(
                   'Message',
                   style: TextStyle(
                     fontSize: 16,
                     fontWeight: FontWeight.bold,
                   ),
                 ),
-                SizedBox(height: 8),
+                const SizedBox(height: 8),
                 Text(
                   notification.message,
-                  style: TextStyle(fontSize: 16),
+                  style: const TextStyle(fontSize: 16),
                 ),
-                SizedBox(height: 20),
-                Text(
+                const SizedBox(height: 20),
+                const Text(
                   'Détails',
                   style: TextStyle(
                     fontSize: 16,
                     fontWeight: FontWeight.bold,
                   ),
                 ),
-                SizedBox(height: 8),
+                const SizedBox(height: 8),
                 detailsWidget,
-                SizedBox(height: 30),
+                const SizedBox(height: 30),
                 if (notification.isUnread)
                   SizedBox(
                     width: double.infinity,
                     child: OutlinedButton(
                       style: OutlinedButton.styleFrom(
-                        padding: EdgeInsets.symmetric(vertical: 15),
+                        padding: const EdgeInsets.symmetric(vertical: 15),
                         shape: RoundedRectangleBorder(
                           borderRadius: BorderRadius.circular(10),
                         ),
@@ -463,7 +463,7 @@ class _NotificationsPageState extends State<NotificationsPage>
                                 listen: false)
                             .markAsRead(notification.id);
                       },
-                      child: Text('Marquer comme lu'),
+                      child: const Text('Marquer comme lu'),
                     ),
                   ),
               ],
@@ -493,7 +493,7 @@ class _NotificationsPageState extends State<NotificationsPage>
           Expanded(
             child: Text(
               value,
-              style: TextStyle(
+              style: const TextStyle(
                 color: Colors.black,
               ),
             ),
@@ -513,7 +513,7 @@ class _NotificationsPageState extends State<NotificationsPage>
             size: 80,
             color: Colors.grey[400],
           ),
-          SizedBox(height: 16),
+          const SizedBox(height: 16),
           Text(
             'Aucune notification',
             style: TextStyle(
@@ -521,14 +521,14 @@ class _NotificationsPageState extends State<NotificationsPage>
               color: Colors.grey[600],
             ),
           ),
-          SizedBox(height: 24),
+          const SizedBox(height: 24),
           ElevatedButton.icon(
-            icon: Icon(Icons.refresh),
-            label: Text('Rafraîchir'),
+            icon: const Icon(Icons.refresh),
+            label: const Text('Rafraîchir'),
             style: ElevatedButton.styleFrom(
               backgroundColor: widget.primaryColor,
               foregroundColor: Colors.white,
-              padding: EdgeInsets.symmetric(horizontal: 24, vertical: 12),
+              padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 12),
               shape: RoundedRectangleBorder(
                 borderRadius: BorderRadius.circular(10),
               ),
@@ -550,7 +550,7 @@ class _NotificationsPageState extends State<NotificationsPage>
             size: 80,
             color: Colors.red[300],
           ),
-          SizedBox(height: 16),
+          const SizedBox(height: 16),
           Text(
             'Erreur de chargement',
             style: TextStyle(
@@ -559,7 +559,7 @@ class _NotificationsPageState extends State<NotificationsPage>
               color: Colors.red[800],
             ),
           ),
-          SizedBox(height: 8),
+          const SizedBox(height: 8),
           Padding(
             padding: const EdgeInsets.symmetric(horizontal: 24),
             child: Text(
@@ -571,14 +571,14 @@ class _NotificationsPageState extends State<NotificationsPage>
               ),
             ),
           ),
-          SizedBox(height: 24),
+          const SizedBox(height: 24),
           ElevatedButton.icon(
-            icon: Icon(Icons.refresh),
-            label: Text('Réessayer'),
+            icon: const Icon(Icons.refresh),
+            label: const Text('Réessayer'),
             style: ElevatedButton.styleFrom(
               backgroundColor: widget.primaryColor,
               foregroundColor: Colors.white,
-              padding: EdgeInsets.symmetric(horizontal: 24, vertical: 12),
+              padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 12),
               shape: RoundedRectangleBorder(
                 borderRadius: BorderRadius.circular(10),
               ),

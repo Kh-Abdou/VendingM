@@ -1,6 +1,8 @@
 import 'package:flutter/material.dart';
 
 class InscriptionPage extends StatefulWidget {
+  const InscriptionPage({super.key});
+
   @override
   _InscriptionPageState createState() => _InscriptionPageState();
 }
@@ -32,16 +34,16 @@ class _InscriptionPageState extends State<InscriptionPage> {
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(
-        backgroundColor: Color(0xFF6B2FEB),
+        backgroundColor: const Color(0xFF6B2FEB),
         elevation: 0,
-        title: Text('Inscription'),
+        title: const Text('Inscription'),
         leading: IconButton(
-          icon: Icon(Icons.arrow_back, color: Colors.white),
+          icon: const Icon(Icons.arrow_back, color: Colors.white),
           onPressed: () => Navigator.pop(context),
         ),
       ),
       body: Container(
-        decoration: BoxDecoration(
+        decoration: const BoxDecoration(
           gradient: LinearGradient(
             begin: Alignment.topCenter,
             end: Alignment.bottomCenter,
@@ -75,7 +77,7 @@ class _InscriptionPageState extends State<InscriptionPage> {
                             color: Theme.of(context).primaryColor,
                           ),
                           const SizedBox(height: 10),
-                          Text(
+                          const Text(
                             'Créer un compte',
                             style: TextStyle(
                               fontSize: 24,
@@ -277,7 +279,7 @@ class _InscriptionPageState extends State<InscriptionPage> {
         } else {
           // Show success message and navigate back
           ScaffoldMessenger.of(context).showSnackBar(
-            SnackBar(
+            const SnackBar(
               content: Text(
                   'Inscription réussie! Vous pouvez maintenant vous connecter.'),
               backgroundColor: Colors.green,

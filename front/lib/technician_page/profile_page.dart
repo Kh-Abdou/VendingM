@@ -7,11 +7,11 @@ class ProfilePage extends StatefulWidget {
   final Color buttonTextColor;
 
   const ProfilePage({
-    Key? key,
+    super.key,
     required this.primaryColor,
     required this.buttonColor,
     required this.buttonTextColor,
-  }) : super(key: key);
+  });
 
   @override
   _ProfilePageState createState() => _ProfilePageState();

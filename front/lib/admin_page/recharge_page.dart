@@ -3,7 +3,7 @@ import '../models/client.dart';
 import '../services/client_service.dart';
 
 class RechargeClientPage extends StatefulWidget {
-  const RechargeClientPage({Key? key}) : super(key: key);
+  const RechargeClientPage({super.key});
 
   @override
   _RechargeClientPageState createState() => _RechargeClientPageState();
@@ -194,7 +194,7 @@ class _RechargeClientPageState extends State<RechargeClientPage> {
 
     try {
       // Send the amount as a number, not a string
-      await _clientService.rechargeClientBalance(_selectedClientId! as String, amount);
+      await _clientService.rechargeClientBalance(_selectedClientId!, amount);
 
       // Refresh client list after successful recharge
       await _fetchClients();

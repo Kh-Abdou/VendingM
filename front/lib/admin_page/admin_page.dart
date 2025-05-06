@@ -6,7 +6,7 @@ import 'account_page.dart';
 import 'transaction_page.dart';
 
 class AdminHomePage extends StatefulWidget {
-  const AdminHomePage({Key? key}) : super(key: key);
+  const AdminHomePage({super.key});
 
   @override
   _AdminHomePageState createState() => _AdminHomePageState();
@@ -23,9 +23,9 @@ class _AdminHomePageState extends State<AdminHomePage> {
     super.initState();
     _pages = [
       DashboardPage(), // Dashboard Page
-      RechargeClientPage(), // Credit Recharge Page
-      AccountManagementPage(), // Account Management Page
-      TransactionHistoryPage(), // Transaction History Page
+      const RechargeClientPage(), // Credit Recharge Page
+      const AccountManagementPage(), // Account Management Page
+      const TransactionHistoryPage(), // Transaction History Page
     ];
   }
 

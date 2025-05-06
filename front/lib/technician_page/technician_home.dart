@@ -6,7 +6,7 @@ import 'notifications_page.dart';
 import 'profile_page.dart';
 
 class TechnicianHomePage extends StatefulWidget {
-  const TechnicianHomePage({Key? key}) : super(key: key);
+  const TechnicianHomePage({super.key});
 
   @override
   _TechnicianHomePageState createState() => _TechnicianHomePageState();

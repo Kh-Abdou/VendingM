@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
 
 class AccountManagementPage extends StatefulWidget {
-  const AccountManagementPage({Key? key}) : super(key: key);
+  const AccountManagementPage({super.key});
 
   @override
   _AccountManagementPageState createState() => _AccountManagementPageState();
@@ -250,7 +250,7 @@ class _AccountManagementPageState extends State<AccountManagementPage> {
                                 ),
                                 const Spacer(),
                                 if (isNfcScanning)
-                                  SizedBox(
+                                  const SizedBox(
                                     width: 20,
                                     height: 20,
                                     child: CircularProgressIndicator(
@@ -432,8 +432,9 @@ class _AccountManagementPageState extends State<AccountManagementPage> {
                           // Validation finale avant création
                           validateName(nameController.text);
                           validateEmail(emailController.text);
-                          if (type == 'Client')
+                          if (type == 'Client') {
                             validateCredit(creditController.text);
+                          }
 
                           // Vérifier si tous les champs sont valides après validation finale
                           if (nameController.text.isEmpty ||

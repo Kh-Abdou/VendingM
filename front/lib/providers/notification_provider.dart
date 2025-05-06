@@ -20,7 +20,7 @@ class NotificationProvider with ChangeNotifier {
     loadNotifications();
 
     // Configurer un minuteur pour rafraîchir les notifications périodiquement (toutes les 30 secondes)
-    _refreshTimer = Timer.periodic(Duration(seconds: 30), (_) {
+    _refreshTimer = Timer.periodic(const Duration(seconds: 30), (_) {
       loadNotifications();
     });
   }
@@ -143,7 +143,7 @@ class NotificationProvider with ChangeNotifier {
       _error = e.toString();
       _isLoading = false;
       notifyListeners();
-      throw e; // Propager l'erreur
+      rethrow; // Propager l'erreur
     }
   }
 

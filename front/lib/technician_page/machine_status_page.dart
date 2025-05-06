@@ -6,11 +6,11 @@ class MachineStatusPage extends StatefulWidget {
   final Color buttonTextColor;
 
   const MachineStatusPage({
-    Key? key,
+    super.key,
     required this.primaryColor,
     required this.buttonColor,
     required this.buttonTextColor,
-  }) : super(key: key);
+  });
 
   @override
   _MachineStatusPageState createState() => _MachineStatusPageState();
@@ -56,7 +56,7 @@ class _MachineStatusPageState extends State<MachineStatusPage> {
               ElevatedButton.icon(
                 onPressed: _isRefreshing ? null : _refreshMachineStatus,
                 icon: _isRefreshing
-                    ? SizedBox(
+                    ? const SizedBox(
                         width: 20,
                         height: 20,
                         child: CircularProgressIndicator(
@@ -299,7 +299,7 @@ class _MachineStatusPageState extends State<MachineStatusPage> {
         return StatefulBuilder(
           builder: (context, setState) {
             return AlertDialog(
-              title: Text('Mettre à jour le statut du distributeur'),
+              title: const Text('Mettre à jour le statut du distributeur'),
               content: Column(
                 mainAxisSize: MainAxisSize.min,
                 crossAxisAlignment: CrossAxisAlignment.start,

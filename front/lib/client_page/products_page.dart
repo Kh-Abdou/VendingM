@@ -22,14 +22,14 @@ class ProductsPage extends StatefulWidget {
   final String baseUrl;
 
   const ProductsPage({
-    Key? key,
+    super.key,
     required this.panier,
     required this.soldeUtilisateur,
     required this.onAjouterAuPanier,
     required this.onShowPanier,
     required this.isInMaintenance,
     required this.baseUrl,
-  }) : super(key: key);
+  });
 
   @override
   _ProductsPageState createState() => _ProductsPageState();
@@ -73,7 +73,7 @@ class _ProductsPageState extends State<ProductsPage> {
   @override
   Widget build(BuildContext context) {
     if (_isLoading) {
-      return Center(
+      return const Center(
         child: CircularProgressIndicator(),
       );
     }
@@ -83,20 +83,20 @@ class _ProductsPageState extends State<ProductsPage> {
         child: Column(
           mainAxisAlignment: MainAxisAlignment.center,
           children: [
-            Icon(
+            const Icon(
               Icons.error_outline,
               color: Colors.red,
               size: 60,
             ),
-            SizedBox(height: 16),
-            Text(
+            const SizedBox(height: 16),
+            const Text(
               'Erreur de chargement',
               style: TextStyle(
                 fontSize: 18,
                 fontWeight: FontWeight.bold,
               ),
             ),
-            SizedBox(height: 8),
+            const SizedBox(height: 8),
             Padding(
               padding: const EdgeInsets.symmetric(horizontal: 24.0),
               child: Text(
@@ -105,11 +105,11 @@ class _ProductsPageState extends State<ProductsPage> {
                 style: TextStyle(color: Colors.grey[700]),
               ),
             ),
-            SizedBox(height: 24),
+            const SizedBox(height: 24),
             ElevatedButton.icon(
               onPressed: _fetchProducts,
-              icon: Icon(Icons.refresh),
-              label: Text('Réessayer'),
+              icon: const Icon(Icons.refresh),
+              label: const Text('Réessayer'),
             ),
           ],
         ),
@@ -121,24 +121,24 @@ class _ProductsPageState extends State<ProductsPage> {
         child: Column(
           mainAxisAlignment: MainAxisAlignment.center,
           children: [
-            Icon(
+            const Icon(
               Icons.shopping_basket,
               size: 60,
               color: Colors.grey,
             ),
-            SizedBox(height: 16),
-            Text(
+            const SizedBox(height: 16),
+            const Text(
               'Aucun produit disponible',
               style: TextStyle(
                 fontSize: 18,
                 color: Colors.grey,
               ),
             ),
-            SizedBox(height: 24),
+            const SizedBox(height: 24),
             ElevatedButton.icon(
               onPressed: _fetchProducts,
-              icon: Icon(Icons.refresh),
-              label: Text('Actualiser'),
+              icon: const Icon(Icons.refresh),
+              label: const Text('Actualiser'),
             ),
           ],
         ),
@@ -148,8 +148,8 @@ class _ProductsPageState extends State<ProductsPage> {
     return RefreshIndicator(
       onRefresh: _fetchProducts,
       child: GridView.builder(
-        padding: EdgeInsets.all(10),
-        gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
+        padding: const EdgeInsets.all(10),
+        gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
           crossAxisCount: 2,
           childAspectRatio: 0.75,
           crossAxisSpacing: 10,
@@ -176,7 +176,7 @@ class _ProductsPageState extends State<ProductsPage> {
               }
             : null,
         child: Container(
-          padding: EdgeInsets.all(8),
+          padding: const EdgeInsets.all(8),
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
@@ -222,7 +222,7 @@ class _ProductsPageState extends State<ProductsPage> {
                         color: Colors.black.withOpacity(0.5),
                         borderRadius: BorderRadius.circular(10),
                       ),
-                      child: Center(
+                      child: const Center(
                         child: Text(
                           'INDISPONIBLE',
                           style: TextStyle(
@@ -234,17 +234,17 @@ class _ProductsPageState extends State<ProductsPage> {
                     ),
                 ],
               ),
-              SizedBox(height: 8),
+              const SizedBox(height: 8),
               Text(
                 produit.nom,
-                style: TextStyle(
+                style: const TextStyle(
                   fontSize: 16,
                   fontWeight: FontWeight.bold,
                 ),
                 maxLines: 2,
                 overflow: TextOverflow.ellipsis,
               ),
-              SizedBox(height: 4),
+              const SizedBox(height: 4),
               Text(
                 '${produit.prix.toStringAsFixed(2)} DA',
                 style: TextStyle(
@@ -252,15 +252,15 @@ class _ProductsPageState extends State<ProductsPage> {
                   color: Colors.blue[700],
                 ),
               ),
-              Spacer(),
+              const Spacer(),
               if (produit.disponible)
                 SizedBox(
                   width: double.infinity,
                   child: ElevatedButton(
                     style: ElevatedButton.styleFrom(
-                      padding: EdgeInsets.symmetric(vertical: 8),
+                      padding: const EdgeInsets.symmetric(vertical: 8),
                     ),
-                    child: Text('Ajouter'),
+                    child: const Text('Ajouter'),
                     onPressed: () {
                       widget.onAjouterAuPanier(produit);
                     },
@@ -277,12 +277,12 @@ class _ProductsPageState extends State<ProductsPage> {
     showModalBottomSheet(
       context: context,
       isScrollControlled: true,
-      shape: RoundedRectangleBorder(
+      shape: const RoundedRectangleBorder(
         borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
       ),
       builder: (context) {
         return Container(
-          padding: EdgeInsets.all(20),
+          padding: const EdgeInsets.all(20),
           height: MediaQuery.of(context).size.height * 0.6,
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
@@ -321,15 +321,15 @@ class _ProductsPageState extends State<ProductsPage> {
                         ),
                 ),
               ),
-              SizedBox(height: 20),
+              const SizedBox(height: 20),
               Text(
                 produit.nom,
-                style: TextStyle(
+                style: const TextStyle(
                   fontSize: 24,
                   fontWeight: FontWeight.bold,
                 ),
               ),
-              SizedBox(height: 10),
+              const SizedBox(height: 10),
               Text(
                 'Prix: ${produit.prix.toStringAsFixed(2)} DA',
                 style: TextStyle(
@@ -337,15 +337,15 @@ class _ProductsPageState extends State<ProductsPage> {
                   color: Colors.blue[700],
                 ),
               ),
-              Spacer(),
+              const Spacer(),
               Row(
                 children: [
                   Expanded(
                     child: ElevatedButton(
                       style: ElevatedButton.styleFrom(
-                        padding: EdgeInsets.symmetric(vertical: 15),
+                        padding: const EdgeInsets.symmetric(vertical: 15),
                       ),
-                      child: Text(
+                      child: const Text(
                         'Ajouter au panier',
                         style: TextStyle(fontSize: 16),
                       ),
@@ -371,11 +371,11 @@ class GenerateCodePage extends StatefulWidget {
   final String baseUrl;
 
   const GenerateCodePage({
-    Key? key,
+    super.key,
     required this.panier,
     required this.userId,
     required this.baseUrl,
-  }) : super(key: key);
+  });
 
   @override
   _GenerateCodePageState createState() => _GenerateCodePageState();
@@ -401,9 +401,9 @@ class _GenerateCodePageState extends State<GenerateCodePage> {
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(
-        title: Text('Votre Code de Retrait'),
+        title: const Text('Votre Code de Retrait'),
         leading: IconButton(
-          icon: Icon(Icons.arrow_back),
+          icon: const Icon(Icons.arrow_back),
           onPressed: () {
             Navigator.pop(context);
           },
@@ -411,7 +411,7 @@ class _GenerateCodePageState extends State<GenerateCodePage> {
       ),
       body: Center(
         child: Padding(
-          padding: EdgeInsets.all(20),
+          padding: const EdgeInsets.all(20),
           child: isLoading
               ? _buildLoadingState()
               : errorMessage.isNotEmpty
@@ -426,8 +426,8 @@ class _GenerateCodePageState extends State<GenerateCodePage> {
     return Column(
       mainAxisAlignment: MainAxisAlignment.center,
       children: [
-        CircularProgressIndicator(),
-        SizedBox(height: 20),
+        const CircularProgressIndicator(),
+        const SizedBox(height: 20),
         Text(
           'Génération du code en cours...',
           style: TextStyle(
@@ -443,20 +443,20 @@ class _GenerateCodePageState extends State<GenerateCodePage> {
     return Column(
       mainAxisAlignment: MainAxisAlignment.center,
       children: [
-        Icon(
+        const Icon(
           Icons.error_outline,
           color: Colors.red,
           size: 60,
         ),
-        SizedBox(height: 20),
-        Text(
+        const SizedBox(height: 20),
+        const Text(
           'Erreur lors de la génération du code',
           style: TextStyle(
             fontSize: 18,
             fontWeight: FontWeight.bold,
           ),
         ),
-        SizedBox(height: 10),
+        const SizedBox(height: 10),
         Text(
           errorMessage,
           style: TextStyle(
@@ -464,10 +464,10 @@ class _GenerateCodePageState extends State<GenerateCodePage> {
           ),
           textAlign: TextAlign.center,
         ),
-        SizedBox(height: 20),
+        const SizedBox(height: 20),
         ElevatedButton(
           onPressed: _generateCode,
-          child: Text('Réessayer'),
+          child: const Text('Réessayer'),
         ),
       ],
     );
@@ -483,17 +483,17 @@ class _GenerateCodePageState extends State<GenerateCodePage> {
             borderRadius: BorderRadius.circular(15),
           ),
           child: Padding(
-            padding: EdgeInsets.all(30),
+            padding: const EdgeInsets.all(30),
             child: Column(
               mainAxisSize: MainAxisSize.min,
               children: [
-                Icon(
+                const Icon(
                   Icons.check_circle,
                   color: Colors.green,
                   size: 60,
                 ),
-                SizedBox(height: 20),
-                Text(
+                const SizedBox(height: 20),
+                const Text(
                   'Code Généré',
                   style: TextStyle(
                     fontSize: 24,
@@ -501,9 +501,9 @@ class _GenerateCodePageState extends State<GenerateCodePage> {
                     color: Colors.green,
                   ),
                 ),
-                SizedBox(height: 30),
+                const SizedBox(height: 30),
                 Container(
-                  padding: EdgeInsets.symmetric(
+                  padding: const EdgeInsets.symmetric(
                     horizontal: 30,
                     vertical: 20,
                   ),
@@ -526,7 +526,7 @@ class _GenerateCodePageState extends State<GenerateCodePage> {
                           color: Theme.of(context).primaryColor,
                         ),
                       ),
-                      SizedBox(height: 20),
+                      const SizedBox(height: 20),
                       Icon(
                         Icons.qr_code_2,
                         size: 120,
@@ -535,7 +535,7 @@ class _GenerateCodePageState extends State<GenerateCodePage> {
                     ],
                   ),
                 ),
-                SizedBox(height: 20),
+                const SizedBox(height: 20),
                 Text(
                   'Code valable pendant 5 minutes',
                   style: TextStyle(
@@ -555,7 +555,7 @@ class _GenerateCodePageState extends State<GenerateCodePage> {
             ),
           ),
         ),
-        SizedBox(height: 30),
+        const SizedBox(height: 30),
         Text(
           'Présentez ce code sur l\'écran du distributeur',
           style: TextStyle(

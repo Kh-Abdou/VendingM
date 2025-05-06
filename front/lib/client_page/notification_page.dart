@@ -5,6 +5,8 @@ import '../models/notification.dart' as notification_model;
 import 'package:intl/intl.dart';
 
 class NotificationPage extends StatefulWidget {
+  const NotificationPage({super.key});
+
   @override
   _NotificationPageState createState() => _NotificationPageState();
 }
@@ -25,7 +27,7 @@ class _NotificationPageState extends State<NotificationPage> {
     final notificationProvider = Provider.of<NotificationProvider>(context);
 
     if (notificationProvider.isLoading) {
-      return Center(child: CircularProgressIndicator());
+      return const Center(child: CircularProgressIndicator());
     }
 
     if (notificationProvider.error != null) {
@@ -33,13 +35,13 @@ class _NotificationPageState extends State<NotificationPage> {
         child: Column(
           mainAxisAlignment: MainAxisAlignment.center,
           children: [
-            Icon(
+            const Icon(
               Icons.error_outline,
               size: 64,
               color: Colors.red,
             ),
-            SizedBox(height: 16),
-            Text(
+            const SizedBox(height: 16),
+            const Text(
               'Erreur de chargement',
               style: TextStyle(
                 fontSize: 18,
@@ -47,16 +49,16 @@ class _NotificationPageState extends State<NotificationPage> {
                 color: Colors.red,
               ),
             ),
-            SizedBox(height: 8),
+            const SizedBox(height: 8),
             Text(
               notificationProvider.error!,
               textAlign: TextAlign.center,
-              style: TextStyle(color: Colors.grey),
+              style: const TextStyle(color: Colors.grey),
             ),
-            SizedBox(height: 16),
+            const SizedBox(height: 16),
             ElevatedButton.icon(
-              icon: Icon(Icons.refresh),
-              label: Text('Réessayer'),
+              icon: const Icon(Icons.refresh),
+              label: const Text('Réessayer'),
               onPressed: () => notificationProvider.forceRefresh(),
             ),
           ],
@@ -69,23 +71,23 @@ class _NotificationPageState extends State<NotificationPage> {
         child: Column(
           mainAxisAlignment: MainAxisAlignment.center,
           children: [
-            Icon(
+            const Icon(
               Icons.notifications_off,
               size: 64,
               color: Colors.grey,
             ),
-            SizedBox(height: 16),
-            Text(
+            const SizedBox(height: 16),
+            const Text(
               'Aucune notification',
               style: TextStyle(
                 fontSize: 18,
                 color: Colors.grey,
               ),
             ),
-            SizedBox(height: 16),
+            const SizedBox(height: 16),
             ElevatedButton.icon(
-              icon: Icon(Icons.refresh),
-              label: Text('Actualiser'),
+              icon: const Icon(Icons.refresh),
+              label: const Text('Actualiser'),
               onPressed: () => notificationProvider.forceRefresh(),
             ),
           ],
@@ -114,11 +116,11 @@ class _NotificationPageState extends State<NotificationPage> {
               labelColor: Theme.of(context).primaryColor,
               unselectedLabelColor: Colors.grey,
               tabs: [
-                Tab(
+                const Tab(
                   text: 'Commandes',
                   icon: Icon(Icons.shopping_cart),
                 ),
-                Tab(
+                const Tab(
                   text: 'Codes',
                   icon: Icon(Icons.qr_code),
                 ),
@@ -132,8 +134,8 @@ class _NotificationPageState extends State<NotificationPage> {
                 Padding(
                   padding: const EdgeInsets.only(right: 16.0, top: 8.0),
                   child: TextButton.icon(
-                    icon: Icon(Icons.check_circle_outline),
-                    label: Text('Tout marquer comme lu'),
+                    icon: const Icon(Icons.check_circle_outline),
+                    label: const Text('Tout marquer comme lu'),
                     onPressed: () => notificationProvider.markAllAsRead(),
                   ),
                 ),
@@ -162,7 +164,7 @@ class _NotificationPageState extends State<NotificationPage> {
       List<notification_model.Notification> notifications,
       NotificationProvider provider) {
     if (notifications.isEmpty) {
-      return Center(
+      return const Center(
         child: Text('Aucune notification de commande'),
       );
     }
@@ -184,7 +186,7 @@ class _NotificationPageState extends State<NotificationPage> {
           final List<dynamic> produitsData = metadata['produits'] ?? [];
 
           return Card(
-            margin: EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+            margin: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
             child: ExpansionTile(
               leading: CircleAvatar(
                 backgroundColor: notification.isUnread
@@ -224,17 +226,17 @@ class _NotificationPageState extends State<NotificationPage> {
                     children: [
                       Text(
                         notification.message,
-                        style: TextStyle(fontSize: 15),
+                        style: const TextStyle(fontSize: 15),
                       ),
-                      SizedBox(height: 12),
-                      Text(
+                      const SizedBox(height: 12),
+                      const Text(
                         'Détails de la commande:',
                         style: TextStyle(
                           fontWeight: FontWeight.bold,
                           fontSize: 16,
                         ),
                       ),
-                      SizedBox(height: 8),
+                      const SizedBox(height: 8),
                       ...produitsData.map<Widget>((produit) {
                         return Padding(
                           padding: const EdgeInsets.only(bottom: 8.0),
@@ -248,17 +250,17 @@ class _NotificationPageState extends State<NotificationPage> {
                               ),
                               Text(
                                 '${(produit['prix'] * produit['quantite']).toStringAsFixed(2)} DA',
-                                style: TextStyle(fontWeight: FontWeight.bold),
+                                style: const TextStyle(fontWeight: FontWeight.bold),
                               ),
                             ],
                           ),
                         );
-                      }).toList(),
-                      Divider(),
+                      }),
+                      const Divider(),
                       Row(
                         mainAxisAlignment: MainAxisAlignment.spaceBetween,
                         children: [
-                          Text(
+                          const Text(
                             'Total:',
                             style: TextStyle(
                               fontWeight: FontWeight.bold,
@@ -291,7 +293,7 @@ class _NotificationPageState extends State<NotificationPage> {
       List<notification_model.Notification> notifications,
       NotificationProvider provider) {
     if (notifications.isEmpty) {
-      return Center(
+      return const Center(
         child: Text('Aucune notification de code'),
       );
     }
@@ -333,7 +335,7 @@ class _NotificationPageState extends State<NotificationPage> {
           }
 
           return Card(
-            margin: EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+            margin: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
             child: ListTile(
               leading: CircleAvatar(
                 backgroundColor: notification.isUnread
@@ -356,7 +358,7 @@ class _NotificationPageState extends State<NotificationPage> {
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
                   Text(formattedDate),
-                  SizedBox(height: 4),
+                  const SizedBox(height: 4),
                   Text(notification.message),
                   if (metadata['code'] != null)
                     Text(
@@ -400,7 +402,7 @@ class _NotificationPageState extends State<NotificationPage> {
 
   Widget _buildBadge(String text, Color color) {
     return Container(
-      padding: EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
       decoration: BoxDecoration(
         color: color.withOpacity(0.2),
         borderRadius: BorderRadius.circular(12),

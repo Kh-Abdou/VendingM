@@ -1,4 +1,3 @@
-import 'dart:convert';
 
 class Notification {
   final String id;

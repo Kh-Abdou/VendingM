@@ -4,7 +4,7 @@ import '../providers/notification_provider.dart';
 import 'notifications_page.dart';
 
 class TechnicianHomePage extends StatefulWidget {
-  const TechnicianHomePage({Key? key}) : super(key: key);
+  const TechnicianHomePage({super.key});
 
   @override
   _TechnicianHomePageState createState() => _TechnicianHomePageState();
@@ -43,7 +43,7 @@ class _TechnicianHomePageState extends State<TechnicianHomePage> {
         actions: [
           // Affichage des infos de connexion au backend (pour débogage)
           IconButton(
-            icon: Icon(Icons.info_outline),
+            icon: const Icon(Icons.info_outline),
             onPressed: () {
               _showDebugInfo(context);
             },
@@ -62,24 +62,24 @@ class _TechnicianHomePageState extends State<TechnicianHomePage> {
           BottomNavigationBarItem(
             icon: Stack(
               children: [
-                Icon(Icons.notifications),
+                const Icon(Icons.notifications),
                 if (_unreadNotificationsCount > 0)
                   Positioned(
                     right: 0,
                     top: 0,
                     child: Container(
-                      padding: EdgeInsets.all(2),
+                      padding: const EdgeInsets.all(2),
                       decoration: BoxDecoration(
                         color: Colors.red,
                         borderRadius: BorderRadius.circular(10),
                       ),
-                      constraints: BoxConstraints(
+                      constraints: const BoxConstraints(
                         minWidth: 16,
                         minHeight: 16,
                       ),
                       child: Text(
                         _unreadNotificationsCount.toString(),
-                        style: TextStyle(
+                        style: const TextStyle(
                           color: Colors.white,
                           fontSize: 10,
                           fontWeight: FontWeight.bold,
@@ -92,15 +92,15 @@ class _TechnicianHomePageState extends State<TechnicianHomePage> {
             ),
             label: 'Notifications',
           ),
-          BottomNavigationBarItem(
+          const BottomNavigationBarItem(
             icon: Icon(Icons.inventory),
             label: 'Stocks',
           ),
-          BottomNavigationBarItem(
+          const BottomNavigationBarItem(
             icon: Icon(Icons.handyman),
             label: 'Maintenance',
           ),
-          BottomNavigationBarItem(
+          const BottomNavigationBarItem(
             icon: Icon(Icons.person),
             label: 'Profil',
           ),
@@ -150,7 +150,7 @@ class _TechnicianHomePageState extends State<TechnicianHomePage> {
             size: 80,
             color: Colors.grey[400],
           ),
-          SizedBox(height: 24),
+          const SizedBox(height: 24),
           Text(
             title,
             style: TextStyle(
@@ -159,7 +159,7 @@ class _TechnicianHomePageState extends State<TechnicianHomePage> {
               color: Colors.grey[800],
             ),
           ),
-          SizedBox(height: 16),
+          const SizedBox(height: 16),
           Padding(
             padding: const EdgeInsets.symmetric(horizontal: 32),
             child: Text(
@@ -180,7 +180,7 @@ class _TechnicianHomePageState extends State<TechnicianHomePage> {
     final provider = Provider.of<NotificationProvider>(context, listen: false);
 
     return SingleChildScrollView(
-      padding: EdgeInsets.all(20),
+      padding: const EdgeInsets.all(20),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
@@ -197,8 +197,8 @@ class _TechnicianHomePageState extends State<TechnicianHomePage> {
                     color: Theme.of(context).primaryColor,
                   ),
                 ),
-                SizedBox(height: 16),
-                Text(
+                const SizedBox(height: 16),
+                const Text(
                   'Technicien',
                   style: TextStyle(
                     fontSize: 24,
@@ -215,78 +215,78 @@ class _TechnicianHomePageState extends State<TechnicianHomePage> {
               ],
             ),
           ),
-          SizedBox(height: 30),
-          Text(
+          const SizedBox(height: 30),
+          const Text(
             'Informations personnelles',
             style: TextStyle(
               fontSize: 18,
               fontWeight: FontWeight.bold,
             ),
           ),
-          SizedBox(height: 15),
+          const SizedBox(height: 15),
           Card(
             shape: RoundedRectangleBorder(
               borderRadius: BorderRadius.circular(15),
             ),
             child: ListView(
               shrinkWrap: true,
-              physics: NeverScrollableScrollPhysics(),
+              physics: const NeverScrollableScrollPhysics(),
               children: [
                 ListTile(
                   leading:
                       Icon(Icons.badge, color: Theme.of(context).primaryColor),
-                  title: Text('Rôle'),
-                  subtitle: Text('Technicien de maintenance'),
+                  title: const Text('Rôle'),
+                  subtitle: const Text('Technicien de maintenance'),
                 ),
-                Divider(),
+                const Divider(),
                 ListTile(
                   leading:
                       Icon(Icons.email, color: Theme.of(context).primaryColor),
-                  title: Text('Email'),
-                  subtitle: Text('technicien@example.com'),
+                  title: const Text('Email'),
+                  subtitle: const Text('technicien@example.com'),
                 ),
-                Divider(),
+                const Divider(),
                 ListTile(
                   leading:
                       Icon(Icons.phone, color: Theme.of(context).primaryColor),
-                  title: Text('Téléphone'),
-                  subtitle: Text('+213 123 456 789'),
+                  title: const Text('Téléphone'),
+                  subtitle: const Text('+213 123 456 789'),
                 ),
               ],
             ),
           ),
-          SizedBox(height: 30),
-          Text(
+          const SizedBox(height: 30),
+          const Text(
             'Actions',
             style: TextStyle(
               fontSize: 18,
               fontWeight: FontWeight.bold,
             ),
           ),
-          SizedBox(height: 15),
+          const SizedBox(height: 15),
           Card(
             shape: RoundedRectangleBorder(
               borderRadius: BorderRadius.circular(15),
             ),
             child: ListView(
               shrinkWrap: true,
-              physics: NeverScrollableScrollPhysics(),
+              physics: const NeverScrollableScrollPhysics(),
               children: [
                 ListTile(
-                  leading: Icon(Icons.refresh, color: Colors.blue),
-                  title: Text('Rafraîchir les notifications'),
+                  leading: const Icon(Icons.refresh, color: Colors.blue),
+                  title: const Text('Rafraîchir les notifications'),
                   onTap: () {
                     Provider.of<NotificationProvider>(context, listen: false)
                         .forceRefresh();
                     ScaffoldMessenger.of(context).showSnackBar(
-                      SnackBar(content: Text('Notifications rafraîchies')),
+                      const SnackBar(content: Text('Notifications rafraîchies')),
                     );
                   },
                 ),
-                Divider(),
+                const Divider(),
                 ListTile(
-                  leading: Icon(Icons.logout, color: Colors.red),
-                  title: Text('Déconnexion'),
+                  leading: const Icon(Icons.logout, color: Colors.red),
+                  title: const Text('Déconnexion'),
                   onTap: () {
                     _showLogoutConfirmation();
                   },
@@ -303,20 +303,20 @@ class _TechnicianHomePageState extends State<TechnicianHomePage> {
     showDialog(
       context: context,
       builder: (context) => AlertDialog(
-        title: Text('Déconnexion'),
-        content: Text('Êtes-vous sûr de vouloir vous déconnecter ?'),
+        title: const Text('Déconnexion'),
+        content: const Text('Êtes-vous sûr de vouloir vous déconnecter ?'),
         actions: [
           TextButton(
             onPressed: () => Navigator.pop(context),
-            child: Text('Annuler'),
+            child: const Text('Annuler'),
           ),
           ElevatedButton(
             onPressed: () {
               Navigator.pop(context);
               Navigator.pushReplacementNamed(context, '/');
             },
-            child: Text('Déconnexion'),
             style: ElevatedButton.styleFrom(backgroundColor: Colors.red),
+            child: Text('Déconnexion'),
           ),
         ],
       ),
@@ -329,20 +329,20 @@ class _TechnicianHomePageState extends State<TechnicianHomePage> {
     showDialog(
       context: context,
       builder: (context) => AlertDialog(
-        title: Text('Informations de débogage'),
+        title: const Text('Informations de débogage'),
         content: Column(
           mainAxisSize: MainAxisSize.min,
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             Text('API URL: ${provider.getApiUrl()}'),
-            SizedBox(height: 8),
+            const SizedBox(height: 8),
             Text('ID Technicien: ${provider.userId}'),
-            SizedBox(height: 8),
+            const SizedBox(height: 8),
             Text('Notifications non lues: $_unreadNotificationsCount'),
-            SizedBox(height: 8),
+            const SizedBox(height: 8),
             Text('Total notifications: ${provider.notifications.length}'),
-            SizedBox(height: 16),
-            Text('⚠️ Ces informations sont destinées au débogage uniquement.',
+            const SizedBox(height: 16),
+            const Text('⚠️ Ces informations sont destinées au débogage uniquement.',
                 style: TextStyle(fontSize: 12, fontStyle: FontStyle.italic)),
           ],
         ),
@@ -352,14 +352,14 @@ class _TechnicianHomePageState extends State<TechnicianHomePage> {
               Navigator.pop(context);
               provider.forceRefresh();
               ScaffoldMessenger.of(context).showSnackBar(
-                SnackBar(content: Text('Notifications rafraîchies')),
+                const SnackBar(content: Text('Notifications rafraîchies')),
               );
             },
-            child: Text('Rafraîchir'),
+            child: const Text('Rafraîchir'),
           ),
           TextButton(
             onPressed: () => Navigator.pop(context),
-            child: Text('Fermer'),
+            child: const Text('Fermer'),
           ),
         ],
       ),
