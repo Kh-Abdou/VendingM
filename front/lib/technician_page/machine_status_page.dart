@@ -1,4 +1,7 @@
 import 'package:flutter/material.dart';
+import 'dart:async';
+import 'dart:math';
+import 'dart:convert';
 
 class MachineStatusPage extends StatefulWidget {
   final Color primaryColor;
@@ -18,6 +21,35 @@ class MachineStatusPage extends StatefulWidget {
 
 class _MachineStatusPageState extends State<MachineStatusPage> {
   bool _isRefreshing = false;
+  bool _isConnectedToIoT = false;
+  bool _isSimulatorOpen = false;
+  Timer? _iotConnectionTimer;
+  Timer? _simulatedEventTimer;
+
+  // Liste des activités récentes (dynamique)
+  List<Map<String, dynamic>> _recentActivities = [
+    {
+      'icon': Icons.build,
+      'color': Colors.blue,
+      'title': 'Maintenance effectuée',
+      'subtitle': '20/11/2023 - Remplacement des filtres',
+      'timestamp': DateTime(2023, 11, 20),
+    },
+    {
+      'icon': Icons.warning,
+      'color': Colors.amber,
+      'title': 'Problème technique résolu',
+      'subtitle': '15/11/2023 - Calibrage du système de paiement',
+      'timestamp': DateTime(2023, 11, 15),
+    },
+    {
+      'icon': Icons.inventory_2,
+      'color': Colors.green,
+      'title': 'Réapprovisionnement',
+      'subtitle': '10/11/2023 - Stock complété',
+      'timestamp': DateTime(2023, 11, 10),
+    },
+  ];
 
   // Données simulées du distributeur
   final Map<String, dynamic> _machine = {
@@ -35,6 +67,21 @@ class _MachineStatusPageState extends State<MachineStatusPage> {
     'Hors service',
     'Nécessite réapprovisionnement'
   ];
+
+  @override
+  void initState() {
+    super.initState();
+    // Démarrer la simulation de connexion IoT
+    _startIoTSimulation();
+  }
+
+  @override
+  void dispose() {
+    // Arrêter les timers
+    _iotConnectionTimer?.cancel();
+    _simulatedEventTimer?.cancel();
+    super.dispose();
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -167,29 +214,200 @@ class _MachineStatusPageState extends State<MachineStatusPage> {
                 ),
                 const SizedBox(height: 10),
                 Card(
-                  child: ListView(
+                  child: ListView.builder(
                     shrinkWrap: true,
                     physics: const NeverScrollableScrollPhysics(),
-                    children: const [
-                      ListTile(
-                        leading: Icon(Icons.build, color: Colors.blue),
-                        title: Text('Maintenance effectuée'),
-                        subtitle: Text('20/11/2023 - Remplacement des filtres'),
-                      ),
-                      Divider(height: 1),
-                      ListTile(
-                        leading: Icon(Icons.warning, color: Colors.amber),
-                        title: Text('Problème technique résolu'),
-                        subtitle: Text(
-                            '15/11/2023 - Calibrage du système de paiement'),
-                      ),
-                      Divider(height: 1),
-                      ListTile(
-                        leading: Icon(Icons.inventory_2, color: Colors.green),
-                        title: Text('Réapprovisionnement'),
-                        subtitle: Text('10/11/2023 - Stock complété'),
-                      ),
-                    ],
+                    itemCount: _recentActivities.length,
+                    itemBuilder: (context, index) {
+                      final activity = _recentActivities[index];
+                      return Column(
+                        children: [
+                          ListTile(
+                            leading: Icon(activity['icon'] as IconData,
+                                color: activity['color'] as Color),
+                            title: Text(activity['title'] as String),
+                            subtitle: Text(activity['subtitle'] as String),
+                          ),
+                          if (index < _recentActivities.length - 1)
+                            const Divider(height: 1),
+                        ],
+                      );
+                    },
+                  ),
+                ),
+
+                // Simulateur IoT
+                const SizedBox(height: 24),
+                Card(
+                  elevation: 3,
+                  color: widget.primaryColor.withOpacity(0.05),
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(12),
+                    side: BorderSide(
+                      color: widget.primaryColor.withOpacity(0.3),
+                      width: 1,
+                    ),
+                  ),
+                  child: Padding(
+                    padding: const EdgeInsets.all(16.0),
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Row(
+                          children: [
+                            Icon(
+                              Icons.developer_board,
+                              color: widget.primaryColor,
+                              size: 28,
+                            ),
+                            const SizedBox(width: 12),
+                            Text(
+                              "Simulateur ESP32",
+                              style: TextStyle(
+                                fontSize: 18,
+                                fontWeight: FontWeight.bold,
+                                color: widget.primaryColor,
+                              ),
+                            ),
+                            const Spacer(),
+                            Container(
+                              padding: const EdgeInsets.symmetric(
+                                  horizontal: 8, vertical: 4),
+                              decoration: BoxDecoration(
+                                color: _isConnectedToIoT
+                                    ? Colors.green.withOpacity(0.2)
+                                    : Colors.red.withOpacity(0.2),
+                                borderRadius: BorderRadius.circular(12),
+                              ),
+                              child: Row(
+                                mainAxisSize: MainAxisSize.min,
+                                children: [
+                                  Icon(
+                                    Icons.circle,
+                                    size: 10,
+                                    color: _isConnectedToIoT
+                                        ? Colors.green
+                                        : Colors.red,
+                                  ),
+                                  const SizedBox(width: 4),
+                                  Text(
+                                    _isConnectedToIoT
+                                        ? "Connecté"
+                                        : "Déconnecté",
+                                    style: TextStyle(
+                                      fontSize: 12,
+                                      fontWeight: FontWeight.bold,
+                                      color: _isConnectedToIoT
+                                          ? Colors.green
+                                          : Colors.red,
+                                    ),
+                                  ),
+                                ],
+                              ),
+                            ),
+                          ],
+                        ),
+                        const SizedBox(height: 20),
+                        Text(
+                          "Simulation d'ouverture/fermeture du distributeur",
+                          style: TextStyle(
+                            fontSize: 14,
+                            color: Colors.grey[700],
+                          ),
+                        ),
+                        const SizedBox(height: 8),
+                        Row(
+                          mainAxisAlignment: MainAxisAlignment.spaceEvenly,
+                          children: [
+                            Expanded(
+                              child: ElevatedButton.icon(
+                                onPressed:
+                                    _isSimulatorOpen ? null : _simulateDoorOpen,
+                                icon:
+                                    const Icon(Icons.door_front_door_outlined),
+                                label: const Text("Ouvrir la porte"),
+                                style: ElevatedButton.styleFrom(
+                                  backgroundColor: Colors.orange,
+                                  foregroundColor: Colors.white,
+                                  disabledBackgroundColor: Colors.grey,
+                                  shape: RoundedRectangleBorder(
+                                    borderRadius: BorderRadius.circular(8),
+                                  ),
+                                ),
+                              ),
+                            ),
+                            const SizedBox(width: 16),
+                            Expanded(
+                              child: ElevatedButton.icon(
+                                onPressed: !_isSimulatorOpen
+                                    ? null
+                                    : _simulateDoorClose,
+                                icon: const Icon(Icons.door_back_door_outlined),
+                                label: const Text("Fermer la porte"),
+                                style: ElevatedButton.styleFrom(
+                                  backgroundColor: Colors.green,
+                                  foregroundColor: Colors.white,
+                                  disabledBackgroundColor: Colors.grey,
+                                  shape: RoundedRectangleBorder(
+                                    borderRadius: BorderRadius.circular(8),
+                                  ),
+                                ),
+                              ),
+                            ),
+                          ],
+                        ),
+                        const SizedBox(height: 12),
+                        Container(
+                          padding: const EdgeInsets.all(12),
+                          decoration: BoxDecoration(
+                            color: _isSimulatorOpen
+                                ? Colors.orange.withOpacity(0.1)
+                                : Colors.green.withOpacity(0.1),
+                            borderRadius: BorderRadius.circular(8),
+                            border: Border.all(
+                              color: _isSimulatorOpen
+                                  ? Colors.orange.withOpacity(0.3)
+                                  : Colors.green.withOpacity(0.3),
+                            ),
+                          ),
+                          child: Row(
+                            children: [
+                              Icon(
+                                _isSimulatorOpen
+                                    ? Icons.warning
+                                    : Icons.check_circle,
+                                color: _isSimulatorOpen
+                                    ? Colors.orange
+                                    : Colors.green,
+                              ),
+                              const SizedBox(width: 12),
+                              Expanded(
+                                child: Text(
+                                  _isSimulatorOpen
+                                      ? "Porte ouverte - Distributeur en maintenance"
+                                      : "Porte fermée - Distributeur opérationnel",
+                                  style: TextStyle(
+                                    color: _isSimulatorOpen
+                                        ? Colors.orange[800]
+                                        : Colors.green[800],
+                                    fontWeight: FontWeight.bold,
+                                  ),
+                                ),
+                              ),
+                            ],
+                          ),
+                        ),
+                        const SizedBox(height: 8),
+                        Text(
+                          "Cette simulation remplace le capteur de porte réel que vous allez implémenter avec l'ESP32. Quand la porte est ouverte, le statut du distributeur change automatiquement.",
+                          style: TextStyle(
+                            fontSize: 12,
+                            color: Colors.grey[600],
+                            fontStyle: FontStyle.italic,
+                          ),
+                        ),
+                      ],
+                    ),
                   ),
                 ),
               ],
@@ -384,5 +602,149 @@ class _MachineStatusPageState extends State<MachineStatusPage> {
         );
       },
     );
+  }
+
+  // Fonction pour démarrer la simulation IoT
+  void _startIoTSimulation() {
+    // Simuler une connexion au système IoT
+    setState(() {
+      _isConnectedToIoT = true;
+    });
+
+    // Démarrer un timer pour simuler des événements IoT aléatoires
+    _simulatedEventTimer = Timer.periodic(const Duration(seconds: 30), (timer) {
+      // Simuler des événements IoT aléatoires
+      if (Random().nextDouble() < 0.3 && !_isSimulatorOpen) {
+        _simulateRandomEvent();
+      }
+    });
+  }
+
+  // Fonction pour simuler un événement IoT aléatoire
+  void _simulateRandomEvent() {
+    final events = [
+      {
+        'title': 'Vérification système',
+        'subtitle':
+            '${DateTime.now().day}/${DateTime.now().month}/${DateTime.now().year} - Vérification automatique',
+        'icon': Icons.check_circle_outline,
+        'color': Colors.green,
+      },
+      {
+        'title': 'Alerte de stock',
+        'subtitle':
+            '${DateTime.now().day}/${DateTime.now().month}/${DateTime.now().year} - Produit A presque épuisé',
+        'icon': Icons.warning_amber_outlined,
+        'color': Colors.amber,
+      },
+      {
+        'title': 'Vente importante',
+        'subtitle':
+            '${DateTime.now().day}/${DateTime.now().month}/${DateTime.now().year} - Nombreuses transactions',
+        'icon': Icons.trending_up,
+        'color': Colors.blue,
+      },
+    ];
+
+    final randomEvent = events[Random().nextInt(events.length)];
+    _addActivity(
+      randomEvent['title'] as String,
+      randomEvent['subtitle'] as String,
+      randomEvent['icon'] as IconData,
+      randomEvent['color'] as Color,
+    );
+  }
+
+  // Fonction pour ajouter une activité à l'historique
+  void _addActivity(String title, String subtitle, IconData icon, Color color) {
+    setState(() {
+      _recentActivities.insert(0, {
+        'icon': icon,
+        'color': color,
+        'title': title,
+        'subtitle': subtitle,
+        'timestamp': DateTime.now(),
+      });
+
+      // Limiter le nombre d'activités à 10
+      if (_recentActivities.length > 10) {
+        _recentActivities.removeLast();
+      }
+    });
+  }
+
+  // Fonction pour simuler l'ouverture du distributeur
+  void _simulateDoorOpen() {
+    setState(() {
+      _isSimulatorOpen = true;
+
+      // Changer l'état du distributeur en maintenance
+      if (_machine['status'] != 'En maintenance') {
+        String previousStatus = _machine['status'];
+        _machine['status'] = 'En maintenance';
+        _machine['issue'] = 'Porte ouverte - Accès de maintenance';
+
+        // Ajouter cet événement aux activités récentes
+        _addActivity(
+          'Distributeur ouvert',
+          '${DateTime.now().day}/${DateTime.now().month}/${DateTime.now().year} - Passage de $previousStatus à En maintenance',
+          Icons.door_front_door,
+          Colors.orange,
+        );
+
+        // Simuler l'envoi de l'information au backend
+        _sendStatusUpdateToBackend();
+      }
+    });
+  }
+
+  // Fonction pour simuler la fermeture du distributeur
+  void _simulateDoorClose() {
+    setState(() {
+      _isSimulatorOpen = false;
+
+      // Remettre l'état du distributeur à opérationnel
+      if (_machine['status'] == 'En maintenance' &&
+          _machine['issue'] == 'Porte ouverte - Accès de maintenance') {
+        _machine['status'] = 'Opérationnel';
+        _machine.remove('issue');
+
+        // Ajouter cet événement aux activités récentes
+        _addActivity(
+          'Distributeur fermé',
+          '${DateTime.now().day}/${DateTime.now().month}/${DateTime.now().year} - Retour à l\'état opérationnel',
+          Icons.door_back_door,
+          Colors.green,
+        );
+
+        // Simuler l'envoi de l'information au backend
+        _sendStatusUpdateToBackend();
+      }
+    });
+  }
+
+  // Fonction pour simuler l'envoi d'informations au backend
+  void _sendStatusUpdateToBackend() {
+    // Simuler une communication avec le backend
+    setState(() {
+      _isRefreshing = true;
+    });
+
+    // Simuler un délai de communication réseau
+    Future.delayed(const Duration(milliseconds: 800), () {
+      setState(() {
+        _isRefreshing = false;
+      });
+
+      // Afficher un message de confirmation
+      ScaffoldMessenger.of(context).hideCurrentSnackBar();
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text('Statut synchronisé avec le système central'),
+          backgroundColor: Colors.blue,
+          duration: const Duration(seconds: 2),
+        ),
+      );
+    });
   }
 }

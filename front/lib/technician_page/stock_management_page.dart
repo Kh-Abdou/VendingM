@@ -218,8 +218,7 @@ class _StockManagementPageState extends State<StockManagementPage> {
                                                                   error,
                                                                   stackTrace) =>
                                                               const Icon(
-                                                                  Icons
-                                                                      .fastfood,
+                                                                  Icons.fastfood,
                                                                   size: 30),
                                                         ),
                                                       )
@@ -228,8 +227,7 @@ class _StockManagementPageState extends State<StockManagementPage> {
                                                         ? ClipRRect(
                                                             borderRadius:
                                                                 BorderRadius
-                                                                    .circular(
-                                                                        8),
+                                                                    .circular(8),
                                                             child: Image.file(
                                                               File(product
                                                                   .imageUrl!),
@@ -246,8 +244,7 @@ class _StockManagementPageState extends State<StockManagementPage> {
                                                         : ClipRRect(
                                                             borderRadius:
                                                                 BorderRadius
-                                                                    .circular(
-                                                                        8),
+                                                                    .circular(8),
                                                             child: Image.asset(
                                                               product.imageUrl!,
                                                               fit: BoxFit.cover,
