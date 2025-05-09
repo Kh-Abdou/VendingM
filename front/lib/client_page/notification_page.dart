@@ -194,7 +194,8 @@ class _NotificationPageState extends State<NotificationPage> {
                 verticalOffset: 50.0,
                 child: FadeInAnimation(
                   child: Card(
-                    margin: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+                    margin:
+                        const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
                     child: ExpansionTile(
                       leading: CircleAvatar(
                         backgroundColor: notification.isUnread
@@ -202,7 +203,9 @@ class _NotificationPageState extends State<NotificationPage> {
                             : Colors.grey[200],
                         child: Icon(
                           Icons.receipt,
-                          color: notification.isUnread ? Colors.green : Colors.grey,
+                          color: notification.isUnread
+                              ? Colors.green
+                              : Colors.grey,
                         ),
                       ),
                       title: Text(
@@ -249,7 +252,8 @@ class _NotificationPageState extends State<NotificationPage> {
                                 return Padding(
                                   padding: const EdgeInsets.only(bottom: 8.0),
                                   child: Row(
-                                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                                    mainAxisAlignment:
+                                        MainAxisAlignment.spaceBetween,
                                     children: [
                                       Expanded(
                                         child: Text(
@@ -258,7 +262,8 @@ class _NotificationPageState extends State<NotificationPage> {
                                       ),
                                       Text(
                                         '${(produit['prix'] * produit['quantite']).toStringAsFixed(2)} DA',
-                                        style: const TextStyle(fontWeight: FontWeight.bold),
+                                        style: const TextStyle(
+                                            fontWeight: FontWeight.bold),
                                       ),
                                     ],
                                   ),
@@ -266,7 +271,8 @@ class _NotificationPageState extends State<NotificationPage> {
                               }),
                               const Divider(),
                               Row(
-                                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                                mainAxisAlignment:
+                                    MainAxisAlignment.spaceBetween,
                                 children: [
                                   const Text(
                                     'Total:',
@@ -354,7 +360,8 @@ class _NotificationPageState extends State<NotificationPage> {
                 verticalOffset: 50.0,
                 child: FadeInAnimation(
                   child: Card(
-                    margin: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+                    margin:
+                        const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
                     child: ListTile(
                       leading: CircleAvatar(
                         backgroundColor: notification.isUnread
@@ -362,7 +369,8 @@ class _NotificationPageState extends State<NotificationPage> {
                             : Colors.grey[200],
                         child: Icon(
                           statusIcon,
-                          color: notification.isUnread ? statusColor : Colors.grey,
+                          color:
+                              notification.isUnread ? statusColor : Colors.grey,
                         ),
                       ),
                       title: Text(
