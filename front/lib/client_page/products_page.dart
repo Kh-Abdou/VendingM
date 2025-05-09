@@ -195,7 +195,7 @@ class _ProductsPageState extends State<ProductsPage> {
               Stack(
                 children: [
                   Container(
-                    height: 120,
+                    height: 130,
                     width: double.infinity,
                     decoration: BoxDecoration(
                       color: Colors.grey[200],
@@ -204,20 +204,24 @@ class _ProductsPageState extends State<ProductsPage> {
                     child: produit.image.isNotEmpty
                         ? ClipRRect(
                             borderRadius: BorderRadius.circular(10),
-                            child: Image.network(
-                              // Construct full URL for image
-                              _getFullImageUrl(produit.image),
-                              fit: BoxFit.cover,
-                              errorBuilder: (context, error, stackTrace) {
-                                print('Error loading image: $error');
-                                return Center(
-                                  child: Icon(
-                                    Icons.local_cafe,
-                                    size: 60,
-                                    color: Colors.grey[600],
-                                  ),
-                                );
-                              },
+                            child: FittedBox(
+                              fit: BoxFit.contain,
+                              child: Image.network(
+                                _getFullImageUrl(produit.image),
+                                fit: BoxFit.cover,
+                                height: 100,
+                                width: 100,
+                                errorBuilder: (context, error, stackTrace) {
+                                  print('Error loading image: $error');
+                                  return Center(
+                                    child: Icon(
+                                      Icons.local_cafe,
+                                      size: 60,
+                                      color: Colors.grey[600],
+                                    ),
+                                  );
+                                },
+                              ),
                             ),
                           )
                         : Center(
@@ -230,7 +234,7 @@ class _ProductsPageState extends State<ProductsPage> {
                   ),
                   if (!produit.disponible)
                     Container(
-                      height: 120,
+                      height: 130,
                       width: double.infinity,
                       decoration: BoxDecoration(
                         color: Colors.black.withOpacity(0.5),
@@ -303,29 +307,33 @@ class _ProductsPageState extends State<ProductsPage> {
             children: [
               Center(
                 child: Container(
-                  height: 150,
-                  width: 150,
+                  height: 180,
+                  width: 180,
                   decoration: BoxDecoration(
                     color: Colors.grey[200],
-                    borderRadius: BorderRadius.circular(10),
+                    borderRadius: BorderRadius.circular(15),
                   ),
                   child: produit.image.isNotEmpty
                       ? ClipRRect(
-                          borderRadius: BorderRadius.circular(10),
-                          child: Image.network(
-                            // Use the same method for full URL
-                            _getFullImageUrl(produit.image),
-                            fit: BoxFit.cover,
-                            errorBuilder: (context, error, stackTrace) {
-                              print('Error loading detail image: $error');
-                              return Center(
-                                child: Icon(
-                                  Icons.local_cafe,
-                                  size: 80,
-                                  color: Colors.grey[600],
-                                ),
-                              );
-                            },
+                          borderRadius: BorderRadius.circular(15),
+                          child: FittedBox(
+                            fit: BoxFit.contain,
+                            child: Image.network(
+                              _getFullImageUrl(produit.image),
+                              height: 160,
+                              width: 160,
+                              fit: BoxFit.cover,
+                              errorBuilder: (context, error, stackTrace) {
+                                print('Error loading detail image: $error');
+                                return Center(
+                                  child: Icon(
+                                    Icons.local_cafe,
+                                    size: 80,
+                                    color: Colors.grey[600],
+                                  ),
+                                );
+                              },
+                            ),
                           ),
                         )
                       : Center(
