@@ -9,6 +9,7 @@ const {
     getOutOfStockProducts,
     getProductsWithStock
 } = require('../controllers/product.controllers');
+const upload = require('../middlewares/upload');
 
 const router = express.Router();
 
@@ -24,9 +25,9 @@ router.get('/out-of-stock', getOutOfStockProducts);
 // Obtenir un produit spécifique avec ses informations de stock
 router.get('/:id/stock', getProductWithStock);
 
-// Routes de base pour les produits
-router.post('/', addProduct);
-router.put('/:id', updateProduct);
+// Routes de base pour les produits - Added upload.single('image') middleware
+router.post('/', upload.single('image'), addProduct);
+router.put('/:id', upload.single('image'), updateProduct);
 router.delete('/:id', deleteProduct);
 
 module.exports = router;

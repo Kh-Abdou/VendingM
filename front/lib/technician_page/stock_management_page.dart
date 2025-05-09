@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:image_picker/image_picker.dart';
 import 'package:flutter_staggered_animations/flutter_staggered_animations.dart';
+import 'package:lessvsfull/services/api_service.dart';
 import '../services/product_service.dart';
 import '../services/chariot_service.dart'; // Import du service de gestion des chariots
 import 'dart:io';
@@ -243,23 +244,50 @@ class _StockManagementPageState extends State<StockManagementPage> {
                                                                       size: 30),
                                                             ),
                                                           )
-                                                        : ClipRRect(
-                                                            borderRadius:
-                                                                BorderRadius
-                                                                    .circular(
-                                                                        8),
-                                                            child: Image.asset(
-                                                              product.imageUrl!,
-                                                              fit: BoxFit.cover,
-                                                              errorBuilder: (context,
-                                                                      error,
-                                                                      stackTrace) =>
-                                                                  const Icon(
-                                                                      Icons
-                                                                          .fastfood,
-                                                                      size: 30),
-                                                            ),
-                                                          )
+                                                        : product.imageUrl!
+                                                                .startsWith(
+                                                                    'uploads/')
+                                                            ? ClipRRect(
+                                                                borderRadius:
+                                                                    BorderRadius
+                                                                        .circular(
+                                                                            8),
+                                                                child: Image
+                                                                    .network(
+                                                                  '${ApiService.baseUrl}/${product.imageUrl!}',
+                                                                  fit: BoxFit
+                                                                      .cover,
+                                                                  errorBuilder: (context,
+                                                                          error,
+                                                                          stackTrace) =>
+                                                                      const Icon(
+                                                                          Icons
+                                                                              .fastfood,
+                                                                          size:
+                                                                              30),
+                                                                ),
+                                                              )
+                                                            : ClipRRect(
+                                                                borderRadius:
+                                                                    BorderRadius
+                                                                        .circular(
+                                                                            8),
+                                                                child:
+                                                                    Image.asset(
+                                                                  product
+                                                                      .imageUrl!,
+                                                                  fit: BoxFit
+                                                                      .cover,
+                                                                  errorBuilder: (context,
+                                                                          error,
+                                                                          stackTrace) =>
+                                                                      const Icon(
+                                                                          Icons
+                                                                              .fastfood,
+                                                                          size:
+                                                                              30),
+                                                                ),
+                                                              )
                                                 : const Icon(Icons.fastfood,
                                                     size: 30),
                                           ),
@@ -991,18 +1019,38 @@ class _StockManagementPageState extends State<StockManagementPage> {
                                                           size: 40),
                                                 ),
                                               )
-                                            : ClipRRect(
-                                                borderRadius:
-                                                    BorderRadius.circular(8),
-                                                child: Image.asset(
-                                                  product.imageUrl!,
-                                                  fit: BoxFit.cover,
-                                                  errorBuilder: (context, error,
-                                                          stackTrace) =>
-                                                      const Icon(Icons.fastfood,
-                                                          size: 40),
-                                                ),
-                                              )
+                                            : product.imageUrl!
+                                                    .startsWith('uploads/')
+                                                ? ClipRRect(
+                                                    borderRadius:
+                                                        BorderRadius.circular(
+                                                            8),
+                                                    child: Image.network(
+                                                      '${ApiService.baseUrl}/${product.imageUrl!}',
+                                                      fit: BoxFit.cover,
+                                                      errorBuilder: (context,
+                                                              error,
+                                                              stackTrace) =>
+                                                          const Icon(
+                                                              Icons.fastfood,
+                                                              size: 40),
+                                                    ),
+                                                  )
+                                                : ClipRRect(
+                                                    borderRadius:
+                                                        BorderRadius.circular(
+                                                            8),
+                                                    child: Image.asset(
+                                                      product.imageUrl!,
+                                                      fit: BoxFit.cover,
+                                                      errorBuilder: (context,
+                                                              error,
+                                                              stackTrace) =>
+                                                          const Icon(
+                                                              Icons.fastfood,
+                                                              size: 40),
+                                                    ),
+                                                  )
                                     : const Icon(
                                         Icons.image_outlined,
                                         size: 40,

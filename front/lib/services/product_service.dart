@@ -1,3 +1,4 @@
+import 'dart:io';
 import 'package:flutter/material.dart';
 import 'api_service.dart';
 
@@ -26,7 +27,7 @@ class Product {
           ? (json['price'] as int).toDouble()
           : json['price'],
       quantity: json['quantity'],
-      imageUrl: json['imageUrl'],
+      imageUrl: json['image'], // Updated to match backend field name
       chariotId: json['chariotId'],
     );
   }
@@ -37,7 +38,7 @@ class Product {
       'name': name,
       'price': price,
       'quantity': quantity,
-      if (imageUrl != null) 'imageUrl': imageUrl,
+      if (imageUrl != null && !imageUrl!.startsWith('/')) 'image': imageUrl,
       if (chariotId != null) 'chariotId': chariotId,
     };
   }
@@ -79,27 +80,61 @@ class ProductService {
     }
   }
 
-  // Ajouter un nouveau produit
+  // Ajouter un nouveau produit avec gestion d'image
   static Future<Product> addProduct(Product product) async {
     try {
-      final response = await ApiService.post('/product', product.toJson());
-      return Product.fromJson(response);
+      // Vérifier s'il y a une image à uploader
+      if (product.imageUrl != null && product.imageUrl!.startsWith('/')) {
+        // C'est un chemin de fichier local, utiliser la méthode d'upload multipart
+        final fields = {
+          'name': product.name,
+          'price': product.price.toString(),
+          'quantity': product.quantity.toString(),
+          if (product.chariotId != null) 'chariotId': product.chariotId!,
+        };
+
+        final response = await ApiService.uploadFile(
+            '/product', fields, product.imageUrl!, 'image');
+
+        return Product.fromJson(response);
+      } else {
+        // Pas d'image ou URL déjà existante, utiliser la méthode POST standard
+        final response = await ApiService.post('/product', product.toJson());
+        return Product.fromJson(response);
+      }
     } catch (e) {
       debugPrint('Erreur lors de l\'ajout du produit: $e');
       rethrow;
     }
   }
 
-  // Mettre à jour un produit existant
+  // Mettre à jour un produit existant avec gestion d'image
   static Future<Product> updateProduct(Product product) async {
     try {
       if (product.id == null) {
         throw Exception('L\'ID du produit est requis pour la mise à jour');
       }
 
-      final response =
-          await ApiService.put('/product/${product.id}', product.toJson());
-      return Product.fromJson(response);
+      // Vérifier s'il y a une image à uploader
+      if (product.imageUrl != null && product.imageUrl!.startsWith('/')) {
+        // C'est un chemin de fichier local, utiliser la méthode d'upload multipart
+        final fields = {
+          'name': product.name,
+          'price': product.price.toString(),
+          'quantity': product.quantity.toString(),
+          if (product.chariotId != null) 'chariotId': product.chariotId!,
+        };
+
+        final response = await ApiService.updateWithFile(
+            '/product/${product.id}', fields, product.imageUrl!, 'image');
+
+        return Product.fromJson(response);
+      } else {
+        // Pas d'image ou URL déjà existante, utiliser la méthode PUT standard
+        final response =
+            await ApiService.put('/product/${product.id}', product.toJson());
+        return Product.fromJson(response);
+      }
     } catch (e) {
       debugPrint('Erreur lors de la mise à jour du produit: $e');
       rethrow;

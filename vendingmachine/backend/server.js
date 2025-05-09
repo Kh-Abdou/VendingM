@@ -4,6 +4,7 @@ const dotenv = require("dotenv").config(); // Load environment variables from .e
 const cors = require("cors"); // Ajout de CORS
 const UserModel = require("./models/user.model");
 const Product = require("./models/product.model");
+const path = require("path"); // Add path module
 const port = 5000;
 
 //connexion a db
@@ -15,6 +16,9 @@ const app = express();
 app.use(cors()); // Activer CORS pour toutes les routes
 app.use(express.json()); // Parse JSON bodies
 app.use(express.urlencoded({ extended: false })); // Parse URL-encoded bodies
+
+// Serve static files from the uploads directory
+app.use('/uploads', express.static(path.join(__dirname, 'uploads')));
 
 // Routes
 app.use("/user", require("./routes/post.routes")); // Changement de /post à /user pour clarté

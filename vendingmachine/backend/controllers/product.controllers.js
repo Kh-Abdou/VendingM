@@ -5,7 +5,15 @@ const mongoose = require('mongoose');
 // Ajouter un produit
 exports.addProduct = async (req, res) => {
     try {
-        const product = new Product(req.body);
+        // Create a new product from the request body
+        const productData = { ...req.body };
+        
+        // If an image was uploaded, add the file path to the productData
+        if (req.file) {
+            productData.image = `uploads/${req.file.filename}`;
+        }
+        
+        const product = new Product(productData);
         await product.save();
         res.status(201).json(product);
     } catch (error) {
@@ -64,7 +72,15 @@ exports.updateProduct = async (req, res) => {
             return res.status(404).json({ error: 'Produit non trouvé' });
         }
         
-        const product = await Product.findByIdAndUpdate(req.params.id, req.body, { new: true });
+        // Update with the request body
+        const updateData = { ...req.body };
+        
+        // If a new image was uploaded, update the image path
+        if (req.file) {
+            updateData.image = `uploads/${req.file.filename}`;
+        }
+        
+        const product = await Product.findByIdAndUpdate(req.params.id, updateData, { new: true });
         
         // Si la quantité a été modifiée, vérifier les seuils de stock
         if (quantity !== undefined && quantity !== previousProduct.quantity) {

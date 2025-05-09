@@ -205,9 +205,11 @@ class _ProductsPageState extends State<ProductsPage> {
                         ? ClipRRect(
                             borderRadius: BorderRadius.circular(10),
                             child: Image.network(
-                              produit.image,
+                              // Construct full URL for image
+                              _getFullImageUrl(produit.image),
                               fit: BoxFit.cover,
                               errorBuilder: (context, error, stackTrace) {
+                                print('Error loading image: $error');
                                 return Center(
                                   child: Icon(
                                     Icons.local_cafe,
@@ -311,9 +313,11 @@ class _ProductsPageState extends State<ProductsPage> {
                       ? ClipRRect(
                           borderRadius: BorderRadius.circular(10),
                           child: Image.network(
-                            produit.image,
+                            // Use the same method for full URL
+                            _getFullImageUrl(produit.image),
                             fit: BoxFit.cover,
                             errorBuilder: (context, error, stackTrace) {
+                              print('Error loading detail image: $error');
                               return Center(
                                 child: Icon(
                                   Icons.local_cafe,
@@ -374,6 +378,22 @@ class _ProductsPageState extends State<ProductsPage> {
         );
       },
     );
+  }
+
+  // Helper method to construct full image URL
+  String _getFullImageUrl(String imagePath) {
+    // Already a full URL
+    if (imagePath.startsWith('http')) {
+      return imagePath;
+    }
+
+    // Handle server path that starts with 'uploads/'
+    if (imagePath.startsWith('uploads/')) {
+      return '${widget.baseUrl}/${imagePath}';
+    }
+
+    // Default case, just append to base URL
+    return '${widget.baseUrl}/${imagePath}';
   }
 }
 
