@@ -13,17 +13,47 @@ class _RechargeClientPageState extends State<RechargeClientPage> {
   final ClientService _clientService = ClientService();
 
   List<Client> _clients = [];
-  String?
-      _selectedClientId; // Changed from int? to String? to match MongoDB ObjectID
+  List<Client> _filteredClients = [];
+  String? _selectedClientId;
   final _amountController = TextEditingController();
+  final _searchController = TextEditingController();
 
   bool _isLoading = false;
   String? _errorMessage;
+  bool _successMessageVisible = false;
+  String _successMessage = '';
+  double _successAmount = 0;
+  String _successClientName = '';
+
+  // Credit balance limit constant
+  static const double _maxCreditLimit = 5000.0;
 
   @override
   void initState() {
     super.initState();
     _fetchClients();
+    _searchController.addListener(_filterClients);
+  }
+
+  @override
+  void dispose() {
+    _amountController.dispose();
+    _searchController.removeListener(_filterClients);
+    _searchController.dispose();
+    super.dispose();
+  }
+
+  void _filterClients() {
+    final searchTerm = _searchController.text.toLowerCase();
+    setState(() {
+      if (searchTerm.isEmpty) {
+        _filteredClients = _clients;
+      } else {
+        _filteredClients = _clients
+            .where((client) => client.name.toLowerCase().contains(searchTerm))
+            .toList();
+      }
+    });
   }
 
   Future<void> _fetchClients() async {
@@ -37,12 +67,11 @@ class _RechargeClientPageState extends State<RechargeClientPage> {
       setState(() {
         // Change this line - use role instead of type and lowercase 'client'
         _clients = clients.where((client) => client.role == 'client').toList();
+        _filteredClients = _clients;
         _isLoading = false;
 
-        // Set default selected client if available
-        if (_clients.isNotEmpty) {
-          _selectedClientId = _clients.first.id;
-        }
+        // Reset selected client
+        _selectedClientId = null;
       });
     } catch (e) {
       setState(() {
@@ -70,15 +99,96 @@ class _RechargeClientPageState extends State<RechargeClientPage> {
                 style: const TextStyle(color: Colors.red),
               ),
             ),
+          // Success message card
+          if (_successMessageVisible) _buildSuccessCard(),
           _buildCreditRechargeForm(),
           const SizedBox(height: 20),
           const Text('Client List',
               style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
           const SizedBox(height: 10),
+          // Search field for clients
+          TextField(
+            controller: _searchController,
+            decoration: const InputDecoration(
+              labelText: 'Search by name',
+              prefixIcon: Icon(Icons.search),
+              border: OutlineInputBorder(),
+            ),
+          ),
+          const SizedBox(height: 10),
           _isLoading
               ? const Center(child: CircularProgressIndicator())
               : Expanded(child: _buildClientCreditList()),
         ],
+      ),
+    );
+  }
+
+  Widget _buildSuccessCard() {
+    return Card(
+      elevation: 4,
+      color: Colors.green.shade50,
+      margin: const EdgeInsets.only(bottom: 16),
+      shape: RoundedRectangleBorder(
+        borderRadius: BorderRadius.circular(12),
+        side: BorderSide(color: Colors.green.shade200, width: 1),
+      ),
+      child: Padding(
+        padding: const EdgeInsets.all(16.0),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Row(
+              children: [
+                Icon(Icons.check_circle,
+                    color: Colors.green.shade700, size: 24),
+                const SizedBox(width: 8),
+                Text(
+                  'Transaction Successful',
+                  style: TextStyle(
+                    color: Colors.green.shade800,
+                    fontWeight: FontWeight.bold,
+                    fontSize: 18,
+                  ),
+                ),
+                const Spacer(),
+                IconButton(
+                  icon: const Icon(Icons.close, size: 20),
+                  onPressed: () {
+                    setState(() {
+                      _successMessageVisible = false;
+                    });
+                  },
+                )
+              ],
+            ),
+            const Divider(color: Colors.green),
+            const SizedBox(height: 8),
+            RichText(
+              text: TextSpan(
+                style: TextStyle(color: Colors.green.shade900, fontSize: 16),
+                children: [
+                  const TextSpan(text: 'Added '),
+                  TextSpan(
+                    text: '$_successAmount DA',
+                    style: const TextStyle(fontWeight: FontWeight.bold),
+                  ),
+                  const TextSpan(text: ' to '),
+                  TextSpan(
+                    text: _successClientName,
+                    style: const TextStyle(fontWeight: FontWeight.bold),
+                  ),
+                  const TextSpan(text: '\'s account'),
+                ],
+              ),
+            ),
+            const SizedBox(height: 8),
+            Text(
+              _successMessage,
+              style: TextStyle(color: Colors.green.shade800),
+            ),
+          ],
+        ),
       ),
     );
   }
@@ -98,28 +208,13 @@ class _RechargeClientPageState extends State<RechargeClientPage> {
               const Center(child: CircularProgressIndicator())
             else if (_clients.isEmpty)
               const Text('No clients available to recharge.')
-            else
-              DropdownButtonFormField<String>(
-                // Changed from int to String
-                decoration: const InputDecoration(
-                  labelText: 'Select Client',
-                  border: OutlineInputBorder(),
+            else if (_selectedClientId != null)
+              Text(
+                'Selected client: ${_clients.firstWhere((client) => client.id == _selectedClientId).name}',
+                style: const TextStyle(
+                  fontWeight: FontWeight.bold,
+                  color: Colors.green,
                 ),
-                value: _selectedClientId,
-                items: _clients.map((client) {
-                  return DropdownMenuItem<String>(
-                    // Changed from int to String
-                    value: client.id,
-                    child: Text('${client.name} (${client.email})'),
-                  );
-                }).toList(),
-                onChanged: (value) {
-                  if (value != null) {
-                    setState(() {
-                      _selectedClientId = value;
-                    });
-                  }
-                },
               ),
             const SizedBox(height: 16),
             TextField(
@@ -148,10 +243,13 @@ class _RechargeClientPageState extends State<RechargeClientPage> {
                   backgroundColor: Colors.blue,
                   padding: const EdgeInsets.symmetric(vertical: 12),
                 ),
-                onPressed: _clients.isEmpty || _isLoading ? null : _addCredit,
+                onPressed:
+                    _clients.isEmpty || _isLoading || _selectedClientId == null
+                        ? null
+                        : _addCredit,
                 child: _isLoading
                     ? const CircularProgressIndicator(color: Colors.white)
-                    : const Text('Add Credit'),
+                    : const Text('Add Credit', style: TextStyle(fontSize: 16)),
               ),
             ),
           ],
@@ -176,7 +274,7 @@ class _RechargeClientPageState extends State<RechargeClientPage> {
       return;
     }
 
-    // Proper numeric conversion - this will fix the error
+    // Proper numeric conversion
     double amount;
     try {
       amount = double.parse(_amountController.text);
@@ -187,9 +285,34 @@ class _RechargeClientPageState extends State<RechargeClientPage> {
       return;
     }
 
+    // Check for zero amount
+    if (amount <= 0) {
+      setState(() {
+        _errorMessage = 'Amount must be greater than 0';
+      });
+      return;
+    }
+
+    // Get the selected client to check their current balance
+    final selectedClient = _clients.firstWhere(
+      (client) => client.id == _selectedClientId,
+      orElse: () => throw Exception('Selected client not found'),
+    );
+
+    // Check if adding this amount would exceed the credit limit
+    if (selectedClient.credit + amount > _maxCreditLimit) {
+      setState(() {
+        _errorMessage =
+            'Cannot exceed the maximum balance of $_maxCreditLimit DA. Current balance: ${selectedClient.credit} DA';
+      });
+      return;
+    }
+
     setState(() {
       _isLoading = true;
       _errorMessage = null;
+      // Hide any previous success message while processing
+      _successMessageVisible = false;
     });
 
     try {
@@ -202,10 +325,14 @@ class _RechargeClientPageState extends State<RechargeClientPage> {
       // Clear form
       _amountController.clear();
 
-      // Show success message
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Credit added successfully')),
-      );
+      // Show custom success message
+      setState(() {
+        _successAmount = amount;
+        _successClientName = selectedClient.name;
+        _successMessage =
+            'Transaction completed at ${DateTime.now().toString().substring(0, 16)}';
+        _successMessageVisible = true;
+      });
     } catch (e) {
       setState(() {
         _errorMessage = 'Failed to add credit: ${e.toString()}';
@@ -218,19 +345,29 @@ class _RechargeClientPageState extends State<RechargeClientPage> {
   }
 
   Widget _buildClientCreditList() {
-    if (_clients.isEmpty) {
+    if (_filteredClients.isEmpty) {
+      if (_searchController.text.isNotEmpty) {
+        return const Center(child: Text('No clients match your search'));
+      }
       return const Center(child: Text('No clients available'));
     }
 
     return ListView.builder(
-      itemCount: _clients.length,
+      itemCount: _filteredClients.length,
       itemBuilder: (context, index) {
-        final client = _clients[index];
+        final client = _filteredClients[index];
+        final isSelected = client.id == _selectedClientId;
+
         return Card(
           margin: const EdgeInsets.symmetric(vertical: 4),
+          color: isSelected ? Colors.blue.withOpacity(0.1) : null,
           child: ListTile(
             leading: CircleAvatar(
-              child: Text(client.name.substring(0, 1)),
+              backgroundColor: isSelected ? Colors.blue : Colors.grey.shade700,
+              child: Text(
+                client.name.substring(0, 1).toUpperCase(),
+                style: const TextStyle(color: Colors.white),
+              ),
             ),
             title: Text(client.name),
             subtitle: Text(client.email),
@@ -243,8 +380,17 @@ class _RechargeClientPageState extends State<RechargeClientPage> {
                   style: const TextStyle(
                       fontWeight: FontWeight.bold, fontSize: 16),
                 ),
+                Text(
+                  'Available: ${_maxCreditLimit - client.credit} DA',
+                  style: const TextStyle(fontSize: 12, color: Colors.grey),
+                ),
               ],
             ),
+            onTap: () {
+              setState(() {
+                _selectedClientId = client.id;
+              });
+            },
           ),
         );
       },
