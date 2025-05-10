@@ -1,27 +1,11 @@
 import 'dart:developer' as developer;
-
-// Mock implementation of ApiService
-class ApiService {
-  Future<Map<String, dynamic>> get(String endpoint) async {
-    // Simulate API GET request
-    return {};
-  }
-
-  Future<Map<String, dynamic>> post(String endpoint, Map<String, dynamic> data) async {
-    // Simulate API POST request
-    return {};
-  }
-}
+import 'api_service.dart';
 
 class EWalletService {
-  final ApiService _apiService;
-
-  EWalletService(this._apiService);
-
   Future<Map<String, dynamic>> getBalance(String userId) async {
     try {
       developer.log("Requesting balance for user: $userId");
-      final result = await _apiService.get('ewallet/$userId');
+      final result = await ApiService.get('/ewallet/$userId');
       developer.log("Balance response: $result");
       return result;
     } catch (e) {
@@ -33,7 +17,7 @@ class EWalletService {
   Future<Map<String, dynamic>> addFunds(String userId, double amount) async {
     try {
       developer.log("Adding funds for user: $userId, Amount: $amount");
-      final result = await _apiService.post('ewallet/add-funds', {
+      final result = await ApiService.post('/ewallet/add-funds', {
         'userId': userId,
         'amount': amount,
       });
@@ -50,7 +34,7 @@ class EWalletService {
     try {
       developer.log(
           "Processing payment for user: $userId, Amount: $amount, Products: $products");
-      final result = await _apiService.post('ewallet/payment', {
+      final result = await ApiService.post('/ewallet/payment', {
         'userId': userId,
         'amount': amount,
         'products': products,
@@ -66,7 +50,7 @@ class EWalletService {
   Future<List<dynamic>> getTransactionHistory(String userId) async {
     try {
       developer.log("Fetching transaction history for user: $userId");
-      final result = await _apiService.get('ewallet/transactions/$userId');
+      final result = await ApiService.get('/ewallet/transactions/$userId');
       final transactions = result['transactions'] ?? [];
       developer.log("Transaction history response: $transactions");
       return transactions;
