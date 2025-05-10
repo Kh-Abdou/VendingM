@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import 'package:flutter_staggered_animations/flutter_staggered_animations.dart';
+import 'dart:async';
 import '../models/notification.dart' as app_notification;
 import '../providers/notification_provider.dart';
 
@@ -27,6 +28,9 @@ class _NotificationsPageState extends State<NotificationsPage>
   bool _isLoading = false;
   String? _error;
 
+  // Adding a debounce mechanism to prevent multiple concurrent requests
+  bool _isRefreshing = false;
+
   @override
   void initState() {
     super.initState();
@@ -43,8 +47,13 @@ class _NotificationsPageState extends State<NotificationsPage>
   }
 
   Future<void> _refreshNotifications() async {
-    print(
-        '🔄 Rafraîchissement des notifications depuis la page'); // Log pour débogage
+    // Prevent multiple concurrent refresh requests
+    if (_isRefreshing) {
+      print('🚫 Une opération de rafraîchissement est déjà en cours');
+      return;
+    }
+
+    print('🔄 Rafraîchissement des notifications depuis la page');
 
     if (!mounted) return; // Vérifier si le widget est toujours monté
 
@@ -54,30 +63,46 @@ class _NotificationsPageState extends State<NotificationsPage>
 
     setState(() {
       _isLoading = true;
+      _isRefreshing = true;
       _error = null;
     });
 
     try {
-      // Forcer le rechargement via le provider
-      await provider.forceRefresh();
+      // Forcer le rechargement via le provider avec un timeout plus long
+      await provider.forceRefresh().timeout(
+        const Duration(seconds: 30),
+        onTimeout: () {
+          throw TimeoutException('Le rafraîchissement a pris trop de temps. Vérifiez votre connexion.');
+        },
+      );
 
-      if (!mounted)
-        return; // Vérifier à nouveau si le widget est toujours monté après l'opération asynchrone
+      if (!mounted) return;
 
       print('✅ Notifications rafraîchies avec succès');
       print('📊 Nombre total: ${provider.notifications.length}');
 
       setState(() {
         _isLoading = false;
+        _isRefreshing = false;
       });
     } catch (e) {
-      print('❌ Erreur lors du rafraîchissement: $e'); // Log pour débogage
+      print('❌ Erreur lors du rafraîchissement: $e');
 
-      if (!mounted) return; // Vérifier si le widget est toujours monté
+      if (!mounted) return;
 
       setState(() {
         _isLoading = false;
+        _isRefreshing = false;
         _error = e.toString();
+      });
+
+      // Retarder la prochaine tentative de rafraîchissement
+      Future.delayed(const Duration(seconds: 5), () {
+        if (mounted) {
+          setState(() {
+            _isRefreshing = false;
+          });
+        }
       });
     }
   }

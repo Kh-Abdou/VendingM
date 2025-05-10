@@ -5,6 +5,7 @@ import '../models/notification.dart';
 
 class NotificationService {
   final String baseUrl;
+  bool _isRequestInProgress = false;
 
   // Constructeur avec l'URL de base de l'API
   NotificationService({required this.baseUrl});
@@ -12,6 +13,14 @@ class NotificationService {
   // Récupérer les notifications d'un utilisateur
   Future<List<Notification>> getUserNotifications(String userId,
       {String? type, String? status}) async {
+    if (_isRequestInProgress) {
+      print('🚫 Une requête de notification est déjà en cours');
+      // Return empty list instead of throwing to improve UI responsiveness
+      return [];
+    }
+
+    _isRequestInProgress = true;
+    
     try {
       // Afficher plus d'informations de débogage
       print('🔍 Débogage NotificationService:');
@@ -38,9 +47,9 @@ class NotificationService {
         Uri.parse(url),
         headers: {'Content-Type': 'application/json'},
       ).timeout(
-        const Duration(seconds: 15), // Augmenter le timeout à 15 secondes
+        const Duration(seconds: 25), // Timeout increased to 25 seconds
         onTimeout: () {
-          print('⏱️ Timeout après 15 secondes');
+          print('⏱️ Timeout après 25 secondes');
           throw TimeoutException(
               'La connexion a pris trop de temps. Vérifiez votre serveur backend.');
         },
@@ -72,6 +81,7 @@ class NotificationService {
                       : json.encode(notificationsJson.first).length));
             }
 
+            _isRequestInProgress = false;
             return notificationsJson
                 .map((json) => Notification.fromJson(json))
                 .toList();
@@ -82,6 +92,7 @@ class NotificationService {
             // Vérifier si la réponse est directement un tableau de notifications
             if (data is List) {
               print('🔄 La réponse est un tableau direct, on l\'adapte');
+              _isRequestInProgress = false;
               return (data as List<dynamic>)
                   .map((json) =>
                       Notification.fromJson(json as Map<String, dynamic>))
@@ -91,6 +102,7 @@ class NotificationService {
               print(
                   '🔄 Utilisation du champ "data" comme source de notifications');
               final List<dynamic> notificationsJson = data['data'];
+              _isRequestInProgress = false;
               return notificationsJson
                   .map((json) => Notification.fromJson(json))
                   .toList();
@@ -100,9 +112,11 @@ class NotificationService {
                   '🔄 Tentative de traiter la réponse comme une seule notification');
               try {
                 final notification = Notification.fromJson(data);
+                _isRequestInProgress = false;
                 return [notification];
               } catch (e) {
                 print('❌ Impossible d\'adapter la réponse: $e');
+                _isRequestInProgress = false;
                 throw FormatException('Format de réponse incompatible: $e');
               }
             }
@@ -110,6 +124,7 @@ class NotificationService {
         } on FormatException catch (e) {
           print('❌ Erreur de décodage JSON: $e');
           print('📄 Réponse non-JSON: ${response.body}');
+          _isRequestInProgress = false;
           throw FormatException(
               'Format de réponse invalide. La réponse n\'est pas un JSON valide: $e');
         }
@@ -117,26 +132,32 @@ class NotificationService {
         // En cas d'erreur HTTP, afficher plus de détails
         print('❌ Échec de la requête: ${response.statusCode}');
         print('📄 Corps de l\'erreur: ${response.body}');
+        _isRequestInProgress = false;
         throw HttpException(
             'Échec du chargement des notifications: ${response.statusCode} - ${response.body}');
       }
     } on SocketException catch (e) {
       print('🔴 Erreur de socket: $e');
+      _isRequestInProgress = false;
       throw Exception(
           'Impossible de se connecter au serveur. Vérifiez que le serveur backend est bien démarré et accessible à l\'adresse $baseUrl');
     } on TimeoutException catch (e) {
       print('🔴 Timeout: $e');
+      _isRequestInProgress = false;
       throw Exception(
           'La connexion au serveur a expiré. Vérifiez que le serveur backend est bien démarré et accessible.');
     } on HttpException catch (e) {
       print('🔴 Erreur HTTP: $e');
+      _isRequestInProgress = false;
       throw Exception('$e');
     } on FormatException catch (e) {
       print('🔴 Erreur de format: $e');
+      _isRequestInProgress = false;
       throw Exception(
           'Format de réponse invalide. Vérifiez le serveur backend.');
     } catch (e) {
       print('🔴 Erreur inattendue: $e');
+      _isRequestInProgress = false;
       throw Exception('Erreur lors de la récupération des notifications: $e');
     }
   }
@@ -150,7 +171,7 @@ class NotificationService {
         Uri.parse('$baseUrl/notification/count/$userId'),
         headers: {'Content-Type': 'application/json'},
       ).timeout(
-        const Duration(seconds: 5),
+        const Duration(seconds: 8), // Increased from 5 to 8 seconds
         onTimeout: () {
           throw TimeoutException(
               'La connexion a pris trop de temps pour le compteur.');
@@ -194,26 +215,30 @@ class NotificationService {
         body: json.encode(body),
       )
           .timeout(
-        const Duration(seconds: 5),
+        const Duration(seconds: 10), // Increased from 5 to 10 seconds
         onTimeout: () {
-          throw TimeoutException(
-              'La connexion a pris trop de temps pour marquer comme lu.');
+          print('⚠️ Timeout lors du marquage comme lu, mais on continue');
+          // Don't throw an error, just return to continue UI flow
+          return http.Response('{"message": "Timeout but UI updated"}', 408);
         },
       );
 
-      if (response.statusCode != 200) {
+      if (response.statusCode != 200 && response.statusCode != 408) {
         throw HttpException(
             'Échec pour marquer les notifications comme lues: ${response.statusCode}');
       }
     } on SocketException catch (e) {
       print('🔴 Erreur de socket pour marquer comme lu: $e');
-      throw Exception(
-          'Impossible de se connecter au serveur pour marquer les notifications comme lues.');
+      // Don't throw since the UI is already updated
     } catch (e) {
       print('🔴 Erreur lors du marquage des notifications comme lues: $e');
-      throw Exception(
-          'Erreur lors du marquage des notifications comme lues: $e');
+      // Don't throw since the UI is already updated
     }
+  }
+
+  // Reset request flag (for error recovery)
+  void resetRequestFlag() {
+    _isRequestInProgress = false;
   }
 }
 
