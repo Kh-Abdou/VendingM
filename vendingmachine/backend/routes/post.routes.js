@@ -14,13 +14,15 @@ const {
     updateUserById, 
     getClients, 
     rechargeClientBalance,
-    updatePassword
+    updatePassword,
+    getUsers // Import getUsers function
 } = require('../controllers/user.controllers');
 
 // Define routes - ORDER MATTERS IN EXPRESS!
 // Put specific routes BEFORE parameter routes
 
 // 1. First specific routes
+router.get('/', getUsers); // Add route to get all users
 router.get('/clients', getClients);
 router.post('/clients/:id/recharge', rechargeClientBalance);
 router.put('/:id/password', updatePassword); // Ajout de la route pour changer le mot de passe

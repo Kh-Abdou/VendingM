@@ -1,4 +1,5 @@
 const User = require('../models/user.model');
+const EWalletModel = require('../models/ewallet.model'); // Ajout du modèle EWallet
 const bcrypt = require('bcrypt');
 
 module.exports.setRegister = async (req, res) => {
@@ -6,7 +7,7 @@ module.exports.setRegister = async (req, res) => {
         return res.status(400).json({ message: 'All fields are required' });
     } else {
         try {
-            const { name, email, password, role } = req.body;
+            const { name, email, password, role, credit } = req.body;
 
             // Check if user already exists
             const existingUser = await User.findOne({ email });
@@ -24,10 +25,32 @@ module.exports.setRegister = async (req, res) => {
                 email,
                 password: hashedPassword,
                 role: role || 'client',
-                credit: 0, // Initialize credit to 0
             });
 
             await newUser.save();
+
+            // Créer automatiquement un portefeuille électronique si l'utilisateur est un client
+            if (role === 'client' || !role) {
+                const initialBalance = credit ? parseFloat(credit) : 0;
+                
+                // Créer un nouveau portefeuille avec le solde initial
+                const newWallet = new EWalletModel({
+                    userId: newUser._id,
+                    balance: initialBalance
+                });
+
+                // Si le solde initial est supérieur à 0, ajouter une transaction
+                if (initialBalance > 0) {
+                    newWallet.transactions.push({
+                        type: 'DEPOSIT',
+                        amount: initialBalance,
+                        date: new Date()
+                    });
+                }
+
+                await newWallet.save();
+            }
+
             res.status(201).json({
                 message: 'User created successfully',
                 user: {
@@ -113,8 +136,7 @@ module.exports.getUserById = async (req, res) => {
 module.exports.deleteUserById = async (req, res) => {
     try {
         const userId = req.params.id;
-        const user
-    = await User.findByIdAndDelete(userId);
+        const user = await User.findByIdAndDelete(userId);
         if (!user) {
             return res.status(404).json({ message: 'User not found' });
         }
@@ -130,8 +152,7 @@ module.exports.deleteUserById = async (req, res) => {
 module.exports.updateUserById = async (req, res) => {
     try {
         const userId = req.params.id;
-        const updatedUser = await User
-.findByIdAndUpdate(userId, req.body, { new: true });
+        const updatedUser = await User.findByIdAndUpdate(userId, req.body, { new: true });
         if (!updatedUser) {
             return res.status(404).json({ message: 'User not found' });
         }
@@ -164,22 +185,50 @@ const rechargeClientBalance = async (req, res) => {
             return res.status(400).json({ message: 'Valid amount is required' });
         }
         
-        // Find client and update their credit
+        // Find client
         const client = await User.findById(id);
         
         if (!client) {
             return res.status(404).json({ message: 'Client not found' });
         }
         
-        if (client.role !== 'client') { // Changed type→role, Client→client
+        if (client.role !== 'client') {
             return res.status(400).json({ message: 'User is not a client' });
         }
         
-        // Add amount to current credit
-        client.credit = (client.credit || 0) + parseFloat(amount);
-        await client.save();
+        // Find or create e-wallet
+        let wallet = await EWalletModel.findOne({ userId: id });
         
-        res.status(200).json(client);
+        if (!wallet) {
+            // Create a new wallet if one doesn't exist
+            wallet = new EWalletModel({
+                userId: id,
+                balance: parseFloat(amount)
+            });
+        } else {
+            // Add to existing wallet balance
+            wallet.balance += parseFloat(amount);
+        }
+        
+        // Add transaction record
+        wallet.transactions.push({
+            type: 'DEPOSIT',
+            amount: parseFloat(amount),
+            date: new Date()
+        });
+        
+        // Save wallet changes
+        await wallet.save();
+        
+        // Return updated wallet info
+        res.status(200).json({
+            message: 'Balance recharged successfully',
+            client: client,
+            wallet: {
+                balance: wallet.balance,
+                latestTransaction: wallet.transactions[wallet.transactions.length - 1]
+            }
+        });
     } catch (error) {
         console.error('Error recharging client balance:', error);
         res.status(500).json({ message: 'Failed to recharge balance', error: error.message });

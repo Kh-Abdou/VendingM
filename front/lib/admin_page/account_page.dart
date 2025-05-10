@@ -1,4 +1,6 @@
 import 'package:flutter/material.dart';
+import 'package:lessvsfull/services/user_service.dart';
+import 'dart:async';
 
 class AccountManagementPage extends StatefulWidget {
   const AccountManagementPage({super.key});
@@ -8,32 +10,83 @@ class AccountManagementPage extends StatefulWidget {
 }
 
 class _AccountManagementPageState extends State<AccountManagementPage> {
-  // Placeholder data for customers - update technicians to have no credit
-  final List<Map<String, dynamic>> _customers = [
-    {
-      'id': 1,
-      'name': 'John Doe',
-      'email': 'john@example.com',
-      'credit': 1000.0,
-      'type': 'Client'
-    },
-    {
-      'id': 2,
-      'name': 'Jane Smith',
-      'email': 'jane@example.com',
-      'credit': 500.0,
-      'type': 'Client'
-    },
-    {
-      'id': 3,
-      'name': 'Bob Tech',
-      'email': 'bob@example.com',
-      'type': 'Technicien'
-    },
-  ];
+  // Create instance of user service - Using 10.0.2.2 which is how Android emulators access host localhost
+  final UserService _userService = UserService(baseUrl: 'http://10.0.2.2:5000');
+
+  // Lists to store user data
+  List<Map<String, dynamic>> _clients = [];
+  List<Map<String, dynamic>> _technicians = [];
+
+  // Loading state
+  bool _isLoading = true;
+  String? _errorMessage;
+
+  @override
+  void initState() {
+    super.initState();
+    _loadUsers();
+  }
+
+  // Load users from API
+  Future<void> _loadUsers() async {
+    setState(() {
+      _isLoading = true;
+      _errorMessage = null;
+    });
+
+    try {
+      final clients = await _userService.getClients();
+      final technicians = await _userService.getTechnicians();
+
+      setState(() {
+        _clients =
+            clients.map((client) => _formatUserData(client, 'Client')).toList();
+        _technicians = technicians
+            .map((tech) => _formatUserData(tech, 'Technicien'))
+            .toList();
+        _isLoading = false;
+      });
+    } catch (e) {
+      setState(() {
+        _errorMessage = 'Error loading users: $e';
+        _isLoading = false;
+      });
+    }
+  }
+
+  // Format API user data to match our UI format
+  Map<String, dynamic> _formatUserData(dynamic user, String type) {
+    return {
+      'id': user['_id'],
+      'name': user['name'],
+      'email': user['email'],
+      'type': type,
+      'credit': type == 'Client' ? (user['credit'] ?? 0.0) : null,
+    };
+  }
 
   @override
   Widget build(BuildContext context) {
+    if (_isLoading) {
+      return const Center(child: CircularProgressIndicator());
+    }
+
+    if (_errorMessage != null) {
+      return Center(
+        child: Column(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            Text(_errorMessage!, style: const TextStyle(color: Colors.red)),
+            const SizedBox(height: 16),
+            ElevatedButton(
+              onPressed: _loadUsers,
+              child: const Text('Retry'),
+            ),
+          ],
+        ),
+      );
+    }
+
     return DefaultTabController(
       length: 2,
       child: Column(
@@ -59,47 +112,52 @@ class _AccountManagementPageState extends State<AccountManagementPage> {
   }
 
   Widget _buildAccountsList(String type) {
-    final filteredAccounts =
-        _customers.where((c) => c['type'] == type).toList();
+    final filteredAccounts = type == 'Client' ? _clients : _technicians;
 
     return Scaffold(
-      body: ListView.builder(
-        itemCount: filteredAccounts.length,
-        padding: const EdgeInsets.all(8.0),
-        itemBuilder: (context, index) {
-          final account = filteredAccounts[index];
-          return Card(
-            elevation: 2,
-            margin: const EdgeInsets.symmetric(vertical: 4, horizontal: 8),
-            child: ListTile(
-              leading: CircleAvatar(
-                backgroundColor: Colors.blue.withOpacity(0.2),
-                child: Text(account['name'].substring(0, 1)),
+      body: RefreshIndicator(
+        onRefresh: _loadUsers,
+        child: filteredAccounts.isEmpty
+            ? Center(child: Text('No ${type.toLowerCase()}s found'))
+            : ListView.builder(
+                itemCount: filteredAccounts.length,
+                padding: const EdgeInsets.all(8.0),
+                itemBuilder: (context, index) {
+                  final account = filteredAccounts[index];
+                  return Card(
+                    elevation: 2,
+                    margin:
+                        const EdgeInsets.symmetric(vertical: 4, horizontal: 8),
+                    child: ListTile(
+                      leading: CircleAvatar(
+                        backgroundColor: Colors.blue.withOpacity(0.2),
+                        child: Text(account['name'].substring(0, 1)),
+                      ),
+                      title: Text('${account['name']}'),
+                      subtitle: Text(type == 'Client'
+                          ? '${account['email']} - Credit: ${account['credit']} DA'
+                          : account['email']),
+                      trailing: Row(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          IconButton(
+                            icon: const Icon(Icons.edit, color: Colors.blue),
+                            onPressed: () {
+                              _showEditAccountDialog(account);
+                            },
+                          ),
+                          IconButton(
+                            icon: const Icon(Icons.delete, color: Colors.red),
+                            onPressed: () {
+                              _showDeleteConfirmationDialog(account);
+                            },
+                          ),
+                        ],
+                      ),
+                    ),
+                  );
+                },
               ),
-              title: Text('${account['name']}'),
-              subtitle: Text(type == 'Client'
-                  ? '${account['email']} - Credit: ${account['credit']} DA'
-                  : account['email']),
-              trailing: Row(
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  IconButton(
-                    icon: const Icon(Icons.edit, color: Colors.blue),
-                    onPressed: () {
-                      _showEditAccountDialog(account);
-                    },
-                  ),
-                  IconButton(
-                    icon: const Icon(Icons.delete, color: Colors.red),
-                    onPressed: () {
-                      _showDeleteConfirmationDialog(account);
-                    },
-                  ),
-                ],
-              ),
-            ),
-          );
-        },
       ),
       floatingActionButton: FloatingActionButton(
         backgroundColor: Colors.blue, // Replace with your theme color
@@ -114,6 +172,8 @@ class _AccountManagementPageState extends State<AccountManagementPage> {
   void _showAddAccountDialog(String type) {
     final nameController = TextEditingController();
     final emailController = TextEditingController();
+    final passwordController = TextEditingController();
+    final confirmPasswordController = TextEditingController();
     final creditController = TextEditingController(text: '0.0');
     final nfcIdController =
         TextEditingController(text: 'En attente de scan NFC...');
@@ -121,16 +181,27 @@ class _AccountManagementPageState extends State<AccountManagementPage> {
     // Variables pour suivre si les champs sont valides
     String? nameError;
     String? emailError;
+    String? passwordError;
+    String? confirmPasswordError;
     String? creditError;
 
     // Variables pour suivre l'état de validation des champs
     bool isNameValid = false;
     bool isEmailValid = false;
+    bool isPasswordValid = false;
+    bool isConfirmPasswordValid = false;
     bool isCreditValid = true; // Par défaut à true car c'est initialisé à 0.0
 
     // Variable pour suivre l'état du scan NFC
     bool isNfcScanning = true;
     bool isNfcDetected = false;
+
+    // Variable pour suivre l'état de la soumission
+    bool isSubmitting = false;
+
+    // Variable pour contrôler la visibilité du mot de passe
+    bool isPasswordVisible = false;
+    bool isConfirmPasswordVisible = false;
 
     showDialog(
       context: context,
@@ -185,6 +256,43 @@ class _AccountManagementPageState extends State<AccountManagementPage> {
               });
             }
 
+            void validateConfirmPassword(String value) {
+              setState(() {
+                if (value.isEmpty) {
+                  confirmPasswordError = 'Veuillez confirmer le mot de passe';
+                  isConfirmPasswordValid = false;
+                } else if (value != passwordController.text) {
+                  confirmPasswordError =
+                      'Les mots de passe ne correspondent pas';
+                  isConfirmPasswordValid = false;
+                } else {
+                  confirmPasswordError = null;
+                  isConfirmPasswordValid = true;
+                }
+              });
+            }
+
+            void validatePassword(String value) {
+              setState(() {
+                if (value.isEmpty) {
+                  passwordError = 'Le mot de passe ne peut pas être vide';
+                  isPasswordValid = false;
+                } else if (value.length < 6) {
+                  passwordError =
+                      'Le mot de passe doit contenir au moins 6 caractères';
+                  isPasswordValid = false;
+                } else {
+                  passwordError = null;
+                  isPasswordValid = true;
+                }
+
+                // Valider la confirmation si elle n'est pas vide
+                if (confirmPasswordController.text.isNotEmpty) {
+                  validateConfirmPassword(confirmPasswordController.text);
+                }
+              });
+            }
+
             void validateCredit(String value) {
               setState(() {
                 if (value.isEmpty) {
@@ -208,6 +316,62 @@ class _AccountManagementPageState extends State<AccountManagementPage> {
 
             // Validation initiale du crédit
             validateCredit(creditController.text);
+
+            // Fonction pour créer un utilisateur
+            Future<void> createUser() async {
+              if (!isNameValid ||
+                  !isEmailValid ||
+                  !isPasswordValid ||
+                  !isConfirmPasswordValid ||
+                  (type == 'Client' && !isCreditValid)) {
+                return;
+              }
+
+              setState(() {
+                isSubmitting = true;
+              });
+
+              try {
+                final userData = {
+                  'name': nameController.text,
+                  'email': emailController.text,
+                  'password': passwordController.text,
+                  'role': type == 'Client' ? 'client' : 'technician',
+                };
+
+                if (type == 'Client') {
+                  // Conversion en nombre plutôt qu'en chaîne de caractères
+                  userData['credit'] =
+                      double.parse(creditController.text).toString();
+                  if (isNfcDetected) {
+                    userData['nfcId'] = nfcIdController.text;
+                  }
+                }
+
+                await _userService.createUser(userData);
+
+                if (context.mounted) {
+                  Navigator.pop(context);
+                  ScaffoldMessenger.of(context).showSnackBar(
+                    const SnackBar(
+                        content: Text('Account created successfully')),
+                  );
+                  _loadUsers(); // Reload users list
+                }
+              } catch (e) {
+                if (context.mounted) {
+                  ScaffoldMessenger.of(context).showSnackBar(
+                    SnackBar(content: Text('Error creating account: $e')),
+                  );
+                }
+              } finally {
+                if (context.mounted) {
+                  setState(() {
+                    isSubmitting = false;
+                  });
+                }
+              }
+            }
 
             return AlertDialog(
               title: Text('Add New $type'),
@@ -372,6 +536,116 @@ class _AccountManagementPageState extends State<AccountManagementPage> {
                       keyboardType: TextInputType.emailAddress,
                       onChanged: validateEmail,
                     ),
+                    const SizedBox(height: 16),
+                    // Ajout du champ mot de passe
+                    TextField(
+                      controller: passwordController,
+                      obscureText: !isPasswordVisible,
+                      decoration: InputDecoration(
+                        labelText: 'Mot de passe',
+                        border: const OutlineInputBorder(),
+                        errorText: passwordError,
+                        helperText: isPasswordValid
+                            ? 'Mot de passe valide'
+                            : 'Minimum 6 caractères',
+                        helperStyle: TextStyle(
+                          color:
+                              isPasswordValid ? Colors.green : Colors.grey[600],
+                        ),
+                        enabledBorder: OutlineInputBorder(
+                          borderSide: BorderSide(
+                            color: isPasswordValid ? Colors.green : Colors.grey,
+                            width: isPasswordValid ? 2.0 : 1.0,
+                          ),
+                        ),
+                        focusedBorder: OutlineInputBorder(
+                          borderSide: BorderSide(
+                            color: isPasswordValid ? Colors.green : Colors.blue,
+                            width: 2.0,
+                          ),
+                        ),
+                        suffixIcon: Row(
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            IconButton(
+                              icon: Icon(
+                                isPasswordVisible
+                                    ? Icons.visibility_off
+                                    : Icons.visibility,
+                                color: Colors.grey[600],
+                              ),
+                              onPressed: () {
+                                setState(() {
+                                  isPasswordVisible = !isPasswordVisible;
+                                });
+                              },
+                            ),
+                            if (isPasswordValid)
+                              const Icon(Icons.check_circle,
+                                  color: Colors.green),
+                          ],
+                        ),
+                      ),
+                      onChanged: validatePassword,
+                    ),
+                    const SizedBox(height: 16),
+                    // Ajout du champ de confirmation de mot de passe
+                    TextField(
+                      controller: confirmPasswordController,
+                      obscureText: !isConfirmPasswordVisible,
+                      decoration: InputDecoration(
+                        labelText: 'Confirmer le mot de passe',
+                        border: const OutlineInputBorder(),
+                        errorText: confirmPasswordError,
+                        helperText: isConfirmPasswordValid
+                            ? 'Les mots de passe correspondent'
+                            : 'Doit correspondre au mot de passe',
+                        helperStyle: TextStyle(
+                          color: isConfirmPasswordValid
+                              ? Colors.green
+                              : Colors.grey[600],
+                        ),
+                        enabledBorder: OutlineInputBorder(
+                          borderSide: BorderSide(
+                            color: isConfirmPasswordValid
+                                ? Colors.green
+                                : Colors.grey,
+                            width: isConfirmPasswordValid ? 2.0 : 1.0,
+                          ),
+                        ),
+                        focusedBorder: OutlineInputBorder(
+                          borderSide: BorderSide(
+                            color: isConfirmPasswordValid
+                                ? Colors.green
+                                : Colors.blue,
+                            width: 2.0,
+                          ),
+                        ),
+                        suffixIcon: Row(
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            IconButton(
+                              icon: Icon(
+                                isConfirmPasswordVisible
+                                    ? Icons.visibility_off
+                                    : Icons.visibility,
+                                color: Colors.grey[600],
+                              ),
+                              onPressed: () {
+                                setState(() {
+                                  isConfirmPasswordVisible =
+                                      !isConfirmPasswordVisible;
+                                });
+                              },
+                            ),
+                            if (isConfirmPasswordValid)
+                              const Icon(Icons.check_circle,
+                                  color: Colors.green),
+                          ],
+                        ),
+                      ),
+                      onChanged: validateConfirmPassword,
+                    ),
                     // Only show credit field for clients
                     if (type == 'Client') ...[
                       const SizedBox(height: 16),
@@ -420,18 +694,19 @@ class _AccountManagementPageState extends State<AccountManagementPage> {
               ),
               actions: [
                 TextButton(
-                  onPressed: () => Navigator.pop(context),
+                  onPressed: isSubmitting ? null : () => Navigator.pop(context),
                   child: const Text('Cancel'),
                 ),
                 ElevatedButton(
-                  onPressed: (nameError != null ||
-                          emailError != null ||
-                          (type == 'Client' && creditError != null))
-                      ? null // Disable the button if any field is invalid
+                  onPressed: isSubmitting
+                      ? null
                       : () {
                           // Validation finale avant création
                           validateName(nameController.text);
                           validateEmail(emailController.text);
+                          validatePassword(passwordController.text);
+                          validateConfirmPassword(
+                              confirmPasswordController.text);
                           if (type == 'Client') {
                             validateCredit(creditController.text);
                           }
@@ -439,36 +714,28 @@ class _AccountManagementPageState extends State<AccountManagementPage> {
                           // Vérifier si tous les champs sont valides après validation finale
                           if (nameController.text.isEmpty ||
                               emailController.text.isEmpty ||
+                              passwordController.text.isEmpty ||
+                              confirmPasswordController.text.isEmpty ||
                               (type == 'Client' &&
                                   (creditError != null ||
                                       creditController.text.isEmpty))) {
                             return;
                           }
 
-                          // Implement add account logic
-                          setState(() {
-                            final Map<String, dynamic> newAccount = {
-                              'id': _customers.length + 1,
-                              'name': nameController.text,
-                              'email': emailController.text,
-                              'type': type,
-                            };
-
-                            // Only add credit for clients
-                            if (type == 'Client') {
-                              newAccount['credit'] =
-                                  double.tryParse(creditController.text) ?? 0.0;
-                            }
-
-                            _customers.add(newAccount);
-                          });
-                          Navigator.pop(context);
-                          ScaffoldMessenger.of(context).showSnackBar(
-                            const SnackBar(
-                                content: Text('Account created successfully')),
-                          );
+                          // Call the API to create user
+                          createUser();
                         },
-                  child: const Text('Create'),
+                  child: isSubmitting
+                      ? const SizedBox(
+                          width: 20,
+                          height: 20,
+                          child: CircularProgressIndicator(
+                            strokeWidth: 2,
+                            valueColor:
+                                AlwaysStoppedAnimation<Color>(Colors.white),
+                          ),
+                        )
+                      : const Text('Create'),
                 ),
               ],
             );
@@ -495,6 +762,9 @@ class _AccountManagementPageState extends State<AccountManagementPage> {
         true; // Supposons que les valeurs existantes sont valides
     bool isEmailValid = true;
     bool isCreditValid = true;
+
+    // Variable pour suivre l'état de la soumission
+    bool isSubmitting = false;
 
     showDialog(
       context: context,
@@ -554,11 +824,59 @@ class _AccountManagementPageState extends State<AccountManagementPage> {
               });
             }
 
+            // Fonction pour mettre à jour un utilisateur
+            Future<void> updateUser() async {
+              if (!isNameValid ||
+                  !isEmailValid ||
+                  (account['type'] == 'Client' && !isCreditValid)) {
+                return;
+              }
+
+              setState(() {
+                isSubmitting = true;
+              });
+
+              try {
+                final userData = {
+                  'name': nameController.text,
+                  'email': emailController.text,
+                };
+
+                if (account['type'] == 'Client' && creditController != null) {
+                  userData['credit'] =
+                      double.parse(creditController.text).toString();
+                }
+
+                await _userService.updateUser(account['id'], userData);
+
+                if (context.mounted) {
+                  Navigator.pop(context);
+                  ScaffoldMessenger.of(context).showSnackBar(
+                    const SnackBar(
+                        content: Text('Account updated successfully')),
+                  );
+                  _loadUsers(); // Reload users list
+                }
+              } catch (e) {
+                if (context.mounted) {
+                  ScaffoldMessenger.of(context).showSnackBar(
+                    SnackBar(content: Text('Error updating account: $e')),
+                  );
+                }
+              } finally {
+                if (context.mounted) {
+                  setState(() {
+                    isSubmitting = false;
+                  });
+                }
+              }
+            }
+
             // Validation initiale
             validateName(nameController.text);
             validateEmail(emailController.text);
-            if (account['type'] == 'Client') {
-              validateCredit(creditController!.text);
+            if (account['type'] == 'Client' && creditController != null) {
+              validateCredit(creditController.text);
             }
 
             return AlertDialog(
@@ -632,7 +950,8 @@ class _AccountManagementPageState extends State<AccountManagementPage> {
                       onChanged: validateEmail,
                     ),
                     // Only show credit field for clients
-                    if (account['type'] == 'Client') ...[
+                    if (account['type'] == 'Client' &&
+                        creditController != null) ...[
                       const SizedBox(height: 16),
                       TextField(
                         controller: creditController,
@@ -679,44 +998,45 @@ class _AccountManagementPageState extends State<AccountManagementPage> {
               ),
               actions: [
                 TextButton(
-                  onPressed: () => Navigator.pop(context),
+                  onPressed: isSubmitting ? null : () => Navigator.pop(context),
                   child: const Text('Cancel'),
                 ),
                 ElevatedButton(
-                  onPressed: (nameError != null ||
-                          emailError != null ||
-                          (account['type'] == 'Client' && creditError != null))
-                      ? null // Disable the button if any field is invalid
+                  onPressed: isSubmitting
+                      ? null
                       : () {
-                          // Implement update account logic
-                          setState(() {
-                            final index = _customers
-                                .indexWhere((c) => c['id'] == account['id']);
-                            if (index != -1) {
-                              final Map<String, dynamic> updatedAccount = {
-                                'id': account['id'],
-                                'name': nameController.text,
-                                'email': emailController.text,
-                                'type': account['type'],
-                              };
+                          // Validation finale avant mise à jour
+                          validateName(nameController.text);
+                          validateEmail(emailController.text);
+                          if (account['type'] == 'Client' &&
+                              creditController != null) {
+                            validateCredit(creditController.text);
+                          }
 
-                              // Only update credit for clients
-                              if (account['type'] == 'Client') {
-                                updatedAccount['credit'] =
-                                    double.tryParse(creditController!.text) ??
-                                        0.0;
-                              }
+                          // Vérifier si tous les champs sont valides après validation finale
+                          if (nameController.text.isEmpty ||
+                              emailController.text.isEmpty ||
+                              (account['type'] == 'Client' &&
+                                  creditController != null &&
+                                  (creditError != null ||
+                                      creditController.text.isEmpty))) {
+                            return;
+                          }
 
-                              _customers[index] = updatedAccount;
-                            }
-                          });
-                          Navigator.pop(context);
-                          ScaffoldMessenger.of(context).showSnackBar(
-                            const SnackBar(
-                                content: Text('Account updated successfully')),
-                          );
+                          // Call the API to update user
+                          updateUser();
                         },
-                  child: const Text('Update'),
+                  child: isSubmitting
+                      ? const SizedBox(
+                          width: 20,
+                          height: 20,
+                          child: CircularProgressIndicator(
+                            strokeWidth: 2,
+                            valueColor:
+                                AlwaysStoppedAnimation<Color>(Colors.white),
+                          ),
+                        )
+                      : const Text('Update'),
                 ),
               ],
             );
@@ -727,36 +1047,71 @@ class _AccountManagementPageState extends State<AccountManagementPage> {
   }
 
   void _showDeleteConfirmationDialog(Map<String, dynamic> account) {
+    bool isDeleting = false;
+
     showDialog(
       context: context,
       builder: (context) {
-        return AlertDialog(
-          title: const Text('Confirm Delete'),
-          content: Text(
-              'Are you sure you want to delete ${account['name']}\'s account?'),
-          actions: [
-            TextButton(
-              onPressed: () => Navigator.pop(context),
-              child: const Text('Cancel'),
-            ),
-            TextButton(
-              onPressed: () {
-                // Implement delete account logic
-                setState(() {
-                  _customers.removeWhere((c) => c['id'] == account['id']);
-                });
-                Navigator.pop(context);
-                ScaffoldMessenger.of(context).showSnackBar(
-                  const SnackBar(content: Text('Account deleted successfully')),
-                );
-              },
-              style: TextButton.styleFrom(
-                foregroundColor: Colors.red,
+        return StatefulBuilder(builder: (context, setState) {
+          return AlertDialog(
+            title: const Text('Confirm Delete'),
+            content: Text(
+                'Are you sure you want to delete ${account['name']}\'s account?'),
+            actions: [
+              TextButton(
+                onPressed: isDeleting ? null : () => Navigator.pop(context),
+                child: const Text('Cancel'),
               ),
-              child: const Text('Delete'),
-            ),
-          ],
-        );
+              TextButton(
+                onPressed: isDeleting
+                    ? null
+                    : () async {
+                        setState(() {
+                          isDeleting = true;
+                        });
+
+                        try {
+                          // Call the API to delete the user
+                          await _userService.deleteUser(account['id']);
+
+                          if (context.mounted) {
+                            Navigator.pop(context);
+                            ScaffoldMessenger.of(context).showSnackBar(
+                              const SnackBar(
+                                  content:
+                                      Text('Account deleted successfully')),
+                            );
+
+                            // Reload the user list
+                            _loadUsers();
+                          }
+                        } catch (e) {
+                          if (context.mounted) {
+                            Navigator.pop(context);
+                            ScaffoldMessenger.of(context).showSnackBar(
+                              SnackBar(
+                                  content: Text('Error deleting account: $e')),
+                            );
+                          }
+                        }
+                      },
+                style: TextButton.styleFrom(
+                  foregroundColor: Colors.red,
+                ),
+                child: isDeleting
+                    ? const SizedBox(
+                        width: 20,
+                        height: 20,
+                        child: CircularProgressIndicator(
+                          strokeWidth: 2,
+                          valueColor: AlwaysStoppedAnimation<Color>(Colors.red),
+                        ),
+                      )
+                    : const Text('Delete'),
+              ),
+            ],
+          );
+        });
       },
     );
   }
