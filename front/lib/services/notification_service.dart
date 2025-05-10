@@ -20,7 +20,7 @@ class NotificationService {
     }
 
     _isRequestInProgress = true;
-    
+
     try {
       // Afficher plus d'informations de débogage
       print('🔍 Débogage NotificationService:');

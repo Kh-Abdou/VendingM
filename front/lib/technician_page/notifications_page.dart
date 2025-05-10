@@ -72,7 +72,8 @@ class _NotificationsPageState extends State<NotificationsPage>
       await provider.forceRefresh().timeout(
         const Duration(seconds: 30),
         onTimeout: () {
-          throw TimeoutException('Le rafraîchissement a pris trop de temps. Vérifiez votre connexion.');
+          throw TimeoutException(
+              'Le rafraîchissement a pris trop de temps. Vérifiez votre connexion.');
         },
       );
 

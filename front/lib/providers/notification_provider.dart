@@ -59,7 +59,7 @@ class NotificationProvider with ChangeNotifier {
       print('🚫 Une opération de rafraîchissement est déjà en cours');
       return;
     }
-    
+
     _isLoading = true;
     _isRefreshing = true;
     _error = null;
@@ -69,10 +69,11 @@ class NotificationProvider with ChangeNotifier {
       final notifications = await _service.getUserNotifications(userId).timeout(
         const Duration(seconds: 20), // Increased timeout duration
         onTimeout: () {
-          throw TimeoutException('La connexion a pris trop de temps. Vérifiez votre connexion réseau.');
+          throw TimeoutException(
+              'La connexion a pris trop de temps. Vérifiez votre connexion réseau.');
         },
       );
-      
+
       _notifications = notifications;
       _isLoading = false;
       _isRefreshing = false;
@@ -82,10 +83,10 @@ class NotificationProvider with ChangeNotifier {
       _isLoading = false;
       _isRefreshing = false;
       notifyListeners();
-      
+
       // Log the error for debugging
       print('❌ Erreur lors du chargement des notifications: $e');
-      
+
       // Reset refresh state after a delay to allow retrying
       Future.delayed(const Duration(seconds: 5), () {
         _isRefreshing = false;
@@ -121,7 +122,8 @@ class NotificationProvider with ChangeNotifier {
       await _service.markNotificationsAsRead(userId, [notificationId]).timeout(
         const Duration(seconds: 15),
         onTimeout: () {
-          print('⚠️ Timeout lors du marquage comme lu, mais l\'UI est mise à jour');
+          print(
+              '⚠️ Timeout lors du marquage comme lu, mais l\'UI est mise à jour');
           // We don't throw here because the UI is already updated
           return;
         },
@@ -157,12 +159,14 @@ class NotificationProvider with ChangeNotifier {
       await _service.markNotificationsAsRead(userId).timeout(
         const Duration(seconds: 15),
         onTimeout: () {
-          print('⚠️ Timeout lors du marquage de tout comme lu, mais l\'UI est mise à jour');
+          print(
+              '⚠️ Timeout lors du marquage de tout comme lu, mais l\'UI est mise à jour');
           return;
         },
       );
     } catch (e) {
-      print('⚠️ Erreur lors du marquage de toutes les notifications comme lues: $e');
+      print(
+          '⚠️ Erreur lors du marquage de toutes les notifications comme lues: $e');
       // We don't revert the UI change to avoid confusion
     }
   }
@@ -172,18 +176,19 @@ class NotificationProvider with ChangeNotifier {
     // If a refresh is already in progress, don't start another one
     if (_isRefreshing) {
       print('🚫 Une opération de rafraîchissement est déjà en cours');
-      
+
       // Force reset the refresh flag after a delay to recover from potential deadlocks
       Future.delayed(const Duration(seconds: 3), () {
         _service.resetRequestFlag();
         _isRefreshing = false;
       });
-      
+
       return;
     }
-    
-    print('🔄 Forçage du rafraîchissement des notifications pour l\'utilisateur $userId');
-    
+
+    print(
+        '🔄 Forçage du rafraîchissement des notifications pour l\'utilisateur $userId');
+
     _isLoading = true;
     _isRefreshing = true;
     _error = null;
@@ -197,7 +202,8 @@ class NotificationProvider with ChangeNotifier {
       final notifications = await _service.getUserNotifications(userId).timeout(
         const Duration(seconds: 20),
         onTimeout: () {
-          throw TimeoutException('La connexion a pris trop de temps. Vérifiez votre connexion réseau.');
+          throw TimeoutException(
+              'La connexion a pris trop de temps. Vérifiez votre connexion réseau.');
         },
       );
 
@@ -221,15 +227,15 @@ class NotificationProvider with ChangeNotifier {
       _isLoading = false;
       _isRefreshing = false;
       notifyListeners();
-      
+
       // Reset service request flag to prevent deadlocks
       _service.resetRequestFlag();
-      
+
       // Reset refresh state after a delay to allow retrying
       Future.delayed(const Duration(seconds: 5), () {
         _isRefreshing = false;
       });
-      
+
       rethrow; // Propager l'erreur
     }
   }
