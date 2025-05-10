@@ -133,9 +133,22 @@ class NotificationProvider with ChangeNotifier {
     try {
       print(
           '🔄 Forçage du rafraîchissement des notifications pour l\'utilisateur $userId');
+
+      // Annuler le timer existant et le recréer pour éviter les problèmes de temporisation
+      _refreshTimer?.cancel();
+
+      // Récupérer les notifications fraîches du serveur
       final notifications = await _service.getUserNotifications(userId);
+
+      // Mettre à jour la liste locale
       _notifications = notifications;
       print('📱 ${notifications.length} notifications reçues du serveur');
+
+      // Configurer un nouveau timer
+      _refreshTimer = Timer.periodic(const Duration(seconds: 30), (_) {
+        loadNotifications();
+      });
+
       _isLoading = false;
       notifyListeners();
     } catch (e) {

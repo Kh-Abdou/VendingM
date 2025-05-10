@@ -1,8 +1,10 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import 'package:flutter_staggered_animations/flutter_staggered_animations.dart';
+import 'package:flutter_screenutil/flutter_screenutil.dart';
 import '../providers/notification_provider.dart';
 import '../models/notification.dart' as notification_model;
+import '../theme/app_design_system.dart'; // Import our design system
 import 'package:intl/intl.dart';
 
 class NotificationPage extends StatefulWidget {
@@ -28,7 +30,12 @@ class _NotificationPageState extends State<NotificationPage> {
     final notificationProvider = Provider.of<NotificationProvider>(context);
 
     if (notificationProvider.isLoading) {
-      return const Center(child: CircularProgressIndicator());
+      return Center(
+        child: CircularProgressIndicator(
+          strokeWidth: 2.w,
+          color: AppColors.primary,
+        ),
+      );
     }
 
     if (notificationProvider.error != null) {
@@ -36,30 +43,27 @@ class _NotificationPageState extends State<NotificationPage> {
         child: Column(
           mainAxisAlignment: MainAxisAlignment.center,
           children: [
-            const Icon(
+            Icon(
               Icons.error_outline,
-              size: 64,
-              color: Colors.red,
+              size: 64.sp,
+              color: AppColors.error,
             ),
-            const SizedBox(height: 16),
-            const Text(
+            SizedBox(height: AppSpacing.md),
+            Text(
               'Erreur de chargement',
-              style: TextStyle(
-                fontSize: 18,
-                fontWeight: FontWeight.bold,
-                color: Colors.red,
-              ),
+              style: AppTextStyles.h4.copyWith(color: AppColors.error),
             ),
-            const SizedBox(height: 8),
+            SizedBox(height: AppSpacing.xs),
             Text(
               notificationProvider.error!,
               textAlign: TextAlign.center,
-              style: const TextStyle(color: Colors.grey),
+              style: AppTextStyles.bodyMedium
+                  .copyWith(color: AppColors.textSecondary),
             ),
-            const SizedBox(height: 16),
+            SizedBox(height: AppSpacing.md),
             ElevatedButton.icon(
-              icon: const Icon(Icons.refresh),
-              label: const Text('Réessayer'),
+              icon: Icon(Icons.refresh, size: 18.sp),
+              label: Text('Réessayer', style: AppTextStyles.buttonMedium),
               onPressed: () => notificationProvider.forceRefresh(),
             ),
           ],
@@ -72,23 +76,20 @@ class _NotificationPageState extends State<NotificationPage> {
         child: Column(
           mainAxisAlignment: MainAxisAlignment.center,
           children: [
-            const Icon(
+            Icon(
               Icons.notifications_off,
-              size: 64,
-              color: Colors.grey,
+              size: 64.sp,
+              color: AppColors.textSecondary,
             ),
-            const SizedBox(height: 16),
-            const Text(
+            SizedBox(height: AppSpacing.md),
+            Text(
               'Aucune notification',
-              style: TextStyle(
-                fontSize: 18,
-                color: Colors.grey,
-              ),
+              style: AppTextStyles.h4.copyWith(color: AppColors.textSecondary),
             ),
-            const SizedBox(height: 16),
+            SizedBox(height: AppSpacing.md),
             ElevatedButton.icon(
-              icon: const Icon(Icons.refresh),
-              label: const Text('Actualiser'),
+              icon: Icon(Icons.refresh, size: 18.sp),
+              label: Text('Actualiser', style: AppTextStyles.buttonMedium),
               onPressed: () => notificationProvider.forceRefresh(),
             ),
           ],
@@ -111,19 +112,21 @@ class _NotificationPageState extends State<NotificationPage> {
         children: [
           Container(
             color: Theme.of(context).brightness == Brightness.dark
-                ? Colors.black12
-                : Colors.white,
+                ? AppColors
+                    .backgroundDark // Replace with an existing or appropriate property
+                : AppColors.surfaceLight,
             child: TabBar(
-              labelColor: Theme.of(context).primaryColor,
-              unselectedLabelColor: Colors.grey,
+              labelColor: AppColors.primary,
+              unselectedLabelColor: AppColors.textSecondary,
+              indicatorColor: AppColors.primary,
               tabs: [
-                const Tab(
+                Tab(
                   text: 'Commandes',
-                  icon: Icon(Icons.shopping_cart),
+                  icon: Icon(Icons.shopping_cart, size: 20.sp),
                 ),
-                const Tab(
+                Tab(
                   text: 'Codes',
-                  icon: Icon(Icons.qr_code),
+                  icon: Icon(Icons.qr_code, size: 20.sp),
                 ),
               ],
             ),
@@ -133,10 +136,16 @@ class _NotificationPageState extends State<NotificationPage> {
             children: [
               if (notificationProvider.unreadCount > 0)
                 Padding(
-                  padding: const EdgeInsets.only(right: 16.0, top: 8.0),
+                  padding:
+                      EdgeInsets.only(right: AppSpacing.md, top: AppSpacing.sm),
                   child: TextButton.icon(
-                    icon: const Icon(Icons.check_circle_outline),
-                    label: const Text('Tout marquer comme lu'),
+                    icon: Icon(Icons.check_circle_outline, size: 18.sp),
+                    label: Text(
+                      'Tout marquer comme lu',
+                      style: AppTextStyles.buttonMedium.copyWith(
+                        color: AppColors.primary,
+                      ),
+                    ),
                     onPressed: () => notificationProvider.markAllAsRead(),
                   ),
                 ),
@@ -165,15 +174,21 @@ class _NotificationPageState extends State<NotificationPage> {
       List<notification_model.Notification> notifications,
       NotificationProvider provider) {
     if (notifications.isEmpty) {
-      return const Center(
-        child: Text('Aucune notification de commande'),
+      return Center(
+        child: Text(
+          'Aucune notification de commande',
+          style:
+              AppTextStyles.bodyLarge.copyWith(color: AppColors.textSecondary),
+        ),
       );
     }
 
     return RefreshIndicator(
       onRefresh: () => provider.forceRefresh(),
+      color: AppColors.primary,
       child: AnimationLimiter(
         child: ListView.builder(
+          padding: EdgeInsets.all(AppSpacing.sm),
           itemCount: notifications.length,
           itemBuilder: (context, index) {
             final notification = notifications[index];
@@ -194,35 +209,40 @@ class _NotificationPageState extends State<NotificationPage> {
                 verticalOffset: 50.0,
                 child: FadeInAnimation(
                   child: Card(
-                    margin:
-                        const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+                    margin: EdgeInsets.symmetric(
+                        horizontal: AppSpacing.sm, vertical: AppSpacing.xs),
+                    elevation: AppSpacing.cardElevation,
+                    shape: RoundedRectangleBorder(
+                      borderRadius:
+                          BorderRadius.circular(AppSpacing.cardRadius),
+                    ),
                     child: ExpansionTile(
                       leading: CircleAvatar(
                         backgroundColor: notification.isUnread
-                            ? Colors.green[100]
-                            : Colors.grey[200],
+                            ? AppColors.success.withOpacity(0.2)
+                            : AppColors.textSecondary.withOpacity(0.1),
                         child: Icon(
                           Icons.receipt,
                           color: notification.isUnread
-                              ? Colors.green
-                              : Colors.grey,
+                              ? AppColors.success
+                              : AppColors.textSecondary,
+                          size: 20.sp,
                         ),
                       ),
                       title: Text(
                         notification.title,
-                        style: TextStyle(
-                          fontWeight: notification.isUnread
-                              ? FontWeight.bold
-                              : FontWeight.normal,
-                        ),
+                        style: notification.isUnread
+                            ? AppTextStyles.bodyLarge
+                                .copyWith(fontWeight: FontWeight.bold)
+                            : AppTextStyles.bodyLarge,
                       ),
-                      subtitle: Text(formattedDate),
+                      subtitle: Text(
+                        formattedDate,
+                        style: AppTextStyles.bodySmall,
+                      ),
                       trailing: Text(
                         '${montant.toStringAsFixed(2)} DA',
-                        style: TextStyle(
-                          color: Colors.green[700],
-                          fontWeight: FontWeight.bold,
-                        ),
+                        style: AppTextStyles.balanceText,
                       ),
                       onExpansionChanged: (expanded) {
                         if (expanded && notification.isUnread) {
@@ -231,26 +251,26 @@ class _NotificationPageState extends State<NotificationPage> {
                       },
                       children: [
                         Padding(
-                          padding: const EdgeInsets.all(16.0),
+                          padding: EdgeInsets.all(AppSpacing.md),
                           child: Column(
                             crossAxisAlignment: CrossAxisAlignment.start,
                             children: [
                               Text(
                                 notification.message,
-                                style: const TextStyle(fontSize: 15),
+                                style: AppTextStyles.bodyMedium,
                               ),
-                              const SizedBox(height: 12),
-                              const Text(
+                              SizedBox(height: AppSpacing.md),
+                              Text(
                                 'Détails de la commande:',
-                                style: TextStyle(
+                                style: AppTextStyles.subtitle.copyWith(
                                   fontWeight: FontWeight.bold,
-                                  fontSize: 16,
                                 ),
                               ),
-                              const SizedBox(height: 8),
+                              SizedBox(height: AppSpacing.sm),
                               ...produitsData.map<Widget>((produit) {
                                 return Padding(
-                                  padding: const EdgeInsets.only(bottom: 8.0),
+                                  padding:
+                                      EdgeInsets.only(bottom: AppSpacing.sm),
                                   child: Row(
                                     mainAxisAlignment:
                                         MainAxisAlignment.spaceBetween,
@@ -258,36 +278,34 @@ class _NotificationPageState extends State<NotificationPage> {
                                       Expanded(
                                         child: Text(
                                           '${produit['nom']} x${produit['quantite']}',
+                                          style: AppTextStyles.bodyMedium,
                                         ),
                                       ),
                                       Text(
                                         '${(produit['prix'] * produit['quantite']).toStringAsFixed(2)} DA',
-                                        style: const TextStyle(
-                                            fontWeight: FontWeight.bold),
+                                        style:
+                                            AppTextStyles.bodyMedium.copyWith(
+                                          fontWeight: FontWeight.bold,
+                                        ),
                                       ),
                                     ],
                                   ),
                                 );
                               }),
-                              const Divider(),
+                              Divider(thickness: 1.h, color: AppColors.divider),
                               Row(
                                 mainAxisAlignment:
                                     MainAxisAlignment.spaceBetween,
                                 children: [
-                                  const Text(
+                                  Text(
                                     'Total:',
-                                    style: TextStyle(
+                                    style: AppTextStyles.subtitle.copyWith(
                                       fontWeight: FontWeight.bold,
-                                      fontSize: 16,
                                     ),
                                   ),
                                   Text(
                                     '${montant.toStringAsFixed(2)} DA',
-                                    style: TextStyle(
-                                      fontWeight: FontWeight.bold,
-                                      fontSize: 16,
-                                      color: Colors.green[700],
-                                    ),
+                                    style: AppTextStyles.balanceText,
                                   ),
                                 ],
                               ),
@@ -311,15 +329,21 @@ class _NotificationPageState extends State<NotificationPage> {
       List<notification_model.Notification> notifications,
       NotificationProvider provider) {
     if (notifications.isEmpty) {
-      return const Center(
-        child: Text('Aucune notification de code'),
+      return Center(
+        child: Text(
+          'Aucune notification de code',
+          style:
+              AppTextStyles.bodyLarge.copyWith(color: AppColors.textSecondary),
+        ),
       );
     }
 
     return RefreshIndicator(
       onRefresh: () => provider.forceRefresh(),
+      color: AppColors.primary,
       child: AnimationLimiter(
         child: ListView.builder(
+          padding: EdgeInsets.all(AppSpacing.sm),
           itemCount: notifications.length,
           itemBuilder: (context, index) {
             final notification = notifications[index];
@@ -337,20 +361,20 @@ class _NotificationPageState extends State<NotificationPage> {
             switch (codeStatus.toLowerCase()) {
               case 'used':
                 statusIcon = Icons.check_circle;
-                statusColor = Colors.green;
+                statusColor = AppColors.success;
                 break;
               case 'cancelled':
                 statusIcon = Icons.cancel;
-                statusColor = Colors.red;
+                statusColor = AppColors.error;
                 break;
               case 'expired':
                 statusIcon = Icons.timer_off;
-                statusColor = Colors.orange;
+                statusColor = AppColors.warning;
                 break;
               case 'generated':
               default:
                 statusIcon = Icons.qr_code;
-                statusColor = Colors.blue;
+                statusColor = AppColors.info;
             }
 
             return AnimationConfiguration.staggeredList(
@@ -360,39 +384,45 @@ class _NotificationPageState extends State<NotificationPage> {
                 verticalOffset: 50.0,
                 child: FadeInAnimation(
                   child: Card(
-                    margin:
-                        const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+                    margin: EdgeInsets.symmetric(
+                        horizontal: AppSpacing.sm, vertical: AppSpacing.xs),
+                    elevation: AppSpacing.cardElevation,
+                    shape: RoundedRectangleBorder(
+                      borderRadius:
+                          BorderRadius.circular(AppSpacing.cardRadius),
+                    ),
                     child: ListTile(
                       leading: CircleAvatar(
                         backgroundColor: notification.isUnread
                             ? statusColor.withOpacity(0.2)
-                            : Colors.grey[200],
+                            : AppColors.textSecondary.withOpacity(0.1),
                         child: Icon(
                           statusIcon,
-                          color:
-                              notification.isUnread ? statusColor : Colors.grey,
+                          color: notification.isUnread
+                              ? statusColor
+                              : AppColors.textSecondary,
+                          size: 20.sp,
                         ),
                       ),
                       title: Text(
                         notification.title,
-                        style: TextStyle(
-                          fontWeight: notification.isUnread
-                              ? FontWeight.bold
-                              : FontWeight.normal,
-                        ),
+                        style: notification.isUnread
+                            ? AppTextStyles.bodyLarge
+                                .copyWith(fontWeight: FontWeight.bold)
+                            : AppTextStyles.bodyLarge,
                       ),
                       subtitle: Column(
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
-                          Text(formattedDate),
-                          const SizedBox(height: 4),
-                          Text(notification.message),
+                          Text(formattedDate, style: AppTextStyles.bodySmall),
+                          SizedBox(height: 4.h),
+                          Text(notification.message,
+                              style: AppTextStyles.bodyMedium),
                           if (metadata['code'] != null)
                             Text(
                               'Code: ${metadata['code']}',
-                              style: TextStyle(
-                                fontWeight: FontWeight.bold,
-                                color: Theme.of(context).primaryColor,
+                              style: AppTextStyles.codeText.copyWith(
+                                color: AppColors.primary,
                               ),
                             ),
                         ],
@@ -419,32 +449,31 @@ class _NotificationPageState extends State<NotificationPage> {
   Widget _getStatusBadge(String status) {
     switch (status.toLowerCase()) {
       case 'used':
-        return _buildBadge('Utilisé', Colors.green);
+        return _buildBadge('Utilisé', AppColors.success);
       case 'cancelled':
-        return _buildBadge('Annulé', Colors.red);
+        return _buildBadge('Annulé', AppColors.error);
       case 'expired':
-        return _buildBadge('Expiré', Colors.orange);
+        return _buildBadge('Expiré', AppColors.warning);
       case 'generated':
-        return _buildBadge('Généré', Colors.blue);
+        return _buildBadge('Généré', AppColors.info);
       default:
-        return _buildBadge(status, Colors.grey);
+        return _buildBadge(status, AppColors.textSecondary);
     }
   }
 
   Widget _buildBadge(String text, Color color) {
     return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+      padding: EdgeInsets.symmetric(horizontal: AppSpacing.sm, vertical: 4.h),
       decoration: BoxDecoration(
         color: color.withOpacity(0.2),
-        borderRadius: BorderRadius.circular(12),
+        borderRadius: BorderRadius.circular(AppSpacing.chipRadius),
         border: Border.all(color: color),
       ),
       child: Text(
         text,
-        style: TextStyle(
+        style: AppTextStyles.caption.copyWith(
           color: color,
           fontWeight: FontWeight.bold,
-          fontSize: 12,
         ),
       ),
     );

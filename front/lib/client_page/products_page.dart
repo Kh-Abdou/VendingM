@@ -1,8 +1,13 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_staggered_animations/flutter_staggered_animations.dart';
+import 'package:flutter_screenutil/flutter_screenutil.dart'; // Import flutter_screenutil
 import '../models/produit.dart';
 import '../services/produit_service.dart';
 import '../services/order_service.dart'; // Ajout de l'import manquant
+import '../theme/app_design_system.dart'; // Import our design system
+import '../theme/app_spacing.dart';
+import '../theme/app_text_styles.dart';
+import '../theme/app_colors.dart';
 
 class ProduitPanier {
   final Produit produit;
@@ -74,8 +79,11 @@ class _ProductsPageState extends State<ProductsPage> {
   @override
   Widget build(BuildContext context) {
     if (_isLoading) {
-      return const Center(
-        child: CircularProgressIndicator(),
+      return Center(
+        child: CircularProgressIndicator(
+          strokeWidth: 2.w,
+          color: AppColors.primary,
+        ),
       );
     }
 
@@ -84,33 +92,31 @@ class _ProductsPageState extends State<ProductsPage> {
         child: Column(
           mainAxisAlignment: MainAxisAlignment.center,
           children: [
-            const Icon(
+            Icon(
               Icons.error_outline,
-              color: Colors.red,
-              size: 60,
+              color: AppColors.error,
+              size: 60.sp,
             ),
-            const SizedBox(height: 16),
-            const Text(
+            SizedBox(height: AppSpacing.md),
+            Text(
               'Erreur de chargement',
-              style: TextStyle(
-                fontSize: 18,
-                fontWeight: FontWeight.bold,
-              ),
+              style: AppTextStyles.h4.copyWith(color: AppColors.error),
             ),
-            const SizedBox(height: 8),
+            SizedBox(height: AppSpacing.xs),
             Padding(
-              padding: const EdgeInsets.symmetric(horizontal: 24.0),
+              padding: EdgeInsets.symmetric(horizontal: AppSpacing.xl),
               child: Text(
                 _error,
                 textAlign: TextAlign.center,
-                style: TextStyle(color: Colors.grey[700]),
+                style: AppTextStyles.bodyMedium
+                    .copyWith(color: AppColors.textSecondary),
               ),
             ),
-            const SizedBox(height: 24),
+            SizedBox(height: AppSpacing.lg),
             ElevatedButton.icon(
               onPressed: _fetchProducts,
-              icon: const Icon(Icons.refresh),
-              label: const Text('Réessayer'),
+              icon: Icon(Icons.refresh, size: 18.sp),
+              label: Text('Réessayer', style: AppTextStyles.buttonMedium),
             ),
           ],
         ),
@@ -122,24 +128,21 @@ class _ProductsPageState extends State<ProductsPage> {
         child: Column(
           mainAxisAlignment: MainAxisAlignment.center,
           children: [
-            const Icon(
+            Icon(
               Icons.shopping_basket,
-              size: 60,
-              color: Colors.grey,
+              size: 60.sp,
+              color: AppColors.textSecondary,
             ),
-            const SizedBox(height: 16),
-            const Text(
+            SizedBox(height: AppSpacing.md),
+            Text(
               'Aucun produit disponible',
-              style: TextStyle(
-                fontSize: 18,
-                color: Colors.grey,
-              ),
+              style: AppTextStyles.h4.copyWith(color: AppColors.textSecondary),
             ),
-            const SizedBox(height: 24),
+            SizedBox(height: AppSpacing.lg),
             ElevatedButton.icon(
               onPressed: _fetchProducts,
-              icon: const Icon(Icons.refresh),
-              label: const Text('Actualiser'),
+              icon: Icon(Icons.refresh, size: 18.sp),
+              label: Text('Actualiser', style: AppTextStyles.buttonMedium),
             ),
           ],
         ),
@@ -148,14 +151,15 @@ class _ProductsPageState extends State<ProductsPage> {
 
     return RefreshIndicator(
       onRefresh: _fetchProducts,
+      color: AppColors.primary,
       child: AnimationLimiter(
         child: GridView.builder(
-          padding: const EdgeInsets.all(10),
-          gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
+          padding: EdgeInsets.all(AppSpacing.sm),
+          gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
             crossAxisCount: 2,
             childAspectRatio: 0.75,
-            crossAxisSpacing: 10,
-            mainAxisSpacing: 10,
+            crossAxisSpacing: AppSpacing.sm,
+            mainAxisSpacing: AppSpacing.sm,
           ),
           itemCount: _produits.length,
           itemBuilder: (context, index) {
@@ -177,9 +181,9 @@ class _ProductsPageState extends State<ProductsPage> {
 
   Widget _buildProduitCard(Produit produit) {
     return Card(
-      elevation: 4,
+      elevation: AppSpacing.cardElevation,
       shape: RoundedRectangleBorder(
-        borderRadius: BorderRadius.circular(15),
+        borderRadius: BorderRadius.circular(AppSpacing.cardRadius),
       ),
       child: InkWell(
         onTap: produit.disponible
@@ -187,37 +191,41 @@ class _ProductsPageState extends State<ProductsPage> {
                 _showProduitDetails(produit);
               }
             : null,
+        borderRadius: BorderRadius.circular(AppSpacing.cardRadius),
         child: Container(
-          padding: const EdgeInsets.all(8),
+          padding: EdgeInsets.all(AppSpacing.sm),
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
               Stack(
                 children: [
                   Container(
-                    height: 130,
+                    height: 130.h,
                     width: double.infinity,
                     decoration: BoxDecoration(
-                      color: Colors.grey[200],
-                      borderRadius: BorderRadius.circular(10),
+                      color: AppColors
+                          .background, // Replace with an existing color property
+                      borderRadius: BorderRadius.circular(AppSpacing
+                          .cardRadius), // Replace with an existing property
                     ),
                     child: produit.image.isNotEmpty
                         ? ClipRRect(
-                            borderRadius: BorderRadius.circular(10),
+                            borderRadius:
+                                BorderRadius.circular(AppSpacing.cardRadius),
                             child: FittedBox(
                               fit: BoxFit.contain,
                               child: Image.network(
                                 _getFullImageUrl(produit.image),
                                 fit: BoxFit.cover,
-                                height: 100,
-                                width: 100,
+                                height: 100.h,
+                                width: 100.w,
                                 errorBuilder: (context, error, stackTrace) {
                                   print('Error loading image: $error');
                                   return Center(
                                     child: Icon(
                                       Icons.local_cafe,
-                                      size: 60,
-                                      color: Colors.grey[600],
+                                      size: 60.sp,
+                                      color: AppColors.textSecondary,
                                     ),
                                   );
                                 },
@@ -227,24 +235,25 @@ class _ProductsPageState extends State<ProductsPage> {
                         : Center(
                             child: Icon(
                               Icons.local_cafe,
-                              size: 60,
-                              color: Colors.grey[600],
+                              size: 60.sp,
+                              color: AppColors.textSecondary,
                             ),
                           ),
                   ),
                   if (!produit.disponible)
                     Container(
-                      height: 130,
+                      height: 130.h,
                       width: double.infinity,
                       decoration: BoxDecoration(
-                        color: Colors.black.withOpacity(0.5),
-                        borderRadius: BorderRadius.circular(10),
+                        color: AppColors.textPrimary.withOpacity(0.5),
+                        borderRadius:
+                            BorderRadius.circular(AppSpacing.imageRadius),
                       ),
-                      child: const Center(
+                      child: Center(
                         child: Text(
                           'INDISPONIBLE',
-                          style: TextStyle(
-                            color: Colors.white,
+                          style: AppTextStyles.caption.copyWith(
+                            color: AppColors.surfaceLight,
                             fontWeight: FontWeight.bold,
                           ),
                         ),
@@ -252,23 +261,17 @@ class _ProductsPageState extends State<ProductsPage> {
                     ),
                 ],
               ),
-              const SizedBox(height: 8),
+              SizedBox(height: AppSpacing.sm),
               Text(
                 produit.nom,
-                style: const TextStyle(
-                  fontSize: 16,
-                  fontWeight: FontWeight.bold,
-                ),
+                style: AppTextStyles.subtitle,
                 maxLines: 2,
                 overflow: TextOverflow.ellipsis,
               ),
-              const SizedBox(height: 4),
+              SizedBox(height: AppSpacing.xs),
               Text(
                 '${produit.prix.toStringAsFixed(2)} DA',
-                style: TextStyle(
-                  fontSize: 14,
-                  color: Colors.blue[700],
-                ),
+                style: AppTextStyles.priceText,
               ),
               const Spacer(),
               if (produit.disponible)
@@ -276,9 +279,16 @@ class _ProductsPageState extends State<ProductsPage> {
                   width: double.infinity,
                   child: ElevatedButton(
                     style: ElevatedButton.styleFrom(
-                      padding: const EdgeInsets.symmetric(vertical: 8),
+                      backgroundColor: AppColors.primary,
+                      foregroundColor:
+                          Colors.white, // Replace with a valid color
+                      padding: EdgeInsets.symmetric(vertical: 8.h),
+                      shape: RoundedRectangleBorder(
+                        borderRadius:
+                            BorderRadius.circular(AppSpacing.buttonRadius),
+                      ),
                     ),
-                    child: const Text('Ajouter'),
+                    child: Text('Ajouter', style: AppTextStyles.buttonMedium),
                     onPressed: () {
                       widget.onAjouterAuPanier(produit);
                     },
@@ -295,41 +305,44 @@ class _ProductsPageState extends State<ProductsPage> {
     showModalBottomSheet(
       context: context,
       isScrollControlled: true,
-      shape: const RoundedRectangleBorder(
-        borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
+      shape: RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(
+            top: Radius.circular(
+                AppSpacing.cardRadius)), // Replaced with an existing property
       ),
       builder: (context) {
         return Container(
-          padding: const EdgeInsets.all(20),
+          padding: EdgeInsets.all(AppSpacing.lg),
           height: MediaQuery.of(context).size.height * 0.6,
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
               Center(
                 child: Container(
-                  height: 180,
-                  width: 180,
+                  height: 180.h,
+                  width: 180.w,
                   decoration: BoxDecoration(
-                    color: Colors.grey[200],
-                    borderRadius: BorderRadius.circular(15),
+                    color: AppColors.surfaceVariant,
+                    borderRadius: BorderRadius.circular(AppSpacing.imageRadius),
                   ),
                   child: produit.image.isNotEmpty
                       ? ClipRRect(
-                          borderRadius: BorderRadius.circular(15),
+                          borderRadius:
+                              BorderRadius.circular(AppSpacing.imageRadius),
                           child: FittedBox(
                             fit: BoxFit.contain,
                             child: Image.network(
                               _getFullImageUrl(produit.image),
-                              height: 160,
-                              width: 160,
+                              height: 160.h,
+                              width: 160.w,
                               fit: BoxFit.cover,
                               errorBuilder: (context, error, stackTrace) {
                                 print('Error loading detail image: $error');
                                 return Center(
                                   child: Icon(
                                     Icons.local_cafe,
-                                    size: 80,
-                                    color: Colors.grey[600],
+                                    size: 80.sp,
+                                    color: AppColors.textSecondary,
                                   ),
                                 );
                               },
@@ -339,27 +352,21 @@ class _ProductsPageState extends State<ProductsPage> {
                       : Center(
                           child: Icon(
                             Icons.local_cafe,
-                            size: 80,
-                            color: Colors.grey[600],
+                            size: 80.sp,
+                            color: AppColors.textSecondary,
                           ),
                         ),
                 ),
               ),
-              const SizedBox(height: 20),
+              SizedBox(height: AppSpacing.lg),
               Text(
                 produit.nom,
-                style: const TextStyle(
-                  fontSize: 24,
-                  fontWeight: FontWeight.bold,
-                ),
+                style: AppTextStyles.h3,
               ),
-              const SizedBox(height: 10),
+              SizedBox(height: AppSpacing.sm),
               Text(
                 'Prix: ${produit.prix.toStringAsFixed(2)} DA',
-                style: TextStyle(
-                  fontSize: 18,
-                  color: Colors.blue[700],
-                ),
+                style: AppTextStyles.priceText,
               ),
               const Spacer(),
               Row(
@@ -367,11 +374,17 @@ class _ProductsPageState extends State<ProductsPage> {
                   Expanded(
                     child: ElevatedButton(
                       style: ElevatedButton.styleFrom(
-                        padding: const EdgeInsets.symmetric(vertical: 15),
+                        backgroundColor: AppColors.primary,
+                        foregroundColor: AppColors.onPrimary,
+                        padding: EdgeInsets.symmetric(vertical: 15.h),
+                        shape: RoundedRectangleBorder(
+                          borderRadius:
+                              BorderRadius.circular(AppSpacing.buttonRadius),
+                        ),
                       ),
-                      child: const Text(
+                      child: Text(
                         'Ajouter au panier',
-                        style: TextStyle(fontSize: 16),
+                        style: AppTextStyles.buttonLarge,
                       ),
                       onPressed: () {
                         Navigator.pop(context);
@@ -441,9 +454,9 @@ class _GenerateCodePageState extends State<GenerateCodePage> {
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(
-        title: const Text('Votre Code de Retrait'),
+        title: Text('Votre Code de Retrait', style: AppTextStyles.h4),
         leading: IconButton(
-          icon: const Icon(Icons.arrow_back),
+          icon: Icon(Icons.arrow_back, size: 24.sp),
           onPressed: () {
             Navigator.pop(context);
           },
@@ -451,7 +464,7 @@ class _GenerateCodePageState extends State<GenerateCodePage> {
       ),
       body: Center(
         child: Padding(
-          padding: const EdgeInsets.all(20),
+          padding: EdgeInsets.all(AppSpacing.lg),
           child: isLoading
               ? _buildLoadingState()
               : errorMessage.isNotEmpty
@@ -466,13 +479,15 @@ class _GenerateCodePageState extends State<GenerateCodePage> {
     return Column(
       mainAxisAlignment: MainAxisAlignment.center,
       children: [
-        const CircularProgressIndicator(),
-        const SizedBox(height: 20),
+        CircularProgressIndicator(
+          strokeWidth: 2.w,
+          color: AppColors.primary,
+        ),
+        SizedBox(height: AppSpacing.lg),
         Text(
           'Génération du code en cours...',
-          style: TextStyle(
-            fontSize: 16,
-            color: Colors.grey[700],
+          style: AppTextStyles.bodyMedium.copyWith(
+            color: AppColors.textSecondary,
           ),
         ),
       ],
@@ -483,31 +498,34 @@ class _GenerateCodePageState extends State<GenerateCodePage> {
     return Column(
       mainAxisAlignment: MainAxisAlignment.center,
       children: [
-        const Icon(
+        Icon(
           Icons.error_outline,
-          color: Colors.red,
-          size: 60,
+          color: AppColors.error,
+          size: 60.sp,
         ),
-        const SizedBox(height: 20),
-        const Text(
+        SizedBox(height: AppSpacing.lg),
+        Text(
           'Erreur lors de la génération du code',
-          style: TextStyle(
-            fontSize: 18,
-            fontWeight: FontWeight.bold,
-          ),
+          style: AppTextStyles.h4.copyWith(color: AppColors.error),
         ),
-        const SizedBox(height: 10),
+        SizedBox(height: AppSpacing.sm),
         Text(
           errorMessage,
-          style: TextStyle(
-            color: Colors.grey[700],
-          ),
+          style:
+              AppTextStyles.bodyMedium.copyWith(color: AppColors.textSecondary),
           textAlign: TextAlign.center,
         ),
-        const SizedBox(height: 20),
+        SizedBox(height: AppSpacing.lg),
         ElevatedButton(
           onPressed: _generateCode,
-          child: const Text('Réessayer'),
+          style: ElevatedButton.styleFrom(
+            backgroundColor: AppColors.primary,
+            foregroundColor: AppColors.onPrimary,
+            shape: RoundedRectangleBorder(
+              borderRadius: BorderRadius.circular(AppSpacing.buttonRadius),
+            ),
+          ),
+          child: Text('Réessayer', style: AppTextStyles.buttonMedium),
         ),
       ],
     );
@@ -518,90 +536,78 @@ class _GenerateCodePageState extends State<GenerateCodePage> {
       mainAxisAlignment: MainAxisAlignment.center,
       children: [
         Card(
-          elevation: 4,
+          elevation: AppSpacing.cardElevation,
           shape: RoundedRectangleBorder(
-            borderRadius: BorderRadius.circular(15),
+            borderRadius: BorderRadius.circular(AppSpacing.cardRadius),
           ),
           child: Padding(
-            padding: const EdgeInsets.all(30),
+            padding: EdgeInsets.all(AppSpacing.xl),
             child: Column(
               mainAxisSize: MainAxisSize.min,
               children: [
-                const Icon(
+                Icon(
                   Icons.check_circle,
-                  color: Colors.green,
-                  size: 60,
+                  color: AppColors.success,
+                  size: 60.sp,
                 ),
-                const SizedBox(height: 20),
-                const Text(
+                SizedBox(height: AppSpacing.lg),
+                Text(
                   'Code Généré',
-                  style: TextStyle(
-                    fontSize: 24,
-                    fontWeight: FontWeight.bold,
-                    color: Colors.green,
-                  ),
+                  style: AppTextStyles.h3.copyWith(color: AppColors.success),
                 ),
-                const SizedBox(height: 30),
+                SizedBox(height: AppSpacing.xl),
                 Container(
-                  padding: const EdgeInsets.symmetric(
-                    horizontal: 30,
-                    vertical: 20,
+                  padding: EdgeInsets.symmetric(
+                    horizontal: AppSpacing.xl,
+                    vertical: AppSpacing.lg,
                   ),
                   decoration: BoxDecoration(
-                    color: Colors.grey[100],
-                    borderRadius: BorderRadius.circular(10),
+                    color: AppColors.surfaceVariant,
+                    borderRadius: BorderRadius.circular(AppSpacing.codeRadius),
                     border: Border.all(
-                      color: Theme.of(context).primaryColor,
-                      width: 2,
+                      color: AppColors.primary,
+                      width: 2.w,
                     ),
                   ),
                   child: Column(
                     children: [
                       Text(
                         generatedCode,
-                        style: TextStyle(
-                          fontSize: 36,
-                          fontWeight: FontWeight.bold,
-                          letterSpacing: 8,
-                          color: Theme.of(context).primaryColor,
+                        style: AppTextStyles.code.copyWith(
+                          color: AppColors.primary,
+                          letterSpacing: 8.w,
                         ),
                       ),
-                      const SizedBox(height: 20),
+                      SizedBox(height: AppSpacing.lg),
                       Icon(
                         Icons.qr_code_2,
-                        size: 120,
-                        color: Theme.of(context).primaryColor,
+                        size: 120.sp,
+                        color: AppColors.primary,
                       ),
                     ],
                   ),
                 ),
-                const SizedBox(height: 20),
+                SizedBox(height: AppSpacing.lg),
                 Text(
                   'Code valable pendant 5 minutes',
-                  style: TextStyle(
-                    color: Colors.grey[600],
-                    fontSize: 16,
-                  ),
+                  style: AppTextStyles.bodyMedium
+                      .copyWith(color: AppColors.textSecondary),
                 ),
                 if (expiryTime != null)
                   Text(
                     'Expire le ${_formatExpiryTime(expiryTime!)}',
-                    style: TextStyle(
-                      color: Colors.grey[600],
-                      fontSize: 14,
-                    ),
+                    style: AppTextStyles.caption
+                        .copyWith(color: AppColors.textSecondary),
                   ),
               ],
             ),
           ),
         ),
-        const SizedBox(height: 30),
+        SizedBox(height: AppSpacing.xl),
         Text(
           'Présentez ce code sur l\'écran du distributeur',
-          style: TextStyle(
-            fontSize: 16,
-            color: Colors.grey[700],
-          ),
+          style:
+              AppTextStyles.bodyLarge.copyWith(color: AppColors.textSecondary),
           textAlign: TextAlign.center,
         ),
       ],

@@ -1,6 +1,8 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_screenutil/flutter_screenutil.dart';
 import '../Login/login_page.dart';
 import '../services/user_service.dart';
+import '../theme/app_design_system.dart'; // Import our design system
 import 'dart:developer' as developer;
 
 class ProfilePage extends StatefulWidget {
@@ -92,8 +94,11 @@ class _ProfilePageState extends State<ProfilePage> {
   @override
   Widget build(BuildContext context) {
     if (_isLoading) {
-      return const Center(
-        child: CircularProgressIndicator(),
+      return Center(
+        child: CircularProgressIndicator(
+          strokeWidth: 2.w,
+          color: AppColors.primary,
+        ),
       );
     }
 
@@ -102,17 +107,17 @@ class _ProfilePageState extends State<ProfilePage> {
         child: Column(
           mainAxisAlignment: MainAxisAlignment.center,
           children: [
-            const Icon(Icons.error_outline, color: Colors.red, size: 60),
-            const SizedBox(height: 16),
+            Icon(Icons.error_outline, color: AppColors.error, size: 60.sp),
+            SizedBox(height: AppSpacing.md),
             Text(
               _errorMessage,
-              style: const TextStyle(fontSize: 16),
+              style: AppTextStyles.bodyMedium.copyWith(color: AppColors.error),
               textAlign: TextAlign.center,
             ),
-            const SizedBox(height: 16),
+            SizedBox(height: AppSpacing.md),
             ElevatedButton(
               onPressed: _fetchUserData,
-              child: const Text('Réessayer'),
+              child: Text('Réessayer', style: AppTextStyles.buttonMedium),
             ),
           ],
         ),
@@ -120,7 +125,7 @@ class _ProfilePageState extends State<ProfilePage> {
     }
 
     return SingleChildScrollView(
-      padding: const EdgeInsets.all(20),
+      padding: EdgeInsets.all(AppSpacing.md),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
@@ -129,95 +134,90 @@ class _ProfilePageState extends State<ProfilePage> {
             child: Column(
               children: [
                 CircleAvatar(
-                  radius: 50,
-                  backgroundColor:
-                      Theme.of(context).primaryColor.withOpacity(0.2),
+                  radius: 50.r,
+                  backgroundColor: AppColors.primary.withOpacity(0.2),
                   child: Icon(
                     Icons.person,
-                    size: 60,
-                    color: Theme.of(context).primaryColor,
+                    size: 60.sp,
+                    color: AppColors.primary,
                   ),
                 ),
-                const SizedBox(height: 16),
+                SizedBox(height: AppSpacing.md),
                 Text(
                   _userName,
-                  style: const TextStyle(
-                    fontSize: 24,
-                    fontWeight: FontWeight.bold,
+                  style: AppTextStyles.h3.copyWith(
+                    color: AppColors.primary,
                   ),
                 ),
                 Text(
                   _userEmail,
-                  style: TextStyle(
-                    fontSize: 16,
-                    color: Colors.grey[600],
+                  style: AppTextStyles.bodyMedium.copyWith(
+                    color: AppColors.textSecondary,
                   ),
                 ),
               ],
             ),
           ),
 
-          const SizedBox(height: 30),
+          SizedBox(height: AppSpacing.xl),
 
           // Account details section
-          const Text(
+          Text(
             'Informations du compte',
-            style: TextStyle(
-              fontSize: 18,
-              fontWeight: FontWeight.bold,
+            style: AppTextStyles.h4.copyWith(
+              color: AppColors.primary,
             ),
           ),
-          const SizedBox(height: 15),
+          SizedBox(height: AppSpacing.sm),
 
           Card(
             shape: RoundedRectangleBorder(
-              borderRadius: BorderRadius.circular(15),
+              borderRadius: BorderRadius.circular(AppSpacing.cardRadius),
             ),
+            elevation: AppSpacing.cardElevation,
             child: Padding(
-              padding: const EdgeInsets.all(16),
+              padding: EdgeInsets.all(AppSpacing.md),
               child: Column(
                 children: [
                   // Solde row
                   ListTile(
                     leading: Icon(
                       Icons.account_balance_wallet,
-                      color: Theme.of(context).primaryColor,
+                      color: AppColors.primary,
+                      size: 24.sp,
                     ),
-                    title: const Text('Solde'),
+                    title: Text('Solde', style: AppTextStyles.bodyLarge),
                     trailing: Text(
                       '${_userBalance.toStringAsFixed(2)} DA',
-                      style: const TextStyle(
-                        fontWeight: FontWeight.bold,
-                        fontSize: 18,
-                        color: Colors.green,
-                      ),
+                      style: AppTextStyles.balanceText,
                     ),
                   ),
-                  const Divider(),
+                  Divider(thickness: 1.h, color: AppColors.divider),
 
                   // Email row
                   ListTile(
                     leading: Icon(
                       Icons.email,
-                      color: Theme.of(context).primaryColor,
+                      color: AppColors.primary,
+                      size: 24.sp,
                     ),
-                    title: const Text('Email'),
-                    subtitle: Text(_userEmail),
+                    title: Text('Email', style: AppTextStyles.bodyLarge),
+                    subtitle: Text(_userEmail, style: AppTextStyles.bodySmall),
                   ),
-                  const Divider(),
+                  Divider(thickness: 1.h, color: AppColors.divider),
 
                   // Password row (masked)
                   ListTile(
                     leading: Icon(
                       Icons.lock,
-                      color: Theme.of(context).primaryColor,
+                      color: AppColors.primary,
+                      size: 24.sp,
                     ),
-                    title: const Text('Mot de passe'),
-                    subtitle: const Text('••••••••'),
+                    title: Text('Mot de passe', style: AppTextStyles.bodyLarge),
+                    subtitle: Text('••••••••', style: AppTextStyles.bodySmall),
                     trailing: IconButton(
-                      icon: const Icon(Icons.edit),
+                      icon: Icon(Icons.edit, size: 22.sp),
                       onPressed: () {
-                        // Implement password change functionality
                         _showChangePasswordDialog();
                       },
                     ),
@@ -227,40 +227,42 @@ class _ProfilePageState extends State<ProfilePage> {
             ),
           ),
 
-          const SizedBox(height: 30),
+          SizedBox(height: AppSpacing.xl),
 
           // Actions section
-          const Text(
+          Text(
             'Actions',
-            style: TextStyle(
-              fontSize: 18,
-              fontWeight: FontWeight.bold,
+            style: AppTextStyles.h4.copyWith(
+              color: AppColors.primary,
             ),
           ),
-          const SizedBox(height: 15),
+          SizedBox(height: AppSpacing.sm),
 
           Card(
             shape: RoundedRectangleBorder(
-              borderRadius: BorderRadius.circular(15),
+              borderRadius: BorderRadius.circular(AppSpacing.cardRadius),
             ),
+            elevation: AppSpacing.cardElevation,
             child: Padding(
-              padding: const EdgeInsets.all(16),
+              padding: EdgeInsets.all(AppSpacing.md),
               child: Column(
                 children: [
                   // Support button
                   ListTile(
-                    leading: const Icon(
+                    leading: Icon(
                       Icons.support_agent,
-                      color: Colors.blue,
+                      color: AppColors.info,
+                      size: 24.sp,
                     ),
-                    title: const Text('Support'),
-                    subtitle: const Text('Besoin d\'aide ? Contactez-nous'),
-                    trailing: const Icon(Icons.chevron_right),
+                    title: Text('Support', style: AppTextStyles.bodyLarge),
+                    subtitle: Text('Besoin d\'aide ? Contactez-nous',
+                        style: AppTextStyles.bodySmall),
+                    trailing: Icon(Icons.chevron_right, size: 22.sp),
                     onTap: () {
                       _showSupportDialog();
                     },
                   ),
-                  const Divider(),
+                  Divider(thickness: 1.h, color: AppColors.divider),
 
                   // Status of the distributor
                   ListTile(
@@ -268,28 +270,34 @@ class _ProfilePageState extends State<ProfilePage> {
                       widget.isInMaintenance
                           ? Icons.warning_amber_rounded
                           : Icons.check_circle,
-                      color:
-                          widget.isInMaintenance ? Colors.amber : Colors.green,
+                      color: widget.isInMaintenance
+                          ? AppColors.warning
+                          : AppColors.success,
+                      size: 24.sp,
                     ),
-                    title: const Text('Statut du distributeur'),
+                    title: Text('Statut du distributeur',
+                        style: AppTextStyles.bodyLarge),
                     subtitle: Text(
                       widget.isInMaintenance ? 'En maintenance' : 'Disponible',
+                      style: AppTextStyles.bodySmall,
                     ),
-                    trailing: const Icon(Icons.chevron_right),
+                    trailing: Icon(Icons.chevron_right, size: 22.sp),
                     onTap: () {
                       _showStatusDialog();
                     },
                   ),
-                  const Divider(),
+                  Divider(thickness: 1.h, color: AppColors.divider),
 
                   // Logout button
                   ListTile(
-                    leading: const Icon(
+                    leading: Icon(
                       Icons.logout,
-                      color: Colors.red,
+                      color: AppColors.error,
+                      size: 24.sp,
                     ),
-                    title: const Text('Se déconnecter'),
-                    trailing: const Icon(Icons.chevron_right),
+                    title:
+                        Text('Se déconnecter', style: AppTextStyles.bodyLarge),
+                    trailing: Icon(Icons.chevron_right, size: 22.sp),
                     onTap: () {
                       _confirmLogout();
                     },
@@ -316,55 +324,75 @@ class _ProfilePageState extends State<ProfilePage> {
       builder: (BuildContext context) {
         return StatefulBuilder(builder: (context, setState) {
           return AlertDialog(
-            title: const Text('Changer le mot de passe'),
+            title: Text(
+              'Changer le mot de passe',
+              style: AppTextStyles.h4,
+            ),
             content: SingleChildScrollView(
               child: Column(
                 mainAxisSize: MainAxisSize.min,
                 children: [
                   if (passwordError.isNotEmpty)
                     Container(
-                      padding: const EdgeInsets.all(8),
-                      color: Colors.red.shade50,
-                      width: double.infinity,
-                      child: Text(
-                        passwordError,
-                        style: const TextStyle(
-                          color: Colors.red,
-                        ),
+                      padding: EdgeInsets.all(AppSpacing.sm),
+                      margin: EdgeInsets.only(bottom: AppSpacing.sm),
+                      decoration: BoxDecoration(
+                        color: AppColors.error.withOpacity(0.1),
+                        borderRadius:
+                            BorderRadius.circular(AppSpacing.chipRadius),
+                        border: Border.all(color: AppColors.error),
+                      ),
+                      child: Row(
+                        children: [
+                          Icon(Icons.error,
+                              color: AppColors.error, size: 18.sp),
+                          SizedBox(width: AppSpacing.xs),
+                          Expanded(
+                            child: Text(
+                              passwordError,
+                              style: AppTextStyles.bodySmall.copyWith(
+                                color: AppColors.error,
+                              ),
+                            ),
+                          ),
+                        ],
                       ),
                     ),
-                  const SizedBox(height: 16),
+                  SizedBox(height: AppSpacing.md),
                   TextField(
                     controller: currentPasswordController,
                     obscureText: true,
-                    decoration: const InputDecoration(
+                    decoration: InputDecoration(
                       labelText: 'Mot de passe actuel',
-                      border: OutlineInputBorder(),
+                      prefixIcon: const Icon(Icons.lock_outline),
                     ),
                   ),
-                  const SizedBox(height: 16),
+                  SizedBox(height: AppSpacing.md),
                   TextField(
                     controller: newPasswordController,
                     obscureText: true,
-                    decoration: const InputDecoration(
+                    decoration: InputDecoration(
                       labelText: 'Nouveau mot de passe',
-                      border: OutlineInputBorder(),
+                      prefixIcon: const Icon(Icons.lock_open),
                       helperText: 'Minimum 6 caractères',
                     ),
                   ),
-                  const SizedBox(height: 16),
+                  SizedBox(height: AppSpacing.md),
                   TextField(
                     controller: confirmPasswordController,
                     obscureText: true,
-                    decoration: const InputDecoration(
+                    decoration: InputDecoration(
                       labelText: 'Confirmer le mot de passe',
-                      border: OutlineInputBorder(),
+                      prefixIcon: const Icon(Icons.lock_reset),
                     ),
                   ),
                   if (isUpdating)
-                    const Padding(
-                      padding: EdgeInsets.only(top: 16.0),
-                      child: CircularProgressIndicator(),
+                    Padding(
+                      padding: EdgeInsets.only(top: AppSpacing.md),
+                      child: CircularProgressIndicator(
+                        strokeWidth: 2.w,
+                        color: AppColors.primary,
+                      ),
                     ),
                 ],
               ),
@@ -376,7 +404,7 @@ class _ProfilePageState extends State<ProfilePage> {
                     : () {
                         Navigator.of(context).pop();
                       },
-                child: Text('Annuler'),
+                child: Text('Annuler', style: AppTextStyles.buttonMedium),
               ),
               ElevatedButton(
                 onPressed: isUpdating
@@ -387,8 +415,7 @@ class _ProfilePageState extends State<ProfilePage> {
                             newPasswordController.text.isEmpty ||
                             confirmPasswordController.text.isEmpty) {
                           setState(() {
-                            passwordError =
-                                'Tous les champs sont obligatoires';
+                            passwordError = 'Tous les champs sont obligatoires';
                           });
                           return;
                         }
@@ -426,18 +453,26 @@ class _ProfilePageState extends State<ProfilePage> {
 
                           if (success) {
                             ScaffoldMessenger.of(context).showSnackBar(
-                              const SnackBar(
-                                content:
-                                    Text('Mot de passe modifié avec succès'),
-                                backgroundColor: Colors.green,
+                              SnackBar(
+                                content: Text(
+                                  'Mot de passe modifié avec succès',
+                                  style: AppTextStyles.bodyMedium.copyWith(
+                                    color: AppColors.textOnPrimary,
+                                  ),
+                                ),
+                                backgroundColor: AppColors.success,
                               ),
                             );
                           } else {
                             ScaffoldMessenger.of(context).showSnackBar(
-                              const SnackBar(
+                              SnackBar(
                                 content: Text(
-                                    'Échec de la mise à jour du mot de passe'),
-                                backgroundColor: Colors.red,
+                                  'Échec de la mise à jour du mot de passe',
+                                  style: AppTextStyles.bodyMedium.copyWith(
+                                    color: AppColors.textOnPrimary,
+                                  ),
+                                ),
+                                backgroundColor: AppColors.error,
                               ),
                             );
                           }
@@ -449,7 +484,7 @@ class _ProfilePageState extends State<ProfilePage> {
                           });
                         }
                       },
-                child: Text('Enregistrer'),
+                child: Text('Enregistrer', style: AppTextStyles.buttonMedium),
               ),
             ],
           );
@@ -463,17 +498,23 @@ class _ProfilePageState extends State<ProfilePage> {
       context: context,
       builder: (BuildContext context) {
         return AlertDialog(
-          title: const Text('Se déconnecter'),
-          content: const Text('Êtes-vous sûr de vouloir vous déconnecter ?'),
+          title: Text(
+            'Se déconnecter',
+            style: AppTextStyles.h4,
+          ),
+          content: Text(
+            'Êtes-vous sûr de vouloir vous déconnecter ?',
+            style: AppTextStyles.bodyMedium,
+          ),
           actions: [
             TextButton(
-              child: const Text('Annuler'),
+              child: Text('Annuler', style: AppTextStyles.buttonMedium),
               onPressed: () {
                 Navigator.of(context).pop();
               },
             ),
             ElevatedButton(
-              child: const Text('Déconnecter'),
+              child: Text('Déconnecter', style: AppTextStyles.buttonMedium),
               onPressed: () {
                 Navigator.of(context).pop();
                 // Navigate to login page
@@ -498,71 +539,86 @@ class _ProfilePageState extends State<ProfilePage> {
             children: [
               Icon(
                 Icons.support_agent,
-                color: Theme.of(context).primaryColor,
-                size: 28,
+                color: AppColors.primary,
+                size: 28.sp,
               ),
-              const SizedBox(width: 10),
-              const Text('Assistance'),
+              SizedBox(width: AppSpacing.sm),
+              Text(
+                'Assistance',
+                style: AppTextStyles.h4,
+              ),
             ],
           ),
-          content: const Column(
+          content: Column(
             mainAxisSize: MainAxisSize.min,
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
               Text(
                 'Pour toute question ou problème avec le distributeur, veuillez contacter:',
-                style: TextStyle(fontSize: 16),
+                style: AppTextStyles.bodyMedium,
               ),
-              SizedBox(height: 20),
+              SizedBox(height: AppSpacing.md),
 
               // Phone number section
               Row(
                 children: [
-                  Icon(Icons.phone, color: Colors.green),
-                  SizedBox(width: 10),
+                  Icon(Icons.phone, color: AppColors.success, size: 22.sp),
+                  SizedBox(width: AppSpacing.sm),
                   Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
                       Text(
                         'Téléphone',
-                        style: TextStyle(fontWeight: FontWeight.bold),
+                        style: AppTextStyles.bodyLarge.copyWith(
+                          fontWeight: FontWeight.bold,
+                        ),
                       ),
-                      Text('+213 123 456 789'),
+                      Text(
+                        '+213 123 456 789',
+                        style: AppTextStyles.bodyMedium,
+                      ),
                     ],
                   ),
                 ],
               ),
 
-              SizedBox(height: 15),
+              SizedBox(height: AppSpacing.md),
 
               // Email section
               Row(
                 children: [
-                  Icon(Icons.email, color: Colors.blue),
-                  SizedBox(width: 10),
+                  Icon(Icons.email, color: AppColors.info, size: 22.sp),
+                  SizedBox(width: AppSpacing.sm),
                   Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
                       Text(
                         'Email',
-                        style: TextStyle(fontWeight: FontWeight.bold),
+                        style: AppTextStyles.bodyLarge.copyWith(
+                          fontWeight: FontWeight.bold,
+                        ),
                       ),
-                      Text('support@distributeur.com'),
+                      Text(
+                        'support@distributeur.com',
+                        style: AppTextStyles.bodyMedium,
+                      ),
                     ],
                   ),
                 ],
               ),
 
-              SizedBox(height: 20),
+              SizedBox(height: AppSpacing.md),
               Text(
                 'Horaires du support: 8h-18h, 7j/7',
-                style: TextStyle(fontStyle: FontStyle.italic),
+                style: AppTextStyles.caption.copyWith(
+                  fontStyle: FontStyle.italic,
+                ),
               ),
             ],
           ),
           actions: [
             ElevatedButton(
-              child: const Text('Fermer'),
+              child: Text('Fermer', style: AppTextStyles.buttonMedium),
               onPressed: () {
                 Navigator.of(context).pop();
               },
@@ -578,7 +634,10 @@ class _ProfilePageState extends State<ProfilePage> {
       context: context,
       builder: (BuildContext context) {
         return AlertDialog(
-          title: const Text('Statut du Distributeur'),
+          title: Text(
+            'Statut du Distributeur',
+            style: AppTextStyles.h4,
+          ),
           content: Column(
             mainAxisSize: MainAxisSize.min,
             crossAxisAlignment: CrossAxisAlignment.start,
@@ -587,25 +646,34 @@ class _ProfilePageState extends State<ProfilePage> {
                 children: [
                   Icon(
                     widget.isInMaintenance ? Icons.warning : Icons.check_circle,
-                    color: widget.isInMaintenance ? Colors.amber : Colors.green,
+                    color: widget.isInMaintenance
+                        ? AppColors.warning
+                        : AppColors.success,
+                    size: 24.sp,
                   ),
-                  const SizedBox(width: 10),
+                  SizedBox(width: AppSpacing.sm),
                   Text(
                     widget.isInMaintenance ? 'En maintenance' : 'Disponible',
-                    style: const TextStyle(
+                    style: AppTextStyles.bodyLarge.copyWith(
                       fontWeight: FontWeight.bold,
                     ),
                   ),
                 ],
               ),
-              const SizedBox(height: 15),
-              const Text('ID Distributeur: DIS-42501'),
-              const Text('Dernière mise à jour: 16/03/2025'),
+              SizedBox(height: AppSpacing.md),
+              Text(
+                'ID Distributeur: DIS-42501',
+                style: AppTextStyles.bodyMedium,
+              ),
+              Text(
+                'Dernière mise à jour: 16/03/2025',
+                style: AppTextStyles.bodySmall,
+              ),
             ],
           ),
           actions: [
             TextButton(
-              child: const Text('Fermer'),
+              child: Text('Fermer', style: AppTextStyles.buttonMedium),
               onPressed: () {
                 Navigator.of(context).pop();
               },

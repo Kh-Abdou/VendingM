@@ -45,6 +45,13 @@ class _NotificationsPageState extends State<NotificationsPage>
   Future<void> _refreshNotifications() async {
     print(
         '🔄 Rafraîchissement des notifications depuis la page'); // Log pour débogage
+
+    if (!mounted) return; // Vérifier si le widget est toujours monté
+
+    final provider = Provider.of<NotificationProvider>(context, listen: false);
+    print('🔌 URL API: ${provider.getApiUrl()}');
+    print('👤 ID Utilisateur: ${provider.userId}');
+
     setState(() {
       _isLoading = true;
       _error = null;
@@ -52,17 +59,26 @@ class _NotificationsPageState extends State<NotificationsPage>
 
     try {
       // Forcer le rechargement via le provider
-      await Provider.of<NotificationProvider>(context, listen: false)
-          .forceRefresh();
+      await provider.forceRefresh();
+
+      if (!mounted)
+        return; // Vérifier à nouveau si le widget est toujours monté après l'opération asynchrone
+
+      print('✅ Notifications rafraîchies avec succès');
+      print('📊 Nombre total: ${provider.notifications.length}');
+
       setState(() {
         _isLoading = false;
       });
     } catch (e) {
+      print('❌ Erreur lors du rafraîchissement: $e'); // Log pour débogage
+
+      if (!mounted) return; // Vérifier si le widget est toujours monté
+
       setState(() {
         _isLoading = false;
         _error = e.toString();
       });
-      print('❌ Erreur lors du rafraîchissement: $e'); // Log pour débogage
     }
   }
 
@@ -142,23 +158,6 @@ class _NotificationsPageState extends State<NotificationsPage>
                         'maintenance'),
                   ],
                 ),
-              ),
-            ),
-            // Afficher les informations de débogage pour aider au diagnostic
-            // A supprimer en production
-            Padding(
-              padding: const EdgeInsets.all(8.0),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  const Text('Infos de débogage',
-                      style:
-                          TextStyle(fontWeight: FontWeight.bold, fontSize: 12)),
-                  Text('API: ${notificationProvider.getApiUrl()}',
-                      style: const TextStyle(fontSize: 10)),
-                  Text('ID Technicien: ${notificationProvider.userId}',
-                      style: const TextStyle(fontSize: 10)),
-                ],
               ),
             ),
           ],

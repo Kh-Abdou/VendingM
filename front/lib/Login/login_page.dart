@@ -1,11 +1,14 @@
 import 'package:flutter/material.dart';
 import 'package:lessvsfull/Login/inscription.dart';
 import 'package:provider/provider.dart';
-import '../admin_page/admin_page.dart'; // Updated import path
-import '../main.dart'; // Import for regular HomePage
-import '../technician_page/technician_home.dart'; // Import for technician page
-import '../implementation/login-imp.dart'; // Import AuthService
-import '../providers/user_provider.dart'; // Import UserProvider
+import 'package:flutter_screenutil/flutter_screenutil.dart';
+import 'package:google_fonts/google_fonts.dart';
+import '../theme/app_design_system.dart'; // Import our design system
+import '../admin_page/admin_page.dart';
+import '../main.dart';
+import '../technician_page/technician_home.dart';
+import '../implementation/login-imp.dart';
+import '../providers/user_provider.dart';
 
 class LoginPage extends StatefulWidget {
   const LoginPage({super.key});
@@ -30,9 +33,9 @@ class _LoginPageState extends State<LoginPage> {
             begin: Alignment.topCenter,
             end: Alignment.bottomCenter,
             colors: [
-              Color(0xFF3A1C71), // Deeper, more subtle purple
-              Color(0xFF4B2A90), // Middle transition color
-              Color(0xFF512DA8), // Modern indigo shade
+              AppColors.primaryDark,
+              AppColors.primary,
+              AppColors.primaryLight,
             ],
           ),
         ),
@@ -40,49 +43,52 @@ class _LoginPageState extends State<LoginPage> {
           child: Center(
             child: SingleChildScrollView(
               child: Padding(
-                padding: const EdgeInsets.all(20.0),
+                padding: EdgeInsets.all(AppSpacing.md),
                 child: Card(
-                  elevation: 10,
+                  elevation: AppSpacing.cardElevation,
                   shape: RoundedRectangleBorder(
-                    borderRadius: BorderRadius.circular(20),
+                    borderRadius: BorderRadius.circular(AppSpacing.cardRadius),
                   ),
                   child: Padding(
-                    padding: const EdgeInsets.all(20.0),
+                    padding: EdgeInsets.all(AppSpacing.md),
                     child: Column(
                       mainAxisSize: MainAxisSize.min,
                       children: [
-                        const SizedBox(height: 20),
+                        SizedBox(height: AppSpacing.md),
                         Icon(
                           Icons.local_cafe,
-                          size: 80,
-                          color: Theme.of(context).primaryColor,
+                          size: 80.sp,
+                          color: AppColors.primary,
                         ),
-                        const SizedBox(height: 20),
-                        const Text(
+                        SizedBox(height: AppSpacing.md),
+                        Text(
                           'Connectez-vous',
-                          style: TextStyle(
-                            fontSize: 24,
-                            fontWeight: FontWeight.bold,
+                          style: AppTextStyles.h2.copyWith(
+                            color: AppColors.primaryDark,
                           ),
                         ),
-                        const SizedBox(height: 30),
+                        SizedBox(height: AppSpacing.lg),
                         if (_errorMessage != null)
                           Container(
-                            padding: const EdgeInsets.all(10),
-                            margin: const EdgeInsets.only(bottom: 20),
+                            padding: EdgeInsets.all(AppSpacing.sm),
+                            margin: EdgeInsets.only(bottom: AppSpacing.md),
                             decoration: BoxDecoration(
-                              color: Colors.red[50],
-                              borderRadius: BorderRadius.circular(10),
-                              border: Border.all(color: Colors.red),
+                              color: AppColors.error.withOpacity(0.1),
+                              borderRadius:
+                                  BorderRadius.circular(AppSpacing.chipRadius),
+                              border: Border.all(color: AppColors.error),
                             ),
                             child: Row(
                               children: [
-                                const Icon(Icons.error, color: Colors.red),
-                                const SizedBox(width: 10),
+                                Icon(Icons.error,
+                                    color: AppColors.error, size: 18.sp),
+                                SizedBox(width: AppSpacing.sm),
                                 Expanded(
                                   child: Text(
                                     _errorMessage!,
-                                    style: const TextStyle(color: Colors.red),
+                                    style: AppTextStyles.bodySmall.copyWith(
+                                      color: AppColors.error,
+                                    ),
                                   ),
                                 ),
                               ],
@@ -93,21 +99,15 @@ class _LoginPageState extends State<LoginPage> {
                           keyboardType: TextInputType.emailAddress,
                           decoration: InputDecoration(
                             labelText: 'Adresse Email',
-                            border: OutlineInputBorder(
-                              borderRadius: BorderRadius.circular(10),
-                            ),
                             prefixIcon: const Icon(Icons.email),
                           ),
                         ),
-                        const SizedBox(height: 20),
+                        SizedBox(height: AppSpacing.md),
                         TextField(
                           controller: _passwordController,
                           obscureText: _isObscure,
                           decoration: InputDecoration(
                             labelText: 'Mot de passe',
-                            border: OutlineInputBorder(
-                              borderRadius: BorderRadius.circular(10),
-                            ),
                             prefixIcon: const Icon(Icons.lock),
                             suffixIcon: IconButton(
                               icon: Icon(
@@ -123,41 +123,47 @@ class _LoginPageState extends State<LoginPage> {
                             ),
                           ),
                         ),
-                        const SizedBox(height: 10),
+                        SizedBox(height: AppSpacing.xs),
                         Align(
                           alignment: Alignment.centerRight,
                           child: TextButton(
                             onPressed: () {
                               _showForgotPasswordDialog();
                             },
-                            child: const Text('Mot de passe oublié?'),
+                            child: Text(
+                              'Mot de passe oublié?',
+                              style: AppTextStyles.bodyMedium,
+                            ),
                           ),
                         ),
-                        const SizedBox(height: 20),
+                        SizedBox(height: AppSpacing.md),
                         SizedBox(
                           width: double.infinity,
+                          height: AppSpacing.buttonHeight,
                           child: ElevatedButton(
-                            style: ElevatedButton.styleFrom(
-                              padding: const EdgeInsets.symmetric(vertical: 15),
-                              shape: RoundedRectangleBorder(
-                                borderRadius: BorderRadius.circular(10),
-                              ),
-                            ),
                             onPressed: _isLoading ? null : _login,
                             child: _isLoading
-                                ? const CircularProgressIndicator(
-                                    color: Colors.white)
-                                : const Text(
+                                ? SizedBox(
+                                    height: 20.h,
+                                    width: 20.w,
+                                    child: CircularProgressIndicator(
+                                      color: AppColors.textOnPrimary,
+                                      strokeWidth: 2.w,
+                                    ))
+                                : Text(
                                     'Se connecter',
-                                    style: TextStyle(fontSize: 16),
+                                    style: AppTextStyles.buttonLarge,
                                   ),
                           ),
                         ),
-                        const SizedBox(height: 20),
+                        SizedBox(height: AppSpacing.md),
                         Row(
                           mainAxisAlignment: MainAxisAlignment.center,
                           children: [
-                            const Text("Vous n'avez pas de compte?"),
+                            Text(
+                              "Vous n'avez pas de compte?",
+                              style: AppTextStyles.bodyMedium,
+                            ),
                             TextButton(
                               onPressed: () {
                                 Navigator.push(
@@ -167,7 +173,13 @@ class _LoginPageState extends State<LoginPage> {
                                   ),
                                 );
                               },
-                              child: const Text('S\'inscrire'),
+                              child: Text(
+                                'S\'inscrire',
+                                style: AppTextStyles.bodyMedium.copyWith(
+                                  color: AppColors.primary,
+                                  fontWeight: FontWeight.bold,
+                                ),
+                              ),
                             ),
                           ],
                         ),
@@ -251,36 +263,41 @@ class _LoginPageState extends State<LoginPage> {
         return StatefulBuilder(
           builder: (context, setState) {
             return AlertDialog(
-              title: const Text('Réinitialisation du mot de passe'),
+              title: Text(
+                'Réinitialisation du mot de passe',
+                style: AppTextStyles.h4.copyWith(
+                  color: AppColors.primaryDark,
+                ),
+              ),
               content: SingleChildScrollView(
                 child: Column(
                   mainAxisSize: MainAxisSize.min,
                   children: [
-                    const Text(
+                    Text(
                       'Veuillez entrer votre adresse email pour recevoir un lien de réinitialisation de mot de passe.',
-                      style: TextStyle(fontSize: 14),
+                      style: AppTextStyles.bodyMedium,
                     ),
-                    const SizedBox(height: 20),
+                    SizedBox(height: AppSpacing.md),
                     if (errorMessage != null)
                       Container(
-                        padding: const EdgeInsets.all(8),
-                        margin: const EdgeInsets.only(bottom: 16),
+                        padding: EdgeInsets.all(AppSpacing.sm),
+                        margin: EdgeInsets.only(bottom: AppSpacing.md),
                         decoration: BoxDecoration(
-                          color: Colors.red[50],
-                          borderRadius: BorderRadius.circular(8),
-                          border: Border.all(color: Colors.red),
+                          color: AppColors.error.withOpacity(0.1),
+                          borderRadius:
+                              BorderRadius.circular(AppSpacing.chipRadius),
+                          border: Border.all(color: AppColors.error),
                         ),
                         child: Row(
                           children: [
-                            const Icon(Icons.error,
-                                color: Colors.red, size: 18),
-                            const SizedBox(width: 8),
+                            Icon(Icons.error,
+                                color: AppColors.error, size: 18.sp),
+                            SizedBox(width: AppSpacing.sm),
                             Expanded(
                               child: Text(
                                 errorMessage!,
-                                style: const TextStyle(
-                                  color: Colors.red,
-                                  fontSize: 12,
+                                style: AppTextStyles.bodySmall.copyWith(
+                                  color: AppColors.error,
                                 ),
                               ),
                             ),
@@ -292,9 +309,6 @@ class _LoginPageState extends State<LoginPage> {
                       keyboardType: TextInputType.emailAddress,
                       decoration: InputDecoration(
                         labelText: 'Adresse Email',
-                        border: OutlineInputBorder(
-                          borderRadius: BorderRadius.circular(8),
-                        ),
                         prefixIcon: const Icon(Icons.email),
                       ),
                     ),
@@ -303,10 +317,12 @@ class _LoginPageState extends State<LoginPage> {
               ),
               actions: [
                 TextButton(
-                  onPressed: () {
-                    Navigator.of(context).pop();
-                  },
-                  child: const Text('Annuler'),
+                  onPressed: isLoading
+                      ? null
+                      : () {
+                          Navigator.of(context).pop();
+                        },
+                  child: Text('Annuler', style: AppTextStyles.buttonMedium),
                 ),
                 ElevatedButton(
                   onPressed: isLoading
@@ -347,22 +363,23 @@ class _LoginPageState extends State<LoginPage> {
                             SnackBar(
                               content: Text(
                                 'Un lien de réinitialisation a été envoyé à $email si ce compte existe.',
+                                style: AppTextStyles.bodyMedium,
                               ),
-                              backgroundColor: Colors.green,
+                              backgroundColor: AppColors.success,
                               duration: const Duration(seconds: 5),
                             ),
                           );
                         },
                   child: isLoading
-                      ? const SizedBox(
-                          height: 20,
-                          width: 20,
+                      ? SizedBox(
+                          height: 20.h,
+                          width: 20.w,
                           child: CircularProgressIndicator(
-                            color: Colors.white,
-                            strokeWidth: 2,
+                            color: AppColors.textOnPrimary,
+                            strokeWidth: 2.w,
                           ),
                         )
-                      : const Text('Envoyer'),
+                      : Text('Envoyer', style: AppTextStyles.buttonMedium),
                 ),
               ],
             );

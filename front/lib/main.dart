@@ -2,6 +2,10 @@ import 'package:flutter/material.dart';
 import 'package:lessvsfull/client_page/products_page.dart';
 import 'package:provider/provider.dart';
 import 'package:http/http.dart' as http;
+import 'package:flutter_screenutil/flutter_screenutil.dart';
+import 'package:google_fonts/google_fonts.dart'; // Import Google Fonts
+import 'theme/app_design_system.dart'; // Import our design system
+import 'theme/app_theme.dart'; // Import our theme
 import 'Login/login_page.dart';
 import 'admin_page/admin_page.dart';
 import 'client_page/notification_page.dart';
@@ -35,10 +39,17 @@ const String defaultTechnicianId =
 const String defaultClientId =
     '68120db1321b2ae6e7d61ab2'; // Exemple d'ID client
 
-void main() {
-  // Initialiser le service de notification avec l'URL de base de l'API
+void main() async {
+  // Ensure Flutter is initialized
+  WidgetsFlutterBinding.ensureInitialized();
+
+  // Initialize the design system and preload fonts
+  await AppDesignSystem.initialize();
+
+  // Initialize notification service
   final notificationService = NotificationService(baseUrl: apiBaseUrl);
 
+  // Start the app
   runApp(
     MultiProvider(
       providers: [
@@ -62,72 +73,25 @@ class MyApp extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return MaterialApp(
-      debugShowCheckedModeBanner: false,
-      title: 'Distributeur Automatique',
-      theme: ThemeData(
-        primarySwatch: Colors.deepPurple,
-        primaryColor: const Color(0xFF6B2FEB),
-        colorScheme: const ColorScheme.light(
-          primary: Color(0xFF6B2FEB),
-          secondary: Color(0xFF9C27B0),
-          surface: Color(0xFFF8F9FA),
-          onPrimary: Colors.white,
-        ),
-        brightness: Brightness.light,
-        fontFamily: 'Roboto',
-        appBarTheme: const AppBarTheme(
-          elevation: 0,
-          centerTitle: true,
-          backgroundColor: Color(0xFF6B2FEB),
-          foregroundColor: Colors.white,
-        ),
-        cardTheme: CardTheme(
-          elevation: 4,
-          shadowColor: Colors.black12,
-          shape: RoundedRectangleBorder(
-            borderRadius: BorderRadius.circular(20),
-          ),
-        ),
-        elevatedButtonTheme: ElevatedButtonThemeData(
-          style: ElevatedButton.styleFrom(
-            elevation: 0,
-            shape: RoundedRectangleBorder(
-              borderRadius: BorderRadius.circular(15),
-            ),
-            padding: const EdgeInsets.symmetric(vertical: 15),
-          ),
-        ),
-      ),
-      darkTheme: ThemeData(
-        primarySwatch: Colors.deepPurple,
-        primaryColor: const Color(0xFF6B2FEB),
-        colorScheme: const ColorScheme.dark(
-          primary: Color(0xFF6B2FEB),
-          secondary: Color(0xFF9C27B0),
-          surface: Color(0xFF1E1E1E),
-          onPrimary: Colors.white,
-        ),
-        brightness: Brightness.dark,
-        fontFamily: 'Roboto',
-        scaffoldBackgroundColor: const Color(0xFF121212),
-        appBarTheme: const AppBarTheme(
-          elevation: 0,
-          centerTitle: true,
-          backgroundColor: Color(0xFF1E1E1E),
-        ),
-        cardTheme: CardTheme(
-          elevation: 4,
-          shadowColor: Colors.black26,
-          shape: RoundedRectangleBorder(
-            borderRadius: BorderRadius.circular(20),
-          ),
-        ),
-      ),
-      themeMode: ThemeMode.system,
-      home: LoginPage(),
-      routes: {
-        '/admin_home': (context) => const AdminHomePage(),
+    // Initialize ScreenUtil with a design size
+    return ScreenUtilInit(
+      // Design size is based on standard mobile app dimensions
+      designSize: const Size(390, 844),
+      minTextAdapt: true,
+      splitScreenMode: true,
+      builder: (context, child) {
+        return MaterialApp(
+          debugShowCheckedModeBanner: false,
+          title: 'Distributeur Automatique',
+          // Use our design system themes
+          theme: AppTheme.getLightTheme(),
+          darkTheme: AppTheme.getDarkTheme(),
+          themeMode: ThemeMode.system,
+          home: LoginPage(),
+          routes: {
+            '/admin_home': (context) => const AdminHomePage(),
+          },
+        );
       },
     );
   }
@@ -237,16 +201,16 @@ class _HomePageState extends State<HomePage> {
                   right: 5,
                   top: 5,
                   child: Container(
-                    padding: const EdgeInsets.all(4),
+                    padding: EdgeInsets.all(4.r),
                     decoration: BoxDecoration(
                       color: Theme.of(context).colorScheme.secondary,
                       shape: BoxShape.circle,
                     ),
                     child: Text(
                       '${panier.length}',
-                      style: const TextStyle(
+                      style: TextStyle(
                         color: Colors.white,
-                        fontSize: 12,
+                        fontSize: 12.sp,
                         fontWeight: FontWeight.bold,
                       ),
                     ),
@@ -254,7 +218,7 @@ class _HomePageState extends State<HomePage> {
                 ),
             ],
           ),
-          const SizedBox(width: 8),
+          SizedBox(width: 8.w),
         ],
       ),
       body: _getBody(),
@@ -275,16 +239,16 @@ class _HomePageState extends State<HomePage> {
                     right: 0,
                     top: 0,
                     child: Container(
-                      padding: const EdgeInsets.all(4),
+                      padding: EdgeInsets.all(4.r),
                       decoration: const BoxDecoration(
                         color: Colors.red,
                         shape: BoxShape.circle,
                       ),
                       child: Text(
                         '$unreadNotificationsCount',
-                        style: const TextStyle(
+                        style: TextStyle(
                           color: Colors.white,
-                          fontSize: 10,
+                          fontSize: 10.sp,
                           fontWeight: FontWeight.bold,
                         ),
                       ),
@@ -400,8 +364,8 @@ class _HomePageState extends State<HomePage> {
     showModalBottomSheet(
       context: context,
       isScrollControlled: true,
-      shape: const RoundedRectangleBorder(
-        borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
+      shape: RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(20.r)),
       ),
       builder: (context) {
         return StatefulBuilder(
@@ -412,7 +376,7 @@ class _HomePageState extends State<HomePage> {
             }
 
             return Container(
-              padding: const EdgeInsets.all(20),
+              padding: EdgeInsets.all(20.r),
               height: MediaQuery.of(context).size.height * 0.7,
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
@@ -420,23 +384,23 @@ class _HomePageState extends State<HomePage> {
                   Row(
                     mainAxisAlignment: MainAxisAlignment.spaceBetween,
                     children: [
-                      const Text(
+                      Text(
                         'Votre Panier',
                         style: TextStyle(
-                          fontSize: 24,
+                          fontSize: 24.sp,
                           fontWeight: FontWeight.bold,
                         ),
                       ),
                       Text(
                         '${panier.length} article${panier.length > 1 ? 's' : ''}',
                         style: TextStyle(
-                          fontSize: 16,
+                          fontSize: 16.sp,
                           color: Colors.grey[600],
                         ),
                       ),
                     ],
                   ),
-                  const SizedBox(height: 20),
+                  SizedBox(height: 20.h),
                   Expanded(
                     child: ListView.builder(
                       itemCount: panier.length,
@@ -446,13 +410,13 @@ class _HomePageState extends State<HomePage> {
                         final subtotal = produit.prix * item.quantite;
 
                         return Card(
-                          margin: const EdgeInsets.only(bottom: 10),
+                          margin: EdgeInsets.only(bottom: 10.h),
                           elevation: 2,
                           shape: RoundedRectangleBorder(
-                            borderRadius: BorderRadius.circular(12),
+                            borderRadius: BorderRadius.circular(12.r),
                           ),
                           child: Padding(
-                            padding: const EdgeInsets.all(12.0),
+                            padding: EdgeInsets.all(12.r),
                             child: Column(
                               crossAxisAlignment: CrossAxisAlignment.start,
                               children: [
@@ -463,9 +427,9 @@ class _HomePageState extends State<HomePage> {
                                     Expanded(
                                       child: Text(
                                         produit.nom,
-                                        style: const TextStyle(
+                                        style: TextStyle(
                                           fontWeight: FontWeight.bold,
-                                          fontSize: 16,
+                                          fontSize: 16.sp,
                                         ),
                                         maxLines: 1,
                                         overflow: TextOverflow.ellipsis,
@@ -484,7 +448,7 @@ class _HomePageState extends State<HomePage> {
                                     ),
                                   ],
                                 ),
-                                const SizedBox(height: 8),
+                                SizedBox(height: 8.h),
                                 Row(
                                   mainAxisAlignment:
                                       MainAxisAlignment.spaceBetween,
@@ -493,18 +457,20 @@ class _HomePageState extends State<HomePage> {
                                       'Prix unitaire: ${produit.prix.toStringAsFixed(2)} DA',
                                       style: TextStyle(
                                         color: Colors.grey[700],
+                                        fontSize: 14.sp,
                                       ),
                                     ),
                                     Text(
                                       'Sous-total: ${subtotal.toStringAsFixed(2)} DA',
                                       style: TextStyle(
                                         fontWeight: FontWeight.bold,
+                                        fontSize: 14.sp,
                                         color: Theme.of(context).primaryColor,
                                       ),
                                     ),
                                   ],
                                 ),
-                                const SizedBox(height: 8),
+                                SizedBox(height: 8.h),
                                 Row(
                                   mainAxisSize: MainAxisSize.min,
                                   mainAxisAlignment: MainAxisAlignment.start,
@@ -512,12 +478,14 @@ class _HomePageState extends State<HomePage> {
                                     Container(
                                       decoration: BoxDecoration(
                                         color: Colors.grey[200],
-                                        borderRadius: BorderRadius.circular(20),
+                                        borderRadius:
+                                            BorderRadius.circular(20.r),
                                       ),
                                       child: Row(
                                         children: [
                                           IconButton(
-                                            icon: const Icon(Icons.remove, size: 18),
+                                            icon:
+                                                Icon(Icons.remove, size: 18.sp),
                                             onPressed: () {
                                               setState(() {
                                                 if (item.quantite > 1) {
@@ -531,18 +499,18 @@ class _HomePageState extends State<HomePage> {
                                             },
                                           ),
                                           Container(
-                                            padding: const EdgeInsets.symmetric(
-                                                horizontal: 10),
+                                            padding: EdgeInsets.symmetric(
+                                                horizontal: 10.w),
                                             child: Text(
                                               '${item.quantite}',
-                                              style: const TextStyle(
-                                                fontSize: 16,
+                                              style: TextStyle(
+                                                fontSize: 16.sp,
                                                 fontWeight: FontWeight.bold,
                                               ),
                                             ),
                                           ),
                                           IconButton(
-                                            icon: const Icon(Icons.add, size: 18),
+                                            icon: Icon(Icons.add, size: 18.sp),
                                             onPressed: () {
                                               setState(() {
                                                 item.quantite++;
@@ -563,32 +531,32 @@ class _HomePageState extends State<HomePage> {
                       },
                     ),
                   ),
-                  const Divider(thickness: 1),
+                  Divider(thickness: 1),
                   Container(
-                    padding: const EdgeInsets.symmetric(vertical: 16),
+                    padding: EdgeInsets.symmetric(vertical: 16.h),
                     decoration: BoxDecoration(
                       color: Colors.grey[50],
-                      borderRadius: BorderRadius.circular(8),
+                      borderRadius: BorderRadius.circular(8.r),
                     ),
                     child: Column(
                       children: [
                         Padding(
-                          padding:
-                              const EdgeInsets.symmetric(horizontal: 16, vertical: 4),
+                          padding: EdgeInsets.symmetric(
+                              horizontal: 16.w, vertical: 4.h),
                           child: Row(
                             mainAxisAlignment: MainAxisAlignment.spaceBetween,
                             children: [
-                              const Text(
+                              Text(
                                 'Total:',
                                 style: TextStyle(
-                                  fontSize: 18,
+                                  fontSize: 18.sp,
                                   fontWeight: FontWeight.bold,
                                 ),
                               ),
                               Text(
                                 '${total.toStringAsFixed(2)} DA',
                                 style: TextStyle(
-                                  fontSize: 18,
+                                  fontSize: 18.sp,
                                   fontWeight: FontWeight.bold,
                                   color: Theme.of(context).primaryColor,
                                 ),
@@ -599,15 +567,16 @@ class _HomePageState extends State<HomePage> {
                       ],
                     ),
                   ),
-                  const SizedBox(height: 20),
+                  SizedBox(height: 20.h),
                   Row(
                     children: [
                       Expanded(
                         child: OutlinedButton(
                           style: OutlinedButton.styleFrom(
-                            padding: const EdgeInsets.symmetric(vertical: 15),
+                            padding: EdgeInsets.symmetric(vertical: 15.h),
                           ),
-                          child: const Text('Vider le panier'),
+                          child: Text('Vider le panier',
+                              style: TextStyle(fontSize: 16.sp)),
                           onPressed: () {
                             setState(() {
                               panier.clear();
@@ -618,13 +587,14 @@ class _HomePageState extends State<HomePage> {
                           },
                         ),
                       ),
-                      const SizedBox(width: 10),
+                      SizedBox(width: 10.w),
                       Expanded(
                         child: ElevatedButton(
                           style: ElevatedButton.styleFrom(
-                            padding: const EdgeInsets.symmetric(vertical: 15),
+                            padding: EdgeInsets.symmetric(vertical: 15.h),
                           ),
-                          child: const Text('Commander'),
+                          child: Text('Commander',
+                              style: TextStyle(fontSize: 16.sp)),
                           onPressed: () {
                             Navigator.pop(context);
                             _finaliserCommande();
@@ -674,7 +644,8 @@ class _HomePageState extends State<HomePage> {
                   leading: Icon(Icons.qr_code,
                       color: Theme.of(context).primaryColor),
                   title: const Text('Générer un code'),
-                  subtitle: const Text('Pour payer directement au distributeur'),
+                  subtitle:
+                      const Text('Pour payer directement au distributeur'),
                   onTap: () {
                     Navigator.pop(context);
                     _genererCode();
@@ -693,41 +664,44 @@ class _HomePageState extends State<HomePage> {
       context: context,
       builder: (BuildContext context) {
         return AlertDialog(
-          title: const Text('Confirmer le paiement'),
+          title: Text('Confirmer le paiement',
+              style: TextStyle(fontSize: 18.sp, fontWeight: FontWeight.bold)),
           content: Column(
             mainAxisSize: MainAxisSize.min,
             children: [
-              const Text('Payer avec votre e-wallet'),
-              const SizedBox(height: 15),
+              Text('Payer avec votre e-wallet',
+                  style: TextStyle(fontSize: 16.sp)),
+              SizedBox(height: 15.h),
               Row(
                 mainAxisAlignment: MainAxisAlignment.center,
                 children: [
-                  const Icon(Icons.account_balance_wallet, color: Colors.green),
-                  const SizedBox(width: 8),
+                  Icon(Icons.account_balance_wallet,
+                      color: Colors.green, size: 24.sp),
+                  SizedBox(width: 8.w),
                   Text(
                     '${Provider.of<UserProvider>(context, listen: false).userBalance.toStringAsFixed(2)} DA',
-                    style: const TextStyle(
-                      fontSize: 18,
+                    style: TextStyle(
+                      fontSize: 18.sp,
                       fontWeight: FontWeight.bold,
                       color: Colors.green,
                     ),
                   ),
                 ],
               ),
-              const SizedBox(height: 15),
+              SizedBox(height: 15.h),
               Text(
                 'Montant à débiter: ${_calculateTotal().toStringAsFixed(2)} DA',
-                style: const TextStyle(fontWeight: FontWeight.bold),
+                style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16.sp),
               ),
             ],
           ),
           actions: [
             TextButton(
-              child: const Text('Annuler'),
+              child: Text('Annuler', style: TextStyle(fontSize: 16.sp)),
               onPressed: () => Navigator.pop(context),
             ),
             ElevatedButton(
-              child: const Text('Confirmer'),
+              child: Text('Confirmer', style: TextStyle(fontSize: 16.sp)),
               onPressed: () {
                 Navigator.pop(context);
                 _processPaiement();
@@ -767,8 +741,8 @@ class _HomePageState extends State<HomePage> {
       builder: (BuildContext context) {
         return AlertDialog(
           title: const Text('Solde insuffisant'),
-          content:
-              const Text('Votre solde est insuffisant pour effectuer cet achat.'),
+          content: const Text(
+              'Votre solde est insuffisant pour effectuer cet achat.'),
           actions: [
             ElevatedButton(
               child: const Text('OK'),
@@ -880,39 +854,41 @@ class _HomePageState extends State<HomePage> {
       context: context,
       builder: (BuildContext context) {
         return AlertDialog(
-          title: const Text('Paiement accepté'),
+          title: Text('Paiement accepté',
+              style: TextStyle(fontSize: 18.sp, fontWeight: FontWeight.bold)),
           content: SizedBox(
             width: double.maxFinite,
             child: Column(
               mainAxisSize: MainAxisSize.min,
               children: [
-                const Icon(
+                Icon(
                   Icons.check_circle,
                   color: Colors.green,
-                  size: 60,
+                  size: 60.sp,
                 ),
-                const SizedBox(height: 20),
-                const Text('Votre commande a été validée !'),
-                const SizedBox(height: 15),
+                SizedBox(height: 20.h),
+                Text('Votre commande a été validée !',
+                    style: TextStyle(fontSize: 16.sp)),
+                SizedBox(height: 15.h),
 
                 // Détails de la commande
-                const Text(
+                Text(
                   'Détails de la commande:',
                   style: TextStyle(
                     fontWeight: FontWeight.bold,
-                    fontSize: 16,
+                    fontSize: 16.sp,
                   ),
                 ),
-                const SizedBox(height: 10),
+                SizedBox(height: 10.h),
 
                 // Liste des produits
                 Container(
-                  constraints: const BoxConstraints(maxHeight: 150),
+                  constraints: BoxConstraints(maxHeight: 150.h),
                   child: SingleChildScrollView(
                     child: Column(
                       children: produits.map((item) {
                         return Padding(
-                          padding: const EdgeInsets.symmetric(vertical: 4.0),
+                          padding: EdgeInsets.symmetric(vertical: 4.h),
                           child: Row(
                             mainAxisAlignment: MainAxisAlignment.spaceBetween,
                             children: [
@@ -920,11 +896,14 @@ class _HomePageState extends State<HomePage> {
                                 child: Text(
                                   '${item.quantite}x ${item.produit.nom}',
                                   overflow: TextOverflow.ellipsis,
+                                  style: TextStyle(fontSize: 14.sp),
                                 ),
                               ),
                               Text(
                                 '${(item.produit.prix * item.quantite).toStringAsFixed(2)} DA',
-                                style: const TextStyle(fontWeight: FontWeight.bold),
+                                style: TextStyle(
+                                    fontWeight: FontWeight.bold,
+                                    fontSize: 14.sp),
                               ),
                             ],
                           ),
@@ -934,37 +913,38 @@ class _HomePageState extends State<HomePage> {
                   ),
                 ),
 
-                const Divider(thickness: 1),
+                Divider(thickness: 1),
 
                 // Total
                 Row(
                   mainAxisAlignment: MainAxisAlignment.spaceBetween,
                   children: [
-                    const Text(
+                    Text(
                       'Total:',
                       style: TextStyle(
                         fontWeight: FontWeight.bold,
-                        fontSize: 16,
+                        fontSize: 16.sp,
                       ),
                     ),
                     Text(
                       '${montantTotal.toStringAsFixed(2)} DA',
                       style: TextStyle(
                         fontWeight: FontWeight.bold,
-                        fontSize: 16,
+                        fontSize: 16.sp,
                         color: Theme.of(context).primaryColor,
                       ),
                     ),
                   ],
                 ),
 
-                const SizedBox(height: 15),
+                SizedBox(height: 15.h),
 
                 // Nouveau solde
                 Text(
                   'Nouveau solde: ${soldeActuel.toStringAsFixed(2)} DA',
-                  style: const TextStyle(
+                  style: TextStyle(
                     fontWeight: FontWeight.bold,
+                    fontSize: 15.sp,
                     color: Colors.green,
                   ),
                 ),
@@ -973,7 +953,7 @@ class _HomePageState extends State<HomePage> {
           ),
           actions: [
             ElevatedButton(
-              child: const Text('OK'),
+              child: Text('OK', style: TextStyle(fontSize: 16.sp)),
               onPressed: () {
                 Navigator.pop(context);
               },
@@ -989,7 +969,8 @@ class _HomePageState extends State<HomePage> {
       context: context,
       builder: (BuildContext context) {
         return AlertDialog(
-          title: const Text('Statut du Distributeur'),
+          title: Text('Statut du Distributeur',
+              style: TextStyle(fontSize: 18.sp, fontWeight: FontWeight.bold)),
           content: Column(
             mainAxisSize: MainAxisSize.min,
             crossAxisAlignment: CrossAxisAlignment.start,
@@ -999,24 +980,28 @@ class _HomePageState extends State<HomePage> {
                   Icon(
                     isInMaintenance ? Icons.warning : Icons.check_circle,
                     color: isInMaintenance ? Colors.amber : Colors.green,
+                    size: 24.sp,
                   ),
-                  const SizedBox(width: 10),
+                  SizedBox(width: 10.w),
                   Text(
                     isInMaintenance ? 'En maintenance' : 'Disponible',
-                    style: const TextStyle(
+                    style: TextStyle(
                       fontWeight: FontWeight.bold,
+                      fontSize: 16.sp,
                     ),
                   ),
                 ],
               ),
-              const SizedBox(height: 15),
-              const Text('ID Distributeur: DIS-42501'),
-              const Text('Dernière mise à jour: 16/03/2025'),
+              SizedBox(height: 15.h),
+              Text('ID Distributeur: DIS-42501',
+                  style: TextStyle(fontSize: 14.sp)),
+              Text('Dernière mise à jour: 16/03/2025',
+                  style: TextStyle(fontSize: 14.sp)),
             ],
           ),
           actions: [
             TextButton(
-              child: const Text('Fermer'),
+              child: Text('Fermer', style: TextStyle(fontSize: 16.sp)),
               onPressed: () {
                 Navigator.of(context).pop();
               },
