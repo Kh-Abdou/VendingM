@@ -196,10 +196,12 @@ class _NotificationPageState extends State<NotificationPage> {
 
             // Formatage de la date
             final dateFormatter = DateFormat('dd/MM/yyyy à HH:mm');
-            final formattedDate = dateFormatter.format(notification.createdAt);
-
-            // Récupérer les détails de la commande depuis les métadonnées
-            final double montant = metadata['montant']?.toDouble() ?? 0.0;
+            final formattedDate = dateFormatter.format(notification
+                .createdAt); // Récupérer les détails de la commande depuis les métadonnées ou l'amount du modèle
+            // L'amount dans le modèle est stocké en négatif pour les paiements, nous prenons l'absolu
+            final double montant = notification.amount != null
+                ? notification.amount!.abs()
+                : (metadata['montant']?.toDouble() ?? 0.0);
             final List<dynamic> produitsData = metadata['produits'] ?? [];
 
             return AnimationConfiguration.staggeredList(
@@ -242,7 +244,14 @@ class _NotificationPageState extends State<NotificationPage> {
                       ),
                       trailing: Text(
                         '${montant.toStringAsFixed(2)} DA',
-                        style: AppTextStyles.balanceText,
+                        style: TextStyle(
+                          color: notification.type == 'TRANSACTION' &&
+                                  (notification.amount ?? 0) < 0
+                              ? AppColors.error
+                              : AppColors.success,
+                          fontWeight: FontWeight.bold,
+                          fontSize: 16.sp,
+                        ),
                       ),
                       onExpansionChanged: (expanded) {
                         if (expanded && notification.isUnread) {
@@ -305,7 +314,15 @@ class _NotificationPageState extends State<NotificationPage> {
                                   ),
                                   Text(
                                     '${montant.toStringAsFixed(2)} DA',
-                                    style: AppTextStyles.balanceText,
+                                    style: TextStyle(
+                                      color:
+                                          notification.type == 'TRANSACTION' &&
+                                                  (notification.amount ?? 0) < 0
+                                              ? AppColors.error
+                                              : AppColors.success,
+                                      fontWeight: FontWeight.bold,
+                                      fontSize: 16.sp,
+                                    ),
                                   ),
                                 ],
                               ),

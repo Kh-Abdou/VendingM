@@ -1,4 +1,3 @@
-
 class Notification {
   final String id;
   final String userId;
@@ -9,7 +8,7 @@ class Notification {
   final DateTime createdAt;
   final Map<String, dynamic>? metadata;
   final int priority;
-
+  final double? amount; // Add the amount field from the backend
   Notification({
     required this.id,
     required this.userId,
@@ -20,8 +19,8 @@ class Notification {
     required this.createdAt,
     this.metadata,
     this.priority = 3,
+    this.amount,
   });
-
   factory Notification.fromJson(Map<String, dynamic> json) {
     return Notification(
       id: json['_id'],
@@ -33,9 +32,9 @@ class Notification {
       createdAt: DateTime.parse(json['createdAt']),
       metadata: json['metadata'],
       priority: json['priority'] ?? 3,
+      amount: json['amount'] != null ? json['amount'].toDouble() : null,
     );
   }
-
   Map<String, dynamic> toJson() {
     return {
       '_id': id,
@@ -47,6 +46,7 @@ class Notification {
       'createdAt': createdAt.toIso8601String(),
       'metadata': metadata,
       'priority': priority,
+      'amount': amount,
     };
   }
 
