@@ -17,8 +17,10 @@ import 'services/notification_service.dart';
 import 'services/produit_service.dart';
 import 'services/order_service.dart';
 import 'services/user_service.dart';
+import 'services/hardware_service.dart'; // Import for hardware service
 import 'providers/notification_provider.dart';
 import 'providers/user_provider.dart'; // Import du nouveau provider
+import 'providers/hardware_provider.dart'; // Import for hardware provider
 import 'models/produit.dart';
 import 'dart:developer' as developer;
 
@@ -45,9 +47,11 @@ void main() async {
 
   // Initialize the design system and preload fonts
   await AppDesignSystem.initialize();
-
   // Initialize notification service
   final notificationService = NotificationService(baseUrl: apiBaseUrl);
+
+  // Initialize hardware service
+  final hardwareService = HardwareService(baseUrl: apiBaseUrl);
 
   // Start the app
   runApp(
@@ -61,6 +65,11 @@ void main() async {
         ),
         ChangeNotifierProvider(
           create: (context) => UserProvider(), // Ajout du provider utilisateur
+        ),
+        ChangeNotifierProvider(
+          create: (context) => HardwareProvider(
+            hardwareService: hardwareService,
+          ),
         ),
       ],
       child: MyApp(),
