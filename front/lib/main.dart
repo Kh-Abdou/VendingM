@@ -673,7 +673,7 @@ class _HomePageState extends State<HomePage> {
       context: context,
       builder: (BuildContext context) {
         return AlertDialog(
-          title: Text('Confirmer le paiement',
+          title: Text('Confirmer la commande',
               style: TextStyle(fontSize: 18.sp, fontWeight: FontWeight.bold)),
           content: Column(
             mainAxisSize: MainAxisSize.min,
