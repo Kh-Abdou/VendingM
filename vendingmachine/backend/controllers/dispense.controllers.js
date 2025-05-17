@@ -1,6 +1,5 @@
 // Function to get completed orders for hardware to dispense
-exports.getNewOrdersForDispensing = async (req, res) => {
-  try {
+exports.getNewOrdersForDispensing = async (req, res) => {  try {
     const { vendingMachineId } = req.body;
 
     if (!vendingMachineId) {
@@ -11,12 +10,14 @@ exports.getNewOrdersForDispensing = async (req, res) => {
     const Order = require('../models/order.model');
     const Product = require('../models/product.model');
 
-    // Find newest COMPLETED orders that haven't been assigned to be dispensed yet
-    // We use isDispensingInProgress flag to track orders being processed by the hardware
+    // Find newest PENDING orders that haven't been assigned to be dispensed yet
+    // Only get orders that are in PENDING status (not COMPLETED) to avoid
+    // picking up orders that have already been processed
     const pendingOrder = await Order.findOne({
-      status: 'COMPLETED',
-      isDispensingInProgress: { $ne: true } // Not already being dispensed
-    }).sort({ createdAt: -1 }); // Get newest completed order first
+      status: 'PENDING', // Changed from COMPLETED to PENDING for better workflow
+      isDispensingInProgress: { $ne: true }, // Not already being dispensed
+      dispensedAt: null // Ensure the order hasn't been dispensed already
+    }).sort({ createdAt: -1 }); // Get newest pending order first
 
     if (!pendingOrder) {
       return res.status(404).json({ message: 'No new orders to dispense' });
@@ -79,13 +80,13 @@ exports.completeOrderDispensing = async (req, res) => {
 
     if (!order) {
       return res.status(404).json({ message: 'Order not found' });
-    }
-
-    // No need to change the status since it's already COMPLETED,
+    }    // No need to change the status since it's already COMPLETED,
     // just mark that dispensing is done and record the machine that dispensed it
     order.isDispensingInProgress = false;
     order.dispensedAt = new Date();
     order.vendingMachineId = vendingMachineId;
+    // Ensure the status is set to COMPLETED
+    order.status = 'COMPLETED';
 
     await order.save();
 

@@ -776,14 +776,12 @@ class _HomePageState extends State<HomePage> {
               'quantity': item.quantite,
               'price': item.produit.prix,
             })
-        .toList();
-
-    // Afficher l'indicateur de progression
+        .toList(); // Afficher l'indicateur de progression
     showDialog(
       context: context,
       barrierDismissible: false,
       builder: (BuildContext context) {
-        return const AlertDialog(
+        return AlertDialog(
           content: Column(
             mainAxisSize: MainAxisSize.min,
             children: [
@@ -802,9 +800,73 @@ class _HomePageState extends State<HomePage> {
         userId: userProvider.userId,
         amount: totalAmount,
         products: productsData,
+      ); // Fermer le dialogue de chargement
+      Navigator.of(context).pop();
+
+      if (result == null || !result.containsKey('orderId')) {
+        throw Exception("La réponse du serveur est invalide ou incomplète");
+      } // Afficher le dialogue d'attente pour les produits
+      showDialog(
+        context: context,
+        barrierDismissible: false,
+        builder: (BuildContext context) {
+          return AlertDialog(
+            title: Text('Distribution en cours'),
+            content: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                CircularProgressIndicator(),
+                SizedBox(height: 20),
+                Text('Veuillez patienter que les produits tombent...'),
+                SizedBox(height: 10),
+                Text(
+                  'Le capteur VL53L0X détecte vos produits',
+                  style: TextStyle(
+                    fontSize: 14.sp,
+                    color: Colors.grey[600],
+                  ),
+                ),
+              ],
+            ),
+          );
+        },
       );
 
-      // Fermer le dialogue de chargement
+      // Polling pour vérifier l'état de la commande
+      bool productsDetected = false;
+      int attempts = 0;
+      const maxAttempts = 30; // 30 x 2 secondes = 1 minute max d'attente
+
+      while (!productsDetected && attempts < maxAttempts) {
+        attempts++;
+        await Future.delayed(Duration(seconds: 2));
+
+        try {
+          final orderStatus =
+              await _orderService.getOrderStatus(result['orderId']);
+          developer.log(
+              'Checking order status (attempt $attempts/$maxAttempts): ${orderStatus.toString()}',
+              name: 'OrderPolling');
+
+          if (orderStatus.containsKey('dispensingStatus') &&
+              orderStatus['dispensingStatus']['allProductsDetected'] == true) {
+            productsDetected = true;
+            developer.log('Products detected successfully!',
+                name: 'OrderPolling');
+          }
+        } catch (e) {
+          developer.log('Erreur lors de la vérification du statut: $e',
+              name: 'OrderPolling');
+        }
+      }
+
+      // Si les produits n'ont pas été détectés après le nombre maximum de tentatives
+      if (!productsDetected) {
+        developer.log('Temps d\'attente dépassé pour la détection des produits',
+            name: 'OrderPolling');
+      }
+
+      // Fermer le dialogue d'attente
       Navigator.of(context).pop();
 
       // Récupérer et convertir le solde, en gérant les types int et double

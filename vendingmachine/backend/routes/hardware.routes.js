@@ -18,6 +18,9 @@ const {
   completeOrderDispensing 
 } = require('../controllers/dispense.controllers');
 
+// Import product detection controller
+const { registerProductDetection } = require('../controllers/product.detection.controllers');
+
 // Get all vending machines
 router.get('/', getAllMachines);
 
@@ -48,5 +51,8 @@ router.post('/auth/rfid', authenticateRfid);
 // NEW ROUTES for dispensing orders
 router.post('/dispense/new-orders', getNewOrdersForDispensing);
 router.post('/dispense/complete', completeOrderDispensing);
+
+// Route for product detection from Arduino
+router.post('/dispense/product-detected', registerProductDetection);
 
 module.exports = router;

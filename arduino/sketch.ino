@@ -84,6 +84,8 @@ const char* password = "fuckintermilan"; // WiFi password
  const char* serverUrl = "http://192.168.86.32:5000"; // Uncomment for hardware testing on host network
 const char* vendingMachineId = "VM001";         // We only have one machine, keeping simple ID
 
+unsigned long orderCooldownUntil = 0;
+const unsigned long ORDER_COOLDOWN_MS = 10000; // 10 seconds cooldown
 // Range definitions for columns (couloirs)
 const int COULOIR1_MIN = 50;
 const int COULOIR1_MAX = 150;
@@ -443,7 +445,16 @@ bool authenticateCard(String cardUID) {
 }
 
 void checkForApiOrders() {
-  if (orderInProgress) return;  // Don't check for new orders if we're already processing one
+  if (orderInProgress) {
+    Serial.println("Cannot check for orders: Another order is already in progress");
+    return;
+  }  
+  
+  if (millis() < orderCooldownUntil) {
+    unsigned long remainingCooldown = (orderCooldownUntil - millis()) / 1000;
+    Serial.println("Cannot check for orders: In cooldown period - " + String(remainingCooldown) + " seconds remaining");
+    return;
+  }
 
   HTTPClient http;
   // Using hardware.routes.js endpoint to get orders that can be processed
@@ -671,10 +682,9 @@ void failOrder(String reason) {
     completeOrder();
     return;
   }
-
   // Call API to fail the order
   HTTPClient http;
-  String url = String(serverUrl) + "/order/fail";
+  String url = String(serverUrl) + "/orders/fail";
 
   http.begin(url);
   http.addHeader("Content-Type", "application/json");
@@ -697,13 +707,18 @@ void failOrder(String reason) {
 
   int httpResponseCode = http.POST(jsonPayload);
   String response = http.getString();
-
   if (httpResponseCode == 200) {
     Serial.println("✓ Order failure successfully logged");
     Serial.println("Response: " + response);
     orderInProgress = false;
     currentOrderId = "";
     currentUserId = "";
+    
+    // Set cooldown to prevent checking for new orders too quickly after a failure
+    orderCooldownUntil = millis() + ORDER_COOLDOWN_MS;
+    Serial.println("Setting order cooldown until: " + String(orderCooldownUntil) + "ms");
+    Serial.println("Will not check for new orders for " + String(ORDER_COOLDOWN_MS/1000) + " seconds");
+    
     /*lcd.clear();
     lcd.setCursor(0, 0);
     lcd.print("Order failed");
@@ -940,7 +955,7 @@ int detectItemCouloir() {
   lox.rangingTest(&measure, false);
 
   static unsigned long lastSerialOutput = 0;
-  const unsigned long SERIAL_OUTPUT_INTERVAL = 1000;
+  const unsigned long SERIAL_OUTPUT_INTERVAL = 500; // Reduced output interval for faster detection
 
   if (measure.RangeStatus != 4) { // 4 means out of range
     int distance = measure.RangeMilliMeter;
@@ -1090,7 +1105,6 @@ void completeOrder() {
   
   Serial.println("Total dispensed: " + String(totalDispensed) + "/" + String(totalExpected) + " items (100%)");
   Serial.println("Completion timestamp: " + String(completionTime) + "ms");
-
   // Call API to mark the order as fully dispensed
   HTTPClient http;
   String url = String(serverUrl) + "/hardware/dispense/complete";
@@ -1117,16 +1131,46 @@ void completeOrder() {
   if (httpResponseCode == 200) {
     Serial.println("✓ Order completed successfully!");
     Serial.println("Response: " + response);
+    
+    // Additional call to notify product detection for payment confirmation
+    String productDetectionUrl = String(serverUrl) + "/hardware/dispense/product-detected";
+    http.begin(productDetectionUrl);
+    http.addHeader("Content-Type", "application/json");
+    
+    // Send product detection details
+    String detectionPayload = "{\"orderId\":\"" + currentOrderId +
+                             "\",\"couloir\":\"" + String(currentOrder[0].couloir) + "\"," +
+                             "\"quantity\":" + String(totalDispensed) + "}";
+    
+    Serial.print("Sending product detection notification to: ");
+    Serial.println(productDetectionUrl);
+    Serial.print("With payload: ");
+    Serial.println(detectionPayload);
+    
+    int detectionResponseCode = http.POST(detectionPayload);
+    String detectionResponse = http.getString();
+    
+    if (detectionResponseCode == 200) {
+      Serial.println("✓ Product detection notification sent successfully!");
+      Serial.println("Response: " + detectionResponse);
+    } else {
+      Serial.println("⚠ Failed to send product detection notification: " + String(detectionResponseCode));
+      Serial.println("Response: " + detectionResponse);
+    }
+    
     /*lcd.clear();
     lcd.setCursor(0, 0);
     lcd.print("Order complete!");
     lcd.setCursor(0, 1);
-    lcd.print("Thank you!");*/ // Commented out as LCD is not plugged
-
-    // Reset order state
+    lcd.print("Thank you!");*/ // Commented out as LCD is not plugged    // Reset order state
     orderInProgress = false;
     currentOrderId = "";
     totalItemsInOrder = 0;
+    
+    // Set cooldown to prevent checking for new orders too quickly
+    orderCooldownUntil = millis() + ORDER_COOLDOWN_MS;
+    Serial.println("Setting order cooldown until: " + String(orderCooldownUntil) + "ms");
+    Serial.println("Will not check for new orders for " + String(ORDER_COOLDOWN_MS/1000) + " seconds");
 
     /*delay(3000);
     showWelcomeScreen();*/ // Commented out as LCD is not plugged
@@ -1576,12 +1620,18 @@ void checkProductUpdates() {
 void loop() {
   // Periodically check pending orders and product updates from API
   static unsigned long lastOrderCheck = 0;
-  static unsigned long lastProductCheck = 0;    if (WiFi.status() == WL_CONNECTED) {
+  static unsigned long lastProductCheck = 0;  if (WiFi.status() == WL_CONNECTED) {
     // Check orders every 2 seconds (even more frequent)
     if (millis() - lastOrderCheck > 2000) {
-      if (!orderInProgress) {
+      // Only check for new orders if not in cooldown period and no order in progress
+      if (!orderInProgress && millis() >= orderCooldownUntil) {
         Serial.println("\n=== Checking for new orders to dispense ===");
         checkForApiOrders();
+      } else if (orderInProgress) {
+        Serial.println("Order in progress - skipping order check");
+      } else if (millis() < orderCooldownUntil) {
+        unsigned long remainingCooldown = (orderCooldownUntil - millis()) / 1000;
+        Serial.println("In cooldown period - " + String(remainingCooldown) + " seconds remaining");
       }
       lastOrderCheck = millis();
     }

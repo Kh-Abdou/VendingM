@@ -111,6 +111,26 @@ class OrderService {
             })
         .toList();
   }
+
+  // Vérifier le statut d'une commande
+  Future<Map<String, dynamic>> getOrderStatus(String orderId) async {
+    try {
+      final response = await http.get(
+        Uri.parse('$baseUrl/order/status/$orderId'),
+        headers: {'Content-Type': 'application/json'},
+      );
+
+      if (response.statusCode == 200) {
+        return json.decode(response.body);
+      } else {
+        final errorData = json.decode(response.body);
+        throw Exception(errorData['message'] ??
+            'Erreur lors de la récupération du statut de la commande');
+      }
+    } catch (e) {
+      throw Exception('Erreur lors de la récupération du statut: $e');
+    }
+  }
 }
 
 // Extension pour convertir les produits du panier en format API

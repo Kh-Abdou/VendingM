@@ -58,8 +58,19 @@ const OrderSchema = mongoose.Schema(
     vendingMachineId: {
       type: String,
       default: null,
+    },    dispensedAt: {
+      type: Date,
+      default: null,
     },
-    dispensedAt: {
+    failureReason: {
+      type: String,
+      default: null,
+    },
+    failureDetails: {
+      type: Object,
+      default: null,
+    },
+    failedAt: {
       type: Date,
       default: null,
     },

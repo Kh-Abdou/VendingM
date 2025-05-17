@@ -119,14 +119,13 @@ module.exports.processPayment = async (req, res) => {
       amount: -amount,
       date: new Date(),
     });
-      await wallet.save();
-      // Create order 
+      await wallet.save();    // Create order 
     const order = new OrderModel({
       userId,
       products,
       totalAmount: amount,
       paymentMethod: "EWALLET",
-      status: "COMPLETED", // Changed from COMPLETED to PENDING for dispenser to pick up
+      status: "PENDING", // Changed from COMPLETED to PENDING for dispenser to pick up
     });
     
     await order.save();
@@ -167,7 +166,7 @@ module.exports.processCardPayment = async (req, res) => {
       products,
       totalAmount: amount,
       paymentMethod: "CARD",
-      status: "COMPLETED",
+      status: "PENDING", // Changed from COMPLETED to PENDING for dispenser to pick up
     });
     
     await order.save();
