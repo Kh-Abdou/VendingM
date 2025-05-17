@@ -17,8 +17,7 @@ const productSchema = new mongoose.Schema({
     description: {
         type: String,
         default: ''
-    },
-    image: {
+    },    image: {
         type: String,
         default: 'default-product.jpg'
     },
@@ -33,7 +32,16 @@ const productSchema = new mongoose.Schema({
     chariotId: {
         type: mongoose.Schema.Types.ObjectId,
         ref: 'Chariot',
-        default: null
+        default: null,
+        validate: {
+            validator: function(v) {
+                if (!v) return true; // Allow null values
+                // Check if chariot exists when value is set
+                return mongoose.model('Chariot').findById(v).exec()
+                    .then(chariot => !!chariot);
+            },
+            message: 'Invalid chariot ID specified'
+        }
     }
 }, {
     timestamps: true

@@ -33,11 +33,14 @@ const OrderSchema = mongoose.Schema(
       type: String,
       enum: ["EWALLET", "CODE"],
       required: true,
-    },
-    status: {
+    },    status: {
       type: String,
       enum: ["PENDING", "COMPLETED", "CANCELED", "FAILED"],
       default: "PENDING",
+    },
+    isDispensingInProgress: {
+      type: Boolean,
+      default: false,
     },
     code: {
       type: String,

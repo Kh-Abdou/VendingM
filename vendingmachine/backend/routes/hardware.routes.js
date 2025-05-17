@@ -12,6 +12,12 @@ const {
   getEnvironmentData
 } = require('../controllers/hardware.controllers');
 
+// Import the dispense controller
+const { 
+  getNewOrdersForDispensing,
+  completeOrderDispensing 
+} = require('../controllers/dispense.controllers');
+
 // Get all vending machines
 router.get('/', getAllMachines);
 
@@ -38,5 +44,9 @@ router.post('/stock', adjustStockLevels);
 
 // Authenticate user via RFID
 router.post('/auth/rfid', authenticateRfid);
+
+// NEW ROUTES for dispensing orders
+router.post('/dispense/new-orders', getNewOrdersForDispensing);
+router.post('/dispense/complete', completeOrderDispensing);
 
 module.exports = router;

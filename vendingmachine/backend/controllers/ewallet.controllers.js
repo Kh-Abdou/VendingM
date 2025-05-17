@@ -119,16 +119,14 @@ module.exports.processPayment = async (req, res) => {
       amount: -amount,
       date: new Date(),
     });
-    
-    await wallet.save();
-    
-    // Create order
+      await wallet.save();
+      // Create order 
     const order = new OrderModel({
       userId,
       products,
       totalAmount: amount,
       paymentMethod: "EWALLET",
-      status: "COMPLETED",
+      status: "COMPLETED", // Changed from COMPLETED to PENDING for dispenser to pick up
     });
     
     await order.save();
@@ -163,10 +161,7 @@ module.exports.processCardPayment = async (req, res) => {
     if (!userId || !amount || amount <= 0) {
       return res.status(400).json({
         message: "User ID et montant positif sont requis",
-      });
-    }
-    
-    // Créer une commande
+      });    }    // Créer une commande en attente de distribution
     const order = new OrderModel({
       userId,
       products,

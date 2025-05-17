@@ -30,6 +30,7 @@ app.use("/ewallet", require("./routes/ewallet.routes"));
 app.use("/code", require("./routes/code.routes")); 
 app.use("/notification", require("./routes/notification.routes"));
 app.use("/hardware", require("./routes/hardware.routes"));
+// app.use("/dispense", require("./routes/dispense.routes"));
 
 // Route de test simple pour vérifier que le serveur fonctionne
 app.get("/", (req, res) => {
