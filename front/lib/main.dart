@@ -4,6 +4,7 @@ import 'package:provider/provider.dart';
 import 'package:http/http.dart' as http;
 import 'package:flutter_screenutil/flutter_screenutil.dart';
 import 'package:google_fonts/google_fonts.dart'; // Import Google Fonts
+import 'package:badges/badges.dart' as badges;
 import 'theme/app_design_system.dart'; // Import our design system
 import 'theme/app_theme.dart'; // Import our theme
 import 'Login/login_page.dart';
@@ -25,6 +26,7 @@ import 'models/produit.dart';
 import 'dart:developer' as developer;
 
 import 'technician_page/notifications_page.dart';
+import 'components/animated_badge.dart'; // Import our custom animated badge
 
 // Définir l'URL du backend - modifier cette URL selon votre environnement
 // Pour le développement sur émulateur Android, utilisez 10.0.2.2:5000 au lieu de localhost:5000
@@ -113,10 +115,11 @@ class HomePage extends StatefulWidget {
   _HomePageState createState() => _HomePageState();
 }
 
-class _HomePageState extends State<HomePage> {
+class _HomePageState extends State<HomePage> with TickerProviderStateMixin {
   int _selectedIndex = 0;
   bool isInMaintenance = false;
   List<products_page.ProduitPanier> panier = [];
+  late AnimationController _cartAnimationController;
 
   // Initialisation du service de commande
   late final OrderService _orderService;
@@ -127,6 +130,12 @@ class _HomePageState extends State<HomePage> {
     super.initState();
     _orderService = OrderService(baseUrl: apiBaseUrl);
     _userService = UserService(baseUrl: apiBaseUrl);
+
+    // Initialize animation controller for cart
+    _cartAnimationController = AnimationController(
+      vsync: this,
+      duration: const Duration(milliseconds: 300),
+    );
 
     // Récupérer le solde de l'utilisateur au démarrage
     _fetchUserData();
@@ -188,44 +197,37 @@ class _HomePageState extends State<HomePage> {
         title: Text(_getTitle()),
         leading: IconButton(
           icon: Icon(
-            isInMaintenance
-                ? Icons.warning_amber_rounded // Icon for maintenance
-                : Icons.check_circle, // Icon for available
-            color: isInMaintenance
-                ? Colors.amber // Yellow for maintenance
-                : Colors.green, // Green for available
+            isInMaintenance ? Icons.warning_amber_rounded : Icons.check_circle,
+            color: isInMaintenance ? Colors.amber : Colors.green,
           ),
           onPressed: () => _showStatusDialog(),
         ),
         actions: [
-          // Seulement l'icône du panier
-          Stack(
-            children: [
-              IconButton(
-                icon: const Icon(Icons.shopping_cart),
+          // Cart icon with animated badge
+          Padding(
+            padding: EdgeInsets.only(right: 8.w),
+            child: badges.Badge(
+              position: badges.BadgePosition.topEnd(top: -10, end: -8),
+              badgeContent: Text(
+                panier.length.toString(),
+                style: TextStyle(
+                  color: Colors.white,
+                  fontSize: 10.sp,
+                  fontWeight: FontWeight.bold,
+                ),
+              ),
+              showBadge: panier.length > 0,
+              badgeStyle: badges.BadgeStyle(
+                badgeColor: Theme.of(context).colorScheme.secondary,
+                padding: EdgeInsets.all(8.r),
+                elevation: 3,
+                borderRadius: BorderRadius.circular(12.r),
+              ),
+              child: IconButton(
+                icon: Icon(Icons.shopping_cart, size: 28.sp),
                 onPressed: () => _showPanier(),
               ),
-              if (panier.isNotEmpty)
-                Positioned(
-                  right: 5,
-                  top: 5,
-                  child: Container(
-                    padding: EdgeInsets.all(4.r),
-                    decoration: BoxDecoration(
-                      color: Theme.of(context).colorScheme.secondary,
-                      shape: BoxShape.circle,
-                    ),
-                    child: Text(
-                      '${panier.length}',
-                      style: TextStyle(
-                        color: Colors.white,
-                        fontSize: 12.sp,
-                        fontWeight: FontWeight.bold,
-                      ),
-                    ),
-                  ),
-                ),
-            ],
+            ),
           ),
           SizedBox(width: 8.w),
         ],
@@ -240,30 +242,24 @@ class _HomePageState extends State<HomePage> {
             label: 'Produits',
           ),
           BottomNavigationBarItem(
-            icon: Stack(
-              children: [
-                const Icon(Icons.notifications),
-                if (unreadNotificationsCount > 0)
-                  Positioned(
-                    right: 0,
-                    top: 0,
-                    child: Container(
-                      padding: EdgeInsets.all(4.r),
-                      decoration: const BoxDecoration(
-                        color: Colors.red,
-                        shape: BoxShape.circle,
-                      ),
-                      child: Text(
-                        '$unreadNotificationsCount',
-                        style: TextStyle(
-                          color: Colors.white,
-                          fontSize: 10.sp,
-                          fontWeight: FontWeight.bold,
-                        ),
-                      ),
-                    ),
-                  ),
-              ],
+            icon: badges.Badge(
+              position: badges.BadgePosition.topEnd(top: -8, end: -10),
+              badgeContent: Text(
+                unreadNotificationsCount.toString(),
+                style: TextStyle(
+                  color: Colors.white,
+                  fontSize: 12.sp,
+                  fontWeight: FontWeight.bold,
+                ),
+              ),
+              showBadge: unreadNotificationsCount > 0,
+              badgeStyle: badges.BadgeStyle(
+                badgeColor: Colors.red,
+                padding: EdgeInsets.all(6.r),
+                elevation: 3,
+                borderRadius: BorderRadius.circular(10.r),
+              ),
+              child: Icon(Icons.notifications, size: 28.sp),
             ),
             label: 'Notifications',
           ),
@@ -325,6 +321,7 @@ class _HomePageState extends State<HomePage> {
   }
 
   void _ajouterAuPanier(Produit produit) {
+    // Trigger the badge animation by updating the cart
     setState(() {
       bool exists = false;
       for (var item in panier) {
@@ -339,23 +336,15 @@ class _HomePageState extends State<HomePage> {
       }
     });
 
-    // Hide any existing SnackBar first to prevent stacking
-    ScaffoldMessenger.of(context).hideCurrentSnackBar();
-
+    // Show a snackbar confirmation
     ScaffoldMessenger.of(context).showSnackBar(
       SnackBar(
         content: Text('${produit.nom} ajouté au panier'),
-        duration: const Duration(seconds: 1),
+        duration: const Duration(seconds: 2),
         action: SnackBarAction(
-          label: 'Voir',
-          textColor: Colors.white, // Ensuring text is visible
-          onPressed: () {
-            _showPanier();
-          },
+          label: 'Voir panier',
+          onPressed: _showPanier,
         ),
-        behavior:
-            SnackBarBehavior.floating, // Makes SnackBar float and more visible
-        margin: const EdgeInsets.all(10),
       ),
     );
   }

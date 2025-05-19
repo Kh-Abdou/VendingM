@@ -131,14 +131,17 @@ module.exports.processPayment = async (req, res) => {
     await order.save();
     
     // Create notification
-    const notification = new NotificationModel({
-      userId,
+    const notification = new NotificationModel({      userId,
       title: "Paiement effectué",
       message: `Votre paiement de ${amount.toFixed(2)} DA a été effectué`,
       type: "TRANSACTION",
       amount: -amount,
       orderId: order._id,
-      products,
+      products: products.map(p => ({
+        productId: p.productId,
+        quantity: p.quantity,
+        price: p.price
+      })),
     });
     
     await notification.save();

@@ -47,6 +47,7 @@ const productSchema = new mongoose.Schema({
     timestamps: true
 });
 
-const Product = mongoose.model('Product', productSchema);
+// Register the model as 'product' to match the reference in other models
+const Product = mongoose.model('product', productSchema);
 
 module.exports = Product;

@@ -1,9 +1,7 @@
 import 'package:flutter/material.dart';
-import 'package:lessvsfull/Login/inscription.dart';
 import 'package:provider/provider.dart';
 import 'package:flutter_screenutil/flutter_screenutil.dart';
-import 'package:google_fonts/google_fonts.dart';
-import '../theme/app_design_system.dart'; // Import our design system
+import '../theme/app_design_system.dart';
 import '../admin_page/admin_page.dart';
 import '../main.dart';
 import '../technician_page/technician_home.dart';
@@ -123,19 +121,6 @@ class _LoginPageState extends State<LoginPage> {
                             ),
                           ),
                         ),
-                        SizedBox(height: AppSpacing.xs),
-                        Align(
-                          alignment: Alignment.centerRight,
-                          child: TextButton(
-                            onPressed: () {
-                              _showForgotPasswordDialog();
-                            },
-                            child: Text(
-                              'Mot de passe oublié?',
-                              style: AppTextStyles.bodyMedium,
-                            ),
-                          ),
-                        ),
                         SizedBox(height: AppSpacing.md),
                         SizedBox(
                           width: double.infinity,
@@ -155,33 +140,6 @@ class _LoginPageState extends State<LoginPage> {
                                     style: AppTextStyles.buttonLarge,
                                   ),
                           ),
-                        ),
-                        SizedBox(height: AppSpacing.md),
-                        Row(
-                          mainAxisAlignment: MainAxisAlignment.center,
-                          children: [
-                            Text(
-                              "Vous n'avez pas de compte?",
-                              style: AppTextStyles.bodyMedium,
-                            ),
-                            TextButton(
-                              onPressed: () {
-                                Navigator.push(
-                                  context,
-                                  MaterialPageRoute(
-                                    builder: (context) => InscriptionPage(),
-                                  ),
-                                );
-                              },
-                              child: Text(
-                                'S\'inscrire',
-                                style: AppTextStyles.bodyMedium.copyWith(
-                                  color: AppColors.primary,
-                                  fontWeight: FontWeight.bold,
-                                ),
-                              ),
-                            ),
-                          ],
                         ),
                       ],
                     ),
@@ -205,14 +163,9 @@ class _LoginPageState extends State<LoginPage> {
     final password = _passwordController.text;
 
     try {
-      // Call the backend login API
       final authService = AuthService();
       final response = await authService.login(email, password);
 
-      // Debugging: Print the response
-      print("Login response: $response");
-
-      // Store user info in the UserProvider
       final userProvider = Provider.of<UserProvider>(context, listen: false);
       userProvider.setUserInfo(
         userId: response['user']['_id'],
@@ -221,10 +174,7 @@ class _LoginPageState extends State<LoginPage> {
         role: response['user']['role'].toLowerCase(),
       );
 
-      // Handle successful login
-      final role =
-          response['user']['role'].toLowerCase(); // Normalize to lowercase
-      print("User role: $role"); // Debugging: Print the role
+      final role = response['user']['role'].toLowerCase();
 
       if (role == 'admin') {
         Navigator.pushReplacement(
@@ -243,149 +193,10 @@ class _LoginPageState extends State<LoginPage> {
         );
       }
     } catch (e) {
-      // Handle login failure
       setState(() {
         _errorMessage = 'Échec de la connexion : ${e.toString()}';
         _isLoading = false;
       });
     }
-  }
-
-  void _showForgotPasswordDialog() {
-    final TextEditingController emailController = TextEditingController();
-    bool isLoading = false;
-    String? errorMessage;
-
-    showDialog(
-      context: context,
-      barrierDismissible: false,
-      builder: (BuildContext context) {
-        return StatefulBuilder(
-          builder: (context, setState) {
-            return AlertDialog(
-              title: Text(
-                'Réinitialisation du mot de passe',
-                style: AppTextStyles.h4.copyWith(
-                  color: AppColors.primaryDark,
-                ),
-              ),
-              content: SingleChildScrollView(
-                child: Column(
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                    Text(
-                      'Veuillez entrer votre adresse email pour recevoir un lien de réinitialisation de mot de passe.',
-                      style: AppTextStyles.bodyMedium,
-                    ),
-                    SizedBox(height: AppSpacing.md),
-                    if (errorMessage != null)
-                      Container(
-                        padding: EdgeInsets.all(AppSpacing.sm),
-                        margin: EdgeInsets.only(bottom: AppSpacing.md),
-                        decoration: BoxDecoration(
-                          color: AppColors.error.withOpacity(0.1),
-                          borderRadius:
-                              BorderRadius.circular(AppSpacing.chipRadius),
-                          border: Border.all(color: AppColors.error),
-                        ),
-                        child: Row(
-                          children: [
-                            Icon(Icons.error,
-                                color: AppColors.error, size: 18.sp),
-                            SizedBox(width: AppSpacing.sm),
-                            Expanded(
-                              child: Text(
-                                errorMessage!,
-                                style: AppTextStyles.bodySmall.copyWith(
-                                  color: AppColors.error,
-                                ),
-                              ),
-                            ),
-                          ],
-                        ),
-                      ),
-                    TextField(
-                      controller: emailController,
-                      keyboardType: TextInputType.emailAddress,
-                      decoration: InputDecoration(
-                        labelText: 'Adresse Email',
-                        prefixIcon: const Icon(Icons.email),
-                      ),
-                    ),
-                  ],
-                ),
-              ),
-              actions: [
-                TextButton(
-                  onPressed: isLoading
-                      ? null
-                      : () {
-                          Navigator.of(context).pop();
-                        },
-                  child: Text('Annuler', style: AppTextStyles.buttonMedium),
-                ),
-                ElevatedButton(
-                  onPressed: isLoading
-                      ? null
-                      : () async {
-                          final email = emailController.text.trim();
-
-                          // Basic validation
-                          if (email.isEmpty) {
-                            setState(() {
-                              errorMessage =
-                                  'Veuillez entrer votre adresse email';
-                            });
-                            return;
-                          }
-
-                          if (!RegExp(r'^[\w-\.]+@([\w-]+\.)+[\w-]{2,4}$')
-                              .hasMatch(email)) {
-                            setState(() {
-                              errorMessage = 'Adresse email invalide';
-                            });
-                            return;
-                          }
-
-                          setState(() {
-                            isLoading = true;
-                            errorMessage = null;
-                          });
-
-                          // Simulate API call delay
-                          await Future.delayed(const Duration(seconds: 2));
-
-                          // Close the dialog
-                          Navigator.pop(context);
-
-                          // Show a snackbar with the result
-                          ScaffoldMessenger.of(context).showSnackBar(
-                            SnackBar(
-                              content: Text(
-                                'Un lien de réinitialisation a été envoyé à $email si ce compte existe.',
-                                style: AppTextStyles.bodyMedium,
-                              ),
-                              backgroundColor: AppColors.success,
-                              duration: const Duration(seconds: 5),
-                            ),
-                          );
-                        },
-                  child: isLoading
-                      ? SizedBox(
-                          height: 20.h,
-                          width: 20.w,
-                          child: CircularProgressIndicator(
-                            color: AppColors.textOnPrimary,
-                            strokeWidth: 2.w,
-                          ),
-                        )
-                      : Text('Envoyer', style: AppTextStyles.buttonMedium),
-                ),
-              ],
-            );
-          },
-        );
-      },
-    );
   }
 }

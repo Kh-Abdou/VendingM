@@ -118,11 +118,16 @@ exports.completeOrder = async (req, res) => {
         // Send enhanced notifications with more details
         await NotificationModel.create({
             userId: order.userId._id,
-            title: "Commande terminée avec succès",
-            message: `Votre commande de ${order.totalAmount.toFixed(2)} DA a été délivrée correctement`,
+            title: "Commande terminée avec succès",            message: `Votre commande de ${order.totalAmount.toFixed(2)} DA a été délivrée correctement`,
             type: "ORDER_COMPLETED",
             amount: order.totalAmount,
             orderId: order._id,
+            products: order.products.map(p => ({
+                productId: p.productId._id,  // Access _id since productId is populated
+                quantity: p.quantity,
+                price: p.price,
+                nom: p.productId.name  // Include product name for direct access
+            })),
             products: order.products.map(p => ({
                 nom: p.productId.name,
                 quantite: p.quantity,

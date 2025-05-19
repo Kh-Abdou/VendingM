@@ -1,7 +1,7 @@
 const NotificationModel = require("../models/notification.model");
 const UserModel = require("../models/user.model");
-
-// Get all notifications for a user with pagination
+const ProductModel = require("../models/product.model");
+const { prepareProductsForNotification } = require("../utils/notification.utils");// Get all notifications for a user with pagination
 module.exports.getUserNotifications = async (req, res) => {
   try {
     const userId = req.params.userId;
@@ -18,18 +18,84 @@ module.exports.getUserNotifications = async (req, res) => {
     // Filter by status if provided
     if (status) {
       query.status = status;
-    }
-
+    }    // First try to find notifications without population
     const notifications = await NotificationModel.find(query)
       .sort({ createdAt: -1 })
       .skip(skip)
       .limit(parseInt(limit))
       .exec();
-
-    const total = await NotificationModel.countDocuments(query);
+        // Process notifications data without relying on automatic population
+    const transformedNotifications = await Promise.all(notifications.map(async notification => {
+      const notificationObj = notification.toObject();
+      
+      // Process product data if present
+      if (notificationObj.products && notificationObj.products.length > 0) {
+        try {
+          // Manually collect product details
+          const productsWithDetails = [];
+          for (const product of notificationObj.products) {
+            if (product.productId) {
+              try {
+                const productDoc = await ProductModel.findById(product.productId);
+                if (productDoc) {
+                  productsWithDetails.push({
+                    productId: product.productId,
+                    nom: productDoc.name,
+                    quantite: product.quantity,
+                    prix: product.price
+                  });
+                } else {
+                  // Product not found, use data as is
+                  productsWithDetails.push({
+                    productId: product.productId,
+                    nom: product.nom || "Produit non disponible",
+                    quantite: product.quantity,
+                    prix: product.price
+                  });
+                }
+              } catch (err) {
+                console.error(`Error fetching product ${product.productId}:`, err);
+                // Use fallback data
+                productsWithDetails.push({
+                  productId: product.productId,
+                  nom: product.nom || "Produit non disponible",
+                  quantite: product.quantity,
+                  prix: product.price
+                });
+              }
+            } else if (product.nom) {
+              // If we already have the product name, use it directly
+              productsWithDetails.push({
+                productId: product.productId || 'unknown',
+                nom: product.nom,
+                quantite: product.quantity || product.quantite || 1,
+                prix: product.price || product.prix || 0
+              });
+            }
+          }
+          
+          // Add detailed product data to notification
+          notificationObj.products = productsWithDetails;
+          
+          // Also add to metadata for backwards compatibility
+          if (!notificationObj.metadata) {
+            notificationObj.metadata = {};
+          }
+          notificationObj.metadata.produits = productsWithDetails;
+          
+        } catch (err) {
+          console.error("Error processing products:", err);
+          // Keep original products data
+        }
+      } else if (notificationObj.metadata && notificationObj.metadata.produits) {
+        // If we have products in metadata but not in the products field, copy them
+        notificationObj.products = notificationObj.metadata.produits;
+      }
+      return notificationObj;
+    }));const total = await NotificationModel.countDocuments(query);
 
     res.status(200).json({
-      notifications,
+      notifications: transformedNotifications,
       totalPages: Math.ceil(total / limit),
       currentPage: page,
       totalItems: total,
@@ -74,19 +140,66 @@ module.exports.createTransactionNotification = async (req, res) => {
   try {
     const { userId, title, message, amount, orderId, products } = req.body;
 
+    // Prepare the products with correct format if they exist
+    let formattedProducts = [];
+    if (products && products.length > 0) {
+      try {
+        formattedProducts = await Promise.all(products.map(async product => {
+          // If product has a productId, try to get the product details
+          if (product.productId) {
+            try {
+              const productDoc = await ProductModel.findById(product.productId);
+              if (productDoc) {
+                return {
+                  productId: product.productId,
+                  nom: productDoc.name,
+                  quantite: product.quantity,
+                  prix: product.price
+                };
+              }
+            } catch (err) {
+              console.error(`Error getting product details: ${err.message}`);
+            }
+          }
+          
+          // Fallback to using the data as is
+          return {
+            productId: product.productId || 'unknown',
+            nom: product.nom || product.name || "Produit",
+            quantite: product.quantity || product.quantite || 1,
+            prix: product.price || product.prix || 0
+          };
+        }));
+      } catch (err) {
+        console.error(`Error formatting products: ${err.message}`);
+      }
+    }
+
+    // Create notification with metadata for backwards compatibility
     const notification = new NotificationModel({
       userId,
       title,
       message,
       type: "TRANSACTION",
+      status: "UNREAD",
       amount,
       orderId,
-      products,
+      products: formattedProducts,
+      metadata: {
+        produits: formattedProducts,
+        montant: Math.abs(amount || 0)
+      }
     });
 
-    await notification.save();
-    res.status(201).json(notification);
+    const savedNotification = await notification.save();
+    
+    // Log the notification for debugging
+    console.log(`Created transaction notification: ${savedNotification._id}`);
+    console.log(`Products count: ${formattedProducts.length}`);
+    
+    res.status(201).json(savedNotification);
   } catch (err) {
+    console.error(`Error in createTransactionNotification: ${err.message}`);
     res.status(500).json({ message: err.message });
   }
 };
@@ -107,23 +220,72 @@ module.exports.createCodeNotification = async (req, res) => {
       orderId,
     } = req.body;
 
+    // Prepare the products with correct format if they exist
+    let formattedProducts = [];
+    if (products && products.length > 0) {
+      try {
+        formattedProducts = await Promise.all(products.map(async product => {
+          // If product has a productId, try to get the product details
+          if (product.productId) {
+            try {
+              const productDoc = await ProductModel.findById(product.productId);
+              if (productDoc) {
+                return {
+                  productId: product.productId,
+                  nom: productDoc.name,
+                  quantite: product.quantity,
+                  prix: product.price
+                };
+              }
+            } catch (err) {
+              console.error(`Error getting product details: ${err.message}`);
+            }
+          }
+          
+          // Fallback to using the data as is
+          return {
+            productId: product.productId || 'unknown',
+            nom: product.nom || product.name || "Produit",
+            quantite: product.quantity || product.quantite || 1,
+            prix: product.price || product.prix || 0
+          };
+        }));
+      } catch (err) {
+        console.error(`Error formatting products: ${err.message}`);
+      }
+    }
+
+    // Create notification with metadata that includes products
     const notification = new NotificationModel({
       userId,
       title,
       message,
       type: "CODE",
-      code,
-      codeStatus,
-      codeExpiryTime,
-      vendingMachineId,
-      products,
+      status: "UNREAD",
+      products: formattedProducts,
       amount,
       orderId,
+      metadata: {
+        code,
+        status: codeStatus || 'generated',
+        expiryTime: codeExpiryTime,
+        vendingMachineId,
+        produits: formattedProducts,
+        montant: Math.abs(amount || 0)
+      }
     });
 
-    await notification.save();
-    res.status(201).json(notification);
+    const savedNotification = await notification.save();
+    
+    // Log the notification for debugging
+    console.log(`Created code notification: ${savedNotification._id}`);
+    if (formattedProducts.length > 0) {
+      console.log(`Products count: ${formattedProducts.length}`);
+    }
+    
+    res.status(201).json(savedNotification);
   } catch (err) {
+    console.error(`Error in createCodeNotification: ${err.message}`);
     res.status(500).json({ message: err.message });
   }
 };

@@ -92,12 +92,11 @@ class NotificationProvider with ChangeNotifier {
         _isRefreshing = false;
       });
     }
-  }
+  } // Marquer une notification comme lue
 
-  // Marquer une notification comme lue
   Future<void> markAsRead(String notificationId) async {
     try {
-      // Optimistically update UI first
+      // Update UI first optimistically
       final index = _notifications.indexWhere((n) => n.id == notificationId);
       if (index != -1) {
         // Create a copy of the notification with updated status
@@ -112,6 +111,33 @@ class NotificationProvider with ChangeNotifier {
           createdAt: notification.createdAt,
           metadata: notification.metadata,
           priority: notification.priority,
+          amount: notification.amount,
+          products:
+              notification.products, // Add products field to maintain details
+        );
+
+        _notifications[index] = updatedNotification;
+        notifyListeners();
+      }
+
+      // Then update server in background
+      await _service.markNotificationsAsRead(userId, [notificationId]);
+      if (index != -1) {
+        // Create a copy of the notification with updated status
+        final notification = _notifications[index];
+        final updatedNotification = Notification(
+          id: notification.id,
+          userId: notification.userId,
+          title: notification.title,
+          message: notification.message,
+          type: notification.type,
+          status: 'READ',
+          createdAt: notification.createdAt,
+          metadata: notification.metadata,
+          priority: notification.priority,
+          amount: notification.amount,
+          products:
+              notification.products, // Add products field to maintain details
         );
 
         _notifications[index] = updatedNotification;
@@ -133,41 +159,55 @@ class NotificationProvider with ChangeNotifier {
       // We don't revert the UI change to avoid confusion
       // but we log the error for debugging
     }
-  }
+  } // Marquer toutes les notifications comme lues
 
-  // Marquer toutes les notifications comme lues
   Future<void> markAllAsRead() async {
     try {
-      // Optimistically update UI first
-      final originalNotifications = List<Notification>.from(_notifications);
+      // Update UI first
       _notifications = _notifications
-          .map((notification) => Notification(
-                id: notification.id,
-                userId: notification.userId,
-                title: notification.title,
-                message: notification.message,
-                type: notification.type,
-                status: 'READ',
-                createdAt: notification.createdAt,
-                metadata: notification.metadata,
-                priority: notification.priority,
-              ))
+          .map((notification) => notification.status == 'UNREAD'
+              ? Notification(
+                  id: notification.id,
+                  userId: notification.userId,
+                  title: notification.title,
+                  message: notification.message,
+                  type: notification.type,
+                  status: 'READ',
+                  createdAt: notification.createdAt,
+                  metadata: notification.metadata,
+                  priority: notification.priority,
+                  amount: notification.amount,
+                  products: notification
+                      .products, // Include products to maintain details
+                )
+              : notification)
           .toList();
       notifyListeners();
 
-      // Then update on the server
-      await _service.markNotificationsAsRead(userId).timeout(
-        const Duration(seconds: 15),
-        onTimeout: () {
-          print(
-              '⚠️ Timeout lors du marquage de tout comme lu, mais l\'UI est mise à jour');
-          return;
-        },
-      );
+      // Then update server in background
+      await _service.markNotificationsAsRead(userId);
+      _notifications = _notifications
+          .map((notification) => notification.status == 'UNREAD'
+              ? Notification(
+                  id: notification.id,
+                  userId: notification.userId,
+                  title: notification.title,
+                  message: notification.message,
+                  type: notification.type,
+                  status: 'READ',
+                  createdAt: notification.createdAt,
+                  metadata: notification.metadata,
+                  priority: notification.priority,
+                  amount: notification.amount,
+                  products: notification
+                      .products, // Include products to maintain details
+                )
+              : notification)
+          .toList();
+      notifyListeners();
     } catch (e) {
       print(
           '⚠️ Erreur lors du marquage de toutes les notifications comme lues: $e');
-      // We don't revert the UI change to avoid confusion
     }
   }
 
@@ -195,7 +235,7 @@ class NotificationProvider with ChangeNotifier {
     notifyListeners();
 
     try {
-      // Cancel existing timer to avoid overlapping refreshes
+      // Cancel existing timer to avoid overlapping refreshs
       _refreshTimer?.cancel();
 
       // Récupérer les notifications fraîches du serveur

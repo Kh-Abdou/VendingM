@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import 'package:flutter_staggered_animations/flutter_staggered_animations.dart';
 import 'package:flutter_screenutil/flutter_screenutil.dart';
+import 'package:flutter/foundation.dart'; // Import for kDebugMode
 import '../providers/notification_provider.dart';
 import '../models/notification.dart' as notification_model;
 import '../theme/app_design_system.dart'; // Import our design system
@@ -192,9 +193,8 @@ class _NotificationPageState extends State<NotificationPage> {
           itemCount: notifications.length,
           itemBuilder: (context, index) {
             final notification = notifications[index];
-            final metadata = notification.metadata ?? {};
-
-            // Formatage de la date
+            final metadata =
+                notification.metadata ?? {}; // Formatage de la date
             final dateFormatter = DateFormat('dd/MM/yyyy à HH:mm');
             final formattedDate = dateFormatter.format(notification
                 .createdAt); // Récupérer les détails de la commande depuis les métadonnées ou l'amount du modèle
@@ -202,7 +202,16 @@ class _NotificationPageState extends State<NotificationPage> {
             final double montant = notification.amount != null
                 ? notification.amount!.abs()
                 : (metadata['montant']?.toDouble() ?? 0.0);
-            final List<dynamic> produitsData = metadata['produits'] ?? [];
+
+            // Ensure we have products data from either source, prioritize notification.products
+            final List<dynamic> produitsData =
+                notification.products ?? (metadata['produits'] ?? []);
+
+            // Debug information to help diagnose issues
+            if (kDebugMode) {
+              print(
+                  'Notification ${notification.id} products: ${produitsData.length}');
+            }
 
             return AnimationConfiguration.staggeredList(
               position: index,
@@ -219,6 +228,7 @@ class _NotificationPageState extends State<NotificationPage> {
                           BorderRadius.circular(AppSpacing.cardRadius),
                     ),
                     child: ExpansionTile(
+                      key: Key('notification_${notification.id}'),
                       leading: CircleAvatar(
                         backgroundColor: notification.isUnread
                             ? AppColors.success.withOpacity(0.2)
@@ -253,9 +263,21 @@ class _NotificationPageState extends State<NotificationPage> {
                           fontSize: 16.sp,
                         ),
                       ),
+                      maintainState: true, // Keep widget state when collapsed
+                      initiallyExpanded: false,
                       onExpansionChanged: (expanded) {
-                        if (expanded && notification.isUnread) {
-                          provider.markAsRead(notification.id);
+                        if (expanded) {
+                          if (kDebugMode) {
+                            print('Expanding notification ${notification.id}');
+                            print('Products: ${produitsData.length}');
+                            if (produitsData.isNotEmpty) {
+                              print('First product: ${produitsData.first}');
+                            }
+                          }
+
+                          if (notification.isUnread) {
+                            provider.markAsRead(notification.id);
+                          }
                         }
                       },
                       children: [
@@ -276,31 +298,61 @@ class _NotificationPageState extends State<NotificationPage> {
                                 ),
                               ),
                               SizedBox(height: AppSpacing.sm),
-                              ...produitsData.map<Widget>((produit) {
-                                return Padding(
+                              if (produitsData.isEmpty)
+                                Padding(
                                   padding:
                                       EdgeInsets.only(bottom: AppSpacing.sm),
-                                  child: Row(
-                                    mainAxisAlignment:
-                                        MainAxisAlignment.spaceBetween,
-                                    children: [
-                                      Expanded(
-                                        child: Text(
-                                          '${produit['nom']} x${produit['quantite']}',
-                                          style: AppTextStyles.bodyMedium,
-                                        ),
-                                      ),
-                                      Text(
-                                        '${(produit['prix'] * produit['quantite']).toStringAsFixed(2)} DA',
-                                        style:
-                                            AppTextStyles.bodyMedium.copyWith(
-                                          fontWeight: FontWeight.bold,
-                                        ),
-                                      ),
-                                    ],
+                                  child: Text(
+                                    'Aucun détail disponible',
+                                    style: AppTextStyles.bodyMedium.copyWith(
+                                      fontStyle: FontStyle.italic,
+                                      color: AppColors.textSecondary,
+                                    ),
                                   ),
-                                );
-                              }),
+                                )
+                              else
+                                ...produitsData.map<Widget>((produit) {
+                                  // Safe access to product fields
+                                  final String nom =
+                                      produit['nom'] ?? 'Produit inconnu';
+                                  final int quantite = produit['quantite']
+                                          is int
+                                      ? produit['quantite']
+                                      : int.tryParse(
+                                              produit['quantite']?.toString() ??
+                                                  '1') ??
+                                          1;
+                                  final double prix = produit['prix'] is double
+                                      ? produit['prix']
+                                      : double.tryParse(
+                                              produit['prix']?.toString() ??
+                                                  '0') ??
+                                          0.0;
+
+                                  return Padding(
+                                    padding:
+                                        EdgeInsets.only(bottom: AppSpacing.sm),
+                                    child: Row(
+                                      mainAxisAlignment:
+                                          MainAxisAlignment.spaceBetween,
+                                      children: [
+                                        Expanded(
+                                          child: Text(
+                                            '$nom x$quantite',
+                                            style: AppTextStyles.bodyMedium,
+                                          ),
+                                        ),
+                                        Text(
+                                          '${(prix * quantite).toStringAsFixed(2)} DA',
+                                          style:
+                                              AppTextStyles.bodyMedium.copyWith(
+                                            fontWeight: FontWeight.bold,
+                                          ),
+                                        ),
+                                      ],
+                                    ),
+                                  );
+                                }),
                               Divider(thickness: 1.h, color: AppColors.divider),
                               Row(
                                 mainAxisAlignment:

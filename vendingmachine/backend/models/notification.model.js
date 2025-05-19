@@ -54,18 +54,31 @@ const NotificationSchema = mongoose.Schema(
       type: mongoose.Schema.Types.ObjectId,
       ref: "order",
       default: null,
-    },
-    products: [
+    },    products: [
       {
         productId: {
           type: mongoose.Schema.Types.ObjectId,
           ref: "product",
         },
+        nom: {
+          type: String,
+          default: null,
+        },
         quantity: {
           type: Number,
+          default: 1,
+        },
+        quantite: {
+          type: Number,
+          default: 1,
         },
         price: {
           type: Number,
+          default: 0,
+        },
+        prix: {
+          type: Number,
+          default: 0,
         },
       },
     ],
