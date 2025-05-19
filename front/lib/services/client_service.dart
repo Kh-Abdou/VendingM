@@ -24,10 +24,36 @@ class ClientService {
 
       print('Response status: ${response.statusCode}');
       print('Response body: ${response.body}');
-
       if (response.statusCode == 200) {
-        List<dynamic> data = json.decode(response.body);
-        return data.map((json) => Client.fromJson(json)).toList();
+        List<dynamic> clientsData = json.decode(response.body);
+        List<Client> clients = [];
+
+        // Fetch wallet data for each client
+        for (var clientData in clientsData) {
+          try {
+            final clientId = clientData['_id'];
+            if (clientId != null) {
+              // Get wallet data
+              final walletResponse = await http.get(
+                Uri.parse('$baseUrl/ewallet/$clientId'),
+                headers: {'Content-Type': 'application/json'},
+              );
+
+              if (walletResponse.statusCode == 200) {
+                final walletData = json.decode(walletResponse.body);
+                if (walletData['balance'] != null) {
+                  // Update client data with wallet balance
+                  clientData['credit'] = walletData['balance'];
+                }
+              }
+            }
+          } catch (e) {
+            print('Error fetching wallet for client ${clientData['_id']}: $e');
+          }
+
+          clients.add(Client.fromJson(clientData));
+        }
+        return clients;
       } else {
         throw Exception(
             'Server returned status code ${response.statusCode}: ${response.body}');
@@ -42,6 +68,9 @@ class ClientService {
     } on FormatException catch (e) {
       print('Format exception: $e');
       throw Exception('Invalid response format: $e');
+    } on TimeoutException catch (e) {
+      print('Timeout exception: $e');
+      throw Exception('Connection timed out. Please try again.');
     } catch (e) {
       print('Unknown error occurred: $e');
       throw Exception('Failed to load clients: $e');
@@ -69,19 +98,20 @@ class ClientService {
 
       print('Response status: ${response.statusCode}');
       print('Response body: ${response.body}');
-
       if (response.statusCode == 200) {
         // Parse the response body
         final Map<String, dynamic> responseData = json.decode(response.body);
 
-        // Check if the client data is present in the response
-        if (responseData.containsKey('client')) {
-          // Extract and return the client data
-          return Client.fromJson(responseData['client']);
-        } else {
-          // If client data is not available, fetch the client details
-          return getClient(clientId);
+        // Get the updated balance from the wallet data
+        final walletData = responseData['wallet'];
+
+        // Create an updated client object with the new balance
+        final Map<String, dynamic> clientData = responseData['client'];
+        if (walletData != null) {
+          clientData['credit'] = walletData['balance'];
         }
+
+        return Client.fromJson(clientData);
       } else {
         throw Exception('Failed to recharge client balance: ${response.body}');
       }

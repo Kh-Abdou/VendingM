@@ -26,7 +26,6 @@ import 'models/produit.dart';
 import 'dart:developer' as developer;
 
 import 'technician_page/notifications_page.dart';
-import 'components/animated_badge.dart'; // Import our custom animated badge
 
 // Définir l'URL du backend - modifier cette URL selon votre environnement
 // Pour le développement sur émulateur Android, utilisez 10.0.2.2:5000 au lieu de localhost:5000

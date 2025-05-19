@@ -61,7 +61,6 @@ class _RechargeClientPageState extends State<RechargeClientPage> {
       _isLoading = true;
       _errorMessage = null;
     });
-
     try {
       final clients = await _clientService.getClients();
       setState(() {
@@ -70,8 +69,14 @@ class _RechargeClientPageState extends State<RechargeClientPage> {
         _filteredClients = _clients;
         _isLoading = false;
 
-        // Reset selected client
-        _selectedClientId = null;
+        // Only reset selected client if it doesn't exist in the new list
+        if (_selectedClientId != null) {
+          final stillExists =
+              _clients.any((client) => client.id == _selectedClientId);
+          if (!stillExists) {
+            _selectedClientId = null;
+          }
+        }
       });
     } catch (e) {
       setState(() {
@@ -209,12 +214,46 @@ class _RechargeClientPageState extends State<RechargeClientPage> {
             else if (_clients.isEmpty)
               const Text('No clients available to recharge.')
             else if (_selectedClientId != null)
-              Text(
-                'Selected client: ${_clients.firstWhere((client) => client.id == _selectedClientId).name}',
-                style: const TextStyle(
-                  fontWeight: FontWeight.bold,
-                  color: Colors.green,
-                ),
+              Builder(
+                builder: (context) {
+                  final selectedClient = _clients
+                      .firstWhere((client) => client.id == _selectedClientId);
+                  return Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        'Selected client: ${selectedClient.name}',
+                        style: const TextStyle(
+                          fontWeight: FontWeight.bold,
+                          color: Colors.green,
+                        ),
+                      ),
+                      const SizedBox(height: 4),
+                      RichText(
+                        text: TextSpan(
+                          style: DefaultTextStyle.of(context).style,
+                          children: [
+                            const TextSpan(
+                              text: 'Current balance: ',
+                              style: TextStyle(
+                                fontWeight: FontWeight.w500,
+                              ),
+                            ),
+                            TextSpan(
+                              text:
+                                  '${selectedClient.credit.toStringAsFixed(2)} DA',
+                              style: TextStyle(
+                                fontWeight: FontWeight.bold,
+                                color: Theme.of(context).primaryColor,
+                                fontSize: 16,
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                    ],
+                  );
+                },
               ),
             const SizedBox(height: 16),
             TextField(
@@ -376,12 +415,12 @@ class _RechargeClientPageState extends State<RechargeClientPage> {
               crossAxisAlignment: CrossAxisAlignment.end,
               children: [
                 Text(
-                  'Credit: ${client.credit} DA',
+                  'Credit: ${client.credit.toStringAsFixed(2)} DA',
                   style: const TextStyle(
                       fontWeight: FontWeight.bold, fontSize: 16),
                 ),
                 Text(
-                  'Available: ${_maxCreditLimit - client.credit} DA',
+                  'Available: ${(_maxCreditLimit - client.credit).toStringAsFixed(2)} DA',
                   style: const TextStyle(fontSize: 12, color: Colors.grey),
                 ),
               ],

@@ -29,39 +29,71 @@ class _AccountManagementPageState extends State<AccountManagementPage> {
 
   // Load users from API
   Future<void> _loadUsers() async {
+    if (!mounted) return;
+
     setState(() {
       _isLoading = true;
       _errorMessage = null;
     });
 
     try {
+      // Get clients and technicians using the correct methods
       final clients = await _userService.getClients();
       final technicians = await _userService.getTechnicians();
 
-      setState(() {
-        _clients =
-            clients.map((client) => _formatUserData(client, 'Client')).toList();
-        _technicians = technicians
-            .map((tech) => _formatUserData(tech, 'Technicien'))
-            .toList();
-        _isLoading = false;
-      });
+      // Process clients with wallet data
+      final List<Map<String, dynamic>> processedClients = [];
+      for (var client in clients) {
+        final formattedClient = await _formatUserData(client, 'Client');
+        processedClients.add(formattedClient);
+      }
+
+      // Process technicians
+      final List<Map<String, dynamic>> processedTechnicians = [];
+      for (var tech in technicians) {
+        final formattedTech = await _formatUserData(tech, 'Technicien');
+        processedTechnicians.add(formattedTech);
+      }
+
+      if (mounted) {
+        setState(() {
+          _clients = processedClients;
+          _technicians = processedTechnicians;
+          _isLoading = false;
+        });
+      }
     } catch (e) {
-      setState(() {
-        _errorMessage = 'Error loading users: $e';
-        _isLoading = false;
-      });
+      if (mounted) {
+        setState(() {
+          _errorMessage = 'Error loading users: $e';
+          _isLoading = false;
+        });
+      }
     }
   }
 
   // Format API user data to match our UI format
-  Map<String, dynamic> _formatUserData(dynamic user, String type) {
+  Future<Map<String, dynamic>> _formatUserData(
+      dynamic user, String type) async {
+    double credit = 0.0;
+    if (type == 'Client') {
+      try {
+        final walletResponse = await _userService.getWalletBalance(user['_id']);
+        if (walletResponse > 0) {
+          // Changed from null check to value check
+          credit = walletResponse;
+        }
+      } catch (e) {
+        print('Error fetching wallet balance for user ${user['_id']}: $e');
+      }
+    }
+
     return {
       'id': user['_id'],
       'name': user['name'],
       'email': user['email'],
       'type': type,
-      'credit': type == 'Client' ? (user['credit'] ?? 0.0) : null,
+      'credit': type == 'Client' ? credit : null,
     };
   }
 
@@ -125,37 +157,55 @@ class _AccountManagementPageState extends State<AccountManagementPage> {
                 itemBuilder: (context, index) {
                   final account = filteredAccounts[index];
                   return Card(
-                    elevation: 2,
-                    margin:
-                        const EdgeInsets.symmetric(vertical: 4, horizontal: 8),
-                    child: ListTile(
-                      leading: CircleAvatar(
-                        backgroundColor: Colors.blue.withOpacity(0.2),
-                        child: Text(account['name'].substring(0, 1)),
-                      ),
-                      title: Text('${account['name']}'),
-                      subtitle: Text(type == 'Client'
-                          ? '${account['email']} - Credit: ${account['credit']} DA'
-                          : account['email']),
-                      trailing: Row(
-                        mainAxisSize: MainAxisSize.min,
-                        children: [
-                          IconButton(
-                            icon: const Icon(Icons.edit, color: Colors.blue),
-                            onPressed: () {
-                              _showEditAccountDialog(account);
-                            },
-                          ),
-                          IconButton(
-                            icon: const Icon(Icons.delete, color: Colors.red),
-                            onPressed: () {
-                              _showDeleteConfirmationDialog(account);
-                            },
-                          ),
-                        ],
-                      ),
-                    ),
-                  );
+                      elevation: 2,
+                      margin: const EdgeInsets.symmetric(
+                          vertical: 4, horizontal: 8),
+                      child: ListTile(
+                        leading: CircleAvatar(
+                          backgroundColor: Colors.blue.withOpacity(0.2),
+                          child: Text(account['name'].substring(0, 1)),
+                        ),
+                        title: Text('${account['name']}'),
+                        subtitle: type == 'Client'
+                            ? Column(
+                                crossAxisAlignment: CrossAxisAlignment.start,
+                                children: [
+                                  Text(account['email']),
+                                  const SizedBox(height: 4),
+                                  Row(
+                                    children: [
+                                      Icon(Icons.account_balance_wallet,
+                                          size: 16, color: Colors.grey[600]),
+                                      const SizedBox(width: 4),
+                                      Text(
+                                        '${account['credit']?.toStringAsFixed(2) ?? '0.00'} DA',
+                                        style: TextStyle(
+                                            color: Colors.grey[800],
+                                            fontWeight: FontWeight.w500),
+                                      ),
+                                    ],
+                                  ),
+                                ],
+                              )
+                            : Text(account['email']),
+                        trailing: Row(
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            IconButton(
+                              icon: const Icon(Icons.edit, color: Colors.blue),
+                              onPressed: () {
+                                _showEditAccountDialog(account);
+                              },
+                            ),
+                            IconButton(
+                              icon: const Icon(Icons.delete, color: Colors.red),
+                              onPressed: () {
+                                _showDeleteConfirmationDialog(account);
+                              },
+                            ),
+                          ],
+                        ),
+                      ));
                 },
               ),
       ),
@@ -662,31 +712,35 @@ class _AccountManagementPageState extends State<AccountManagementPage> {
                             color:
                                 isCreditValid ? Colors.green : Colors.grey[600],
                           ),
-                          enabledBorder: OutlineInputBorder(
-                            borderSide: BorderSide(
-                              color: isCreditValid ? Colors.green : Colors.grey,
-                              width: isCreditValid ? 2.0 : 1.0,
-                            ),
-                          ),
-                          focusedBorder: OutlineInputBorder(
-                            borderSide: BorderSide(
-                              color: isCreditValid ? Colors.green : Colors.blue,
-                              width: 2.0,
-                            ),
-                          ),
-                          suffixIcon: Row(
-                            mainAxisSize: MainAxisSize.min,
-                            children: [
-                              const Icon(Icons.account_balance_wallet),
-                              if (isCreditValid)
-                                const Icon(Icons.check_circle,
-                                    color: Colors.green),
-                            ],
+                          prefixIcon: const Icon(Icons.account_balance_wallet),
+                          suffixText: 'DA',
+                          suffixStyle: const TextStyle(
+                            fontWeight: FontWeight.bold,
                           ),
                         ),
                         keyboardType: const TextInputType.numberWithOptions(
                             decimal: true),
-                        onChanged: validateCredit,
+                        onChanged: (value) {
+                          try {
+                            final amount = double.parse(value);
+                            if (amount >= 0) {
+                              setState(() {
+                                creditError = null;
+                                isCreditValid = true;
+                              });
+                            } else {
+                              setState(() {
+                                creditError = 'Le montant doit être positif';
+                                isCreditValid = false;
+                              });
+                            }
+                          } catch (e) {
+                            setState(() {
+                              creditError = 'Veuillez entrer un nombre valide';
+                              isCreditValid = false;
+                            });
+                          }
+                        },
                       ),
                     ],
                   ],
@@ -749,83 +803,89 @@ class _AccountManagementPageState extends State<AccountManagementPage> {
     final nameController = TextEditingController(text: account['name']);
     final emailController = TextEditingController(text: account['email']);
     final creditController = account['type'] == 'Client'
-        ? TextEditingController(text: account['credit'].toString())
+        ? TextEditingController(
+            text: account['credit']?.toStringAsFixed(2) ?? '0.00')
         : null;
 
-    // Variables pour suivre si les champs sont valides
+    bool isSubmitting = false;
+    bool isNameValid = true;
+    bool isEmailValid = true;
+    bool isCreditValid = true;
     String? nameError;
     String? emailError;
     String? creditError;
 
-    // Variables pour suivre l'état de validation des champs
-    bool isNameValid =
-        true; // Supposons que les valeurs existantes sont valides
-    bool isEmailValid = true;
-    bool isCreditValid = true;
-
-    // Variable pour suivre l'état de la soumission
-    bool isSubmitting = false;
-
     showDialog(
       context: context,
-      builder: (context) {
+      builder: (BuildContext context) {
         return StatefulBuilder(
           builder: (context, setState) {
-            // Fonctions de validation
             void validateName(String value) {
-              setState(() {
-                if (value.isEmpty) {
-                  nameError = 'Le nom ne peut pas être vide';
+              if (value.isEmpty) {
+                setState(() {
+                  nameError = 'Name is required';
                   isNameValid = false;
-                } else if (value.length < 2) {
-                  nameError = 'Le nom doit contenir au moins 2 caractères';
-                  isNameValid = false;
-                } else {
+                });
+              } else {
+                setState(() {
                   nameError = null;
                   isNameValid = true;
-                }
-              });
+                });
+              }
             }
 
             void validateEmail(String value) {
-              setState(() {
-                if (value.isEmpty) {
-                  emailError = 'L\'email ne peut pas être vide';
+              if (!RegExp(r'^[^@]+@[^@]+\.[^@]+$').hasMatch(value)) {
+                setState(() {
+                  emailError = 'Enter a valid email address';
                   isEmailValid = false;
-                } else if (!RegExp(r'^[\w-\.]+@([\w-]+\.)+[\w-]{2,4}$')
-                    .hasMatch(value)) {
-                  emailError = 'Veuillez entrer un email valide';
-                  isEmailValid = false;
-                } else {
+                });
+              } else {
+                setState(() {
                   emailError = null;
                   isEmailValid = true;
-                }
-              });
+                });
+              }
             }
 
             void validateCredit(String value) {
-              setState(() {
-                if (value.isEmpty) {
-                  creditError = 'Le crédit ne peut pas être vide';
+              if (value.isEmpty) {
+                setState(() {
+                  creditError = 'Le montant est requis';
                   isCreditValid = false;
+                });
+                return;
+              }
+
+              try {
+                final amount = double.parse(value);
+                if (amount < 0) {
+                  setState(() {
+                    creditError = 'Le montant doit être positif';
+                    isCreditValid = false;
+                  });
                 } else {
-                  final creditValue = double.tryParse(value);
-                  if (creditValue == null) {
-                    creditError = 'Veuillez entrer un nombre valide';
-                    isCreditValid = false;
-                  } else if (creditValue < 0) {
-                    creditError = 'Le crédit ne peut pas être négatif';
-                    isCreditValid = false;
-                  } else {
+                  setState(() {
                     creditError = null;
                     isCreditValid = true;
-                  }
+                  });
                 }
-              });
+              } catch (e) {
+                setState(() {
+                  creditError = 'Veuillez entrer un nombre valide';
+                  isCreditValid = false;
+                });
+              }
             }
 
-            // Fonction pour mettre à jour un utilisateur
-            Future<void> updateUser() async {
+            Future<void> updateAccount() async {
+              // Validate all fields first
+              validateName(nameController.text);
+              validateEmail(emailController.text);
+              if (account['type'] == 'Client' && creditController != null) {
+                validateCredit(creditController.text);
+              }
+
               if (!isNameValid ||
                   !isEmailValid ||
                   (account['type'] == 'Client' && !isCreditValid)) {
@@ -837,7 +897,7 @@ class _AccountManagementPageState extends State<AccountManagementPage> {
               });
 
               try {
-                final userData = {
+                final Map<String, dynamic> userData = {
                   'name': nameController.text,
                   'email': emailController.text,
                 };
@@ -872,18 +932,12 @@ class _AccountManagementPageState extends State<AccountManagementPage> {
               }
             }
 
-            // Validation initiale
-            validateName(nameController.text);
-            validateEmail(emailController.text);
-            if (account['type'] == 'Client' && creditController != null) {
-              validateCredit(creditController.text);
-            }
-
             return AlertDialog(
               title: const Text('Edit Account'),
               content: SingleChildScrollView(
                 child: Column(
                   mainAxisSize: MainAxisSize.min,
+                  crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                     TextField(
                       controller: nameController,
@@ -892,27 +946,8 @@ class _AccountManagementPageState extends State<AccountManagementPage> {
                         border: const OutlineInputBorder(),
                         errorText: nameError,
                         helperText: isNameValid
-                            ? 'Nom valide'
-                            : 'Entrez le nom complet',
-                        helperStyle: TextStyle(
-                          color: isNameValid ? Colors.green : Colors.grey[600],
-                        ),
-                        enabledBorder: OutlineInputBorder(
-                          borderSide: BorderSide(
-                            color: isNameValid ? Colors.green : Colors.grey,
-                            width: isNameValid ? 2.0 : 1.0,
-                          ),
-                        ),
-                        focusedBorder: OutlineInputBorder(
-                          borderSide: BorderSide(
-                            color: isNameValid ? Colors.green : Colors.blue,
-                            width: 2.0,
-                          ),
-                        ),
-                        suffixIcon: isNameValid
-                            ? const Icon(Icons.check_circle,
-                                color: Colors.green)
-                            : null,
+                            ? 'Name is valid'
+                            : 'Enter a valid name',
                       ),
                       onChanged: validateName,
                     ),
@@ -924,32 +959,12 @@ class _AccountManagementPageState extends State<AccountManagementPage> {
                         border: const OutlineInputBorder(),
                         errorText: emailError,
                         helperText: isEmailValid
-                            ? 'Email valide'
-                            : 'Entrez une adresse email valide',
-                        helperStyle: TextStyle(
-                          color: isEmailValid ? Colors.green : Colors.grey[600],
-                        ),
-                        enabledBorder: OutlineInputBorder(
-                          borderSide: BorderSide(
-                            color: isEmailValid ? Colors.green : Colors.grey,
-                            width: isEmailValid ? 2.0 : 1.0,
-                          ),
-                        ),
-                        focusedBorder: OutlineInputBorder(
-                          borderSide: BorderSide(
-                            color: isEmailValid ? Colors.green : Colors.blue,
-                            width: 2.0,
-                          ),
-                        ),
-                        suffixIcon: isEmailValid
-                            ? const Icon(Icons.check_circle,
-                                color: Colors.green)
-                            : null,
+                            ? 'Email is valid'
+                            : 'Enter a valid email',
                       ),
                       keyboardType: TextInputType.emailAddress,
                       onChanged: validateEmail,
                     ),
-                    // Only show credit field for clients
                     if (account['type'] == 'Client' &&
                         creditController != null) ...[
                       const SizedBox(height: 16),
@@ -960,7 +975,7 @@ class _AccountManagementPageState extends State<AccountManagementPage> {
                           border: const OutlineInputBorder(),
                           errorText: creditError,
                           helperText: isCreditValid
-                              ? 'Crédit valide'
+                              ? 'Credit valide'
                               : 'Entrez un nombre valide',
                           helperStyle: TextStyle(
                             color:
@@ -978,10 +993,12 @@ class _AccountManagementPageState extends State<AccountManagementPage> {
                               width: 2.0,
                             ),
                           ),
+                          prefixIcon: Icon(Icons.account_balance_wallet),
                           suffixIcon: Row(
                             mainAxisSize: MainAxisSize.min,
                             children: [
-                              const Icon(Icons.account_balance_wallet),
+                              Text('DA  ',
+                                  style: TextStyle(color: Colors.grey[600])),
                               if (isCreditValid)
                                 const Icon(Icons.check_circle,
                                     color: Colors.green),
@@ -1002,30 +1019,7 @@ class _AccountManagementPageState extends State<AccountManagementPage> {
                   child: const Text('Cancel'),
                 ),
                 ElevatedButton(
-                  onPressed: isSubmitting
-                      ? null
-                      : () {
-                          // Validation finale avant mise à jour
-                          validateName(nameController.text);
-                          validateEmail(emailController.text);
-                          if (account['type'] == 'Client' &&
-                              creditController != null) {
-                            validateCredit(creditController.text);
-                          }
-
-                          // Vérifier si tous les champs sont valides après validation finale
-                          if (nameController.text.isEmpty ||
-                              emailController.text.isEmpty ||
-                              (account['type'] == 'Client' &&
-                                  creditController != null &&
-                                  (creditError != null ||
-                                      creditController.text.isEmpty))) {
-                            return;
-                          }
-
-                          // Call the API to update user
-                          updateUser();
-                        },
+                  onPressed: isSubmitting ? null : updateAccount,
                   child: isSubmitting
                       ? const SizedBox(
                           width: 20,
