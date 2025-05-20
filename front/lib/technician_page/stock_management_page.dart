@@ -1,10 +1,11 @@
 import 'package:flutter/material.dart';
-import 'package:image_picker/image_picker.dart';
-import 'package:flutter_staggered_animations/flutter_staggered_animations.dart';
+import 'dart:developer' as developer;
 import 'package:lessvsfull/services/api_service.dart';
 import '../services/product_service.dart';
-import '../services/chariot_service.dart'; // Import du service de gestion des chariots
+import '../services/chariot_service.dart';
 import 'dart:io';
+import 'package:flutter_staggered_animations/flutter_staggered_animations.dart';
+import 'package:image_picker/image_picker.dart';
 
 class StockManagementPage extends StatefulWidget {
   final Color primaryColor;
@@ -37,12 +38,17 @@ class _StockManagementPageState extends State<StockManagementPage> {
 
   // Chargement des données (produits et chariots) depuis l'API
   Future<void> _loadData() async {
-    await _loadProducts();
-    await _loadChariots();
+    developer.log('🔄 Début du chargement des données...');
+    await Future.wait([
+      _loadProducts(),
+      _loadChariots(),
+    ]);
+    developer.log('✅ Chargement des données terminé');
   }
 
   // Chargement des produits depuis l'API
   Future<void> _loadProducts() async {
+    developer.log('📦 Chargement des produits...');
     setState(() {
       _isLoadingProducts = true;
       _errorMessage = '';
@@ -50,55 +56,74 @@ class _StockManagementPageState extends State<StockManagementPage> {
 
     try {
       final products = await ProductService.getProducts();
-      setState(() {
-        _products = products;
-        _isLoadingProducts = false;
-      });
+      if (mounted) {
+        setState(() {
+          _products = products;
+          _isLoadingProducts = false;
+        });
+      }
+      developer.log('✅ ${products.length} produits chargés');
     } catch (e) {
-      setState(() {
-        _errorMessage = 'Erreur lors du chargement des produits: $e';
-        _isLoadingProducts = false;
-      });
-      _showErrorSnackBar(
-          'Impossible de charger les produits. Veuillez réessayer.');
+      developer.log('❌ Erreur lors du chargement des produits: $e');
+      if (mounted) {
+        setState(() {
+          _errorMessage = 'Erreur lors du chargement des produits: $e';
+          _isLoadingProducts = false;
+        });
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('Erreur de chargement des produits: $e'),
+            duration: const Duration(seconds: 5),
+            backgroundColor: Colors.red,
+          ),
+        );
+      }
     }
   }
 
   // Chargement des chariots depuis l'API
   Future<void> _loadChariots() async {
+    developer.log('🛒 Chargement des chariots...');
     setState(() {
       _isLoadingChariots = true;
     });
 
     try {
       final chariots = await ChariotService.getAllChariots();
-      setState(() {
-        _chariots = chariots;
-        _isLoadingChariots = false;
-      });
+      if (mounted) {
+        setState(() {
+          _chariots = chariots;
+          _isLoadingChariots = false;
+        });
+      }
+      developer.log('✅ ${chariots.length} chariots chargés');
     } catch (e) {
-      setState(() {
-        _errorMessage = 'Erreur lors du chargement des chariots: $e';
-        _isLoadingChariots = false;
-      });
-      _showErrorSnackBar(
-          'Impossible de charger les chariots. Veuillez réessayer.');
+      developer.log('❌ Erreur lors du chargement des chariots: $e');
+      if (mounted) {
+        setState(() {
+          _errorMessage = 'Erreur lors du chargement des chariots: $e';
+          _isLoadingChariots = false;
+        });
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('Erreur de chargement des chariots: $e'),
+            duration: const Duration(seconds: 5),
+            backgroundColor: Colors.red,
+          ),
+        );
+      }
     }
-  }
-
-  void _showErrorSnackBar(String message) {
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(
-        content: Text(message),
-        backgroundColor: Colors.red,
-        duration: const Duration(seconds: 3),
-      ),
-    );
   }
 
   @override
   Widget build(BuildContext context) {
     bool isLoading = _isLoadingProducts || _isLoadingChariots;
+
+    if (isLoading) {
+      return const Center(
+        child: CircularProgressIndicator(),
+      );
+    }
 
     return Column(
       children: [
@@ -126,22 +151,25 @@ class _StockManagementPageState extends State<StockManagementPage> {
                   ),
                   const SizedBox(width: 8),
                   // Bouton d'ajout de produit
-                  ElevatedButton.icon(
-                    onPressed: () {
-                      _showAddProductDialog();
-                    },
-                    icon: const Icon(Icons.add, color: Colors.white),
-                    label: const Text(
-                      'Ajouter un produit',
-                      style: TextStyle(
-                          color: Colors.white, fontWeight: FontWeight.bold),
-                    ),
-                    style: ElevatedButton.styleFrom(
-                      backgroundColor: widget.buttonColor,
-                      foregroundColor: widget.buttonTextColor,
-                      elevation: 2,
-                      shape: RoundedRectangleBorder(
-                        borderRadius: BorderRadius.circular(10),
+                  Container(
+                    constraints: const BoxConstraints(maxWidth: 140),
+                    child: ElevatedButton.icon(
+                      onPressed: _showAddProductDialog,
+                      icon: const Icon(Icons.add, size: 18),
+                      label: const Text(
+                        'Ajouter',
+                        style: TextStyle(fontWeight: FontWeight.bold),
+                      ),
+                      style: ElevatedButton.styleFrom(
+                        backgroundColor: widget.buttonColor,
+                        foregroundColor: widget.buttonTextColor,
+                        padding: const EdgeInsets.symmetric(
+                          horizontal: 12,
+                          vertical: 8,
+                        ),
+                        shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(8),
+                        ),
                       ),
                     ),
                   ),

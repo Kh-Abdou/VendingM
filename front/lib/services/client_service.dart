@@ -4,8 +4,10 @@ import 'package:http/http.dart' as http;
 import '../models/client.dart';
 
 class ClientService {
-  // Update this with your actual API base URL
-  final String baseUrl = 'http://192.168.56.1:5000';
+  // Use the API base URL from main.dart
+  final String baseUrl;
+
+  ClientService({required this.baseUrl});
 
   Future<List<Client>> getClients() async {
     try {

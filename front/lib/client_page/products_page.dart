@@ -186,21 +186,18 @@ class _ProductsPageState extends State<ProductsPage> {
         borderRadius: BorderRadius.circular(AppSpacing.cardRadius),
       ),
       child: InkWell(
-        onTap: produit.disponible
-            ? () {
-                _showProduitDetails(produit);
-              }
-            : null,
+        onTap: produit.disponible ? () => _showProduitDetails(produit) : null,
         borderRadius: BorderRadius.circular(AppSpacing.cardRadius),
         child: Container(
-          padding: EdgeInsets.all(AppSpacing.sm),
+          padding: EdgeInsets.all(6.w), // Réduit le padding général
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
+            mainAxisSize: MainAxisSize.min, // Force la colonne à prendre le minimum d'espace
             children: [
               Stack(
                 children: [
                   Container(
-                    height: 130.h,
+                    height: 120.h, // Réduit légèrement la hauteur de l'image
                     width: double.infinity,
                     decoration: BoxDecoration(
                       color: AppColors
@@ -261,37 +258,37 @@ class _ProductsPageState extends State<ProductsPage> {
                     ),
                 ],
               ),
-              SizedBox(height: AppSpacing.sm),
+              SizedBox(height: 4.h), // Réduit l'espace
               Text(
                 produit.nom,
                 style: AppTextStyles.subtitle,
                 maxLines: 2,
                 overflow: TextOverflow.ellipsis,
               ),
-              SizedBox(height: AppSpacing.xs),
+              SizedBox(height: 2.h), // Réduit l'espace
               Text(
                 '${produit.prix.toStringAsFixed(2)} DA',
                 style: AppTextStyles.priceText,
               ),
-              const Spacer(),
+              SizedBox(height: 4.h), // Réduit l'espace avant le bouton
               if (produit.disponible)
                 SizedBox(
                   width: double.infinity,
                   child: ElevatedButton(
                     style: ElevatedButton.styleFrom(
                       backgroundColor: AppColors.primary,
-                      foregroundColor:
-                          Colors.white, // Replace with a valid color
-                      padding: EdgeInsets.symmetric(vertical: 8.h),
+                      foregroundColor: Colors.white,
+                      padding: EdgeInsets.symmetric(vertical: 2.h), // Réduit le padding du bouton
+                      minimumSize: Size(0, 28.h), // Réduit la hauteur minimale du bouton
                       shape: RoundedRectangleBorder(
-                        borderRadius:
-                            BorderRadius.circular(AppSpacing.buttonRadius),
+                        borderRadius: BorderRadius.circular(AppSpacing.buttonRadius),
                       ),
                     ),
-                    child: Text('Ajouter', style: AppTextStyles.buttonMedium),
-                    onPressed: () {
-                      widget.onAjouterAuPanier(produit);
-                    },
+                    onPressed: () => widget.onAjouterAuPanier(produit),
+                    child: Text(
+                      'Ajouter',
+                      style: AppTextStyles.buttonMedium.copyWith(fontSize: 11.sp),
+                    ),
                   ),
                 ),
             ],

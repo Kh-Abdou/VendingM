@@ -10,7 +10,7 @@
 const axios = require('axios');
 
 // Configuration
-const API_URL = 'http://localhost:5000';
+const API_URL = 'http://192.168.86.32:5000';
 const TECHNICIAN_ID = '681154075cf30e38df588370'; // ID du technicien
 
 // Fonction pour envoyer une notification de stock

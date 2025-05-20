@@ -24,13 +24,12 @@ const fileFilter = (req, file, cb) => {
   console.log('File upload attempt:');
   console.log('Original name:', file.originalname);
   console.log('Mimetype:', file.mimetype);
-  
-  // Accept common image mimetypes
-  const allowedMimetypes = ['image/jpeg', 'image/jpg', 'image/png', 'image/gif'];
+    // Accept common image mimetypes
+  const allowedMimetypes = ['image/jpeg', 'image/jpg', 'image/png', 'image/gif', 'image/webp'];
   
   // Check extension as well (as a fallback)
   const extension = path.extname(file.originalname).toLowerCase();
-  const validExtension = ['.jpg', '.jpeg', '.png', '.gif'].includes(extension);
+  const validExtension = ['.jpg', '.jpeg', '.png', '.gif', '.webp'].includes(extension);
   
   if (allowedMimetypes.includes(file.mimetype) || validExtension) {
     // Valid image file
@@ -38,7 +37,7 @@ const fileFilter = (req, file, cb) => {
   } else {
     // Not a valid image
     console.log(`Rejected file: ${file.originalname} (${file.mimetype}) with extension ${extension}`);
-    return cb(new Error('Images only! Please upload an image file (jpeg, jpg, png, gif)'));
+    return cb(new Error('Images only! Please upload an image file (jpeg, jpg, png, gif, webp)'));
   }
 };
 

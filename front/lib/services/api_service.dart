@@ -9,9 +9,7 @@ import 'package:http_parser/http_parser.dart';
 class ApiService {
   // URL de base de l'API (adresse du serveur backend)
   static const String baseUrl =
-      'http://10.0.2.2:5000'; // Pour l'émulateur Android
-  // Si vous utilisez un appareil physique, utilisez l'IP de votre ordinateur
-  // static const String baseUrl = 'http://192.168.x.x:5000';
+      'http://192.168.86.32:5000'; // URL pour appareil physique
 
   // Headers communs pour les requêtes
   static Map<String, String> headers = {

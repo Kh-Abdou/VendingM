@@ -10,7 +10,8 @@ class RechargeClientPage extends StatefulWidget {
 }
 
 class _RechargeClientPageState extends State<RechargeClientPage> {
-  final ClientService _clientService = ClientService();
+  final ClientService _clientService =
+      ClientService(baseUrl: 'http://192.168.86.32:5000');
 
   List<Client> _clients = [];
   List<Client> _filteredClients = [];

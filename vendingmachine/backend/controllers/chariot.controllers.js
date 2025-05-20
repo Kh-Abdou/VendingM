@@ -3,10 +3,13 @@ const Product = require('../models/product.model');
 const mongoose = require('mongoose');
 
 // Obtenir tous les chariots
-exports.getAllChariots = async (req, res) => {
-    try {
+exports.getAllChariots = async (req, res) => {    try {
         const chariots = await Chariot.find()
-            .populate('currentProducts', 'name price quantity')
+            .populate({
+                path: 'currentProducts',
+                model: 'product',
+                select: 'name price quantity'
+            })
             .sort({ name: 1 });
         
         res.status(200).json(chariots);

@@ -28,10 +28,12 @@ import 'dart:developer' as developer;
 import 'technician_page/notifications_page.dart';
 
 // Définir l'URL du backend - modifier cette URL selon votre environnement
-// Pour le développement sur émulateur Android, utilisez 10.0.2.2:5000 au lieu de localhost:5000
+// Pour le développement sur émulateur Android, utilisez 10.0.2.2:5000
 // Pour le développement sur appareil physique, utilisez l'IP de votre machine sur le réseau local
 // const String apiBaseUrl = 'http://localhost:5000'; // Fonctionne uniquement sur le web
-const String apiBaseUrl = 'http://10.0.2.2:5000'; // Pour les émulateurs Android
+// const String apiBaseUrl = 'http://10.0.2.2:5000'; // Pour les émulateurs Android
+const String apiBaseUrl =
+    'http://192.168.86.32:5000'; // Pour votre téléphone physique
 // const String apiBaseUrl = 'http://[IP_DE_VOTRE_MACHINE]:5000'; // Pour les appareils physiques
 
 // ID de technicien par défaut (sera remplacé par l'ID réel après la connexion)

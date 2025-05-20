@@ -24,7 +24,7 @@ const chariotSchema = new mongoose.Schema({
     },
     currentProducts: [{
         type: mongoose.Schema.Types.ObjectId,
-        ref: 'Product',
+        ref: 'product',
         validate: {
             validator: function(value) {
                 // Cette validation s'exécute au niveau du tableau

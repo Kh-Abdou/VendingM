@@ -11,7 +11,8 @@ class AccountManagementPage extends StatefulWidget {
 
 class _AccountManagementPageState extends State<AccountManagementPage> {
   // Create instance of user service - Using 10.0.2.2 which is how Android emulators access host localhost
-  final UserService _userService = UserService(baseUrl: 'http://10.0.2.2:5000');
+  final UserService _userService =
+      UserService(baseUrl: 'http://192.168.86.32:5000');
 
   // Lists to store user data
   List<Map<String, dynamic>> _clients = [];

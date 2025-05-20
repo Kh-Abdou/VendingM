@@ -3,7 +3,7 @@ import 'package:http/http.dart' as http;
 
 class AuthService {
   final String baseUrl =
-      "http://192.168.56.1:5000"; // Replace with your backend URL
+      "http://192.168.86.32:5000"; // URL pour appareil physique
 
   Future<Map<String, dynamic>> login(String email, String password) async {
     final url = Uri.parse(
