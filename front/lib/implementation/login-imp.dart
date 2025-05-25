@@ -1,9 +1,9 @@
 import 'dart:convert';
 import 'package:http/http.dart' as http;
+import '../main.dart' show apiBaseUrl;
 
 class AuthService {
-  final String baseUrl =
-      "http://192.168.86.32:5000"; // URL pour appareil physique
+  final String baseUrl = apiBaseUrl;
 
   Future<Map<String, dynamic>> login(String email, String password) async {
     final url = Uri.parse(

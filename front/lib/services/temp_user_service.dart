@@ -115,7 +115,6 @@ class UserService {
     required String name,
     required String email,
     required String type,
-    required String password,
     double? credit,
     String? rfidUID,
   }) async {

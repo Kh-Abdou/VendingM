@@ -9,7 +9,8 @@ const {
   updateEnvironment,
   adjustStockLevels,
   authenticateRfid,
-  getEnvironmentData
+  getEnvironmentData,
+  processPhysicalOrder
 } = require('../controllers/hardware.controllers');
 
 // Import the dispense controller
@@ -47,6 +48,9 @@ router.post('/stock', adjustStockLevels);
 
 // Authenticate user via RFID
 router.post('/auth/rfid', authenticateRfid);
+
+// Process physical order (RFID + Keypad)
+router.post('/physical-order', processPhysicalOrder);
 
 // NEW ROUTES for dispensing orders
 router.post('/dispense/new-orders', getNewOrdersForDispensing);

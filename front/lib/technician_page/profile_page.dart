@@ -29,28 +29,52 @@ class _ProfilePageState extends State<ProfilePage> {
     return SingleChildScrollView(
       padding: const EdgeInsets.all(20),
       child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          CircleAvatar(
-            radius: 50,
-            backgroundColor: widget.primaryColor.withOpacity(0.2),
-            child: Icon(
-              Icons.person,
-              size: 60,
+          // Profile header with avatar
+          Center(
+            child: Column(
+              children: [
+                CircleAvatar(
+                  radius: 50,
+                  backgroundColor: widget.primaryColor.withOpacity(0.2),
+                  child: Icon(
+                    Icons.person,
+                    size: 60,
+                    color: widget.primaryColor,
+                  ),
+                ),
+                const SizedBox(height: 20),
+                Text(
+                  _technicianName,
+                  style: const TextStyle(
+                    fontSize: 24,
+                    fontWeight: FontWeight.bold,
+                  ),
+                ),
+                Text(_technicianEmail),
+                const SizedBox(height: 30),
+              ],
+            ),
+          ),
+
+          // Informations section
+          Text(
+            'Informations du compte',
+            style: TextStyle(
+              fontSize: 20,
+              fontWeight: FontWeight.bold,
               color: widget.primaryColor,
             ),
           ),
-          const SizedBox(height: 20),
-          Text(
-            _technicianName,
-            style: const TextStyle(
-              fontSize: 24,
-              fontWeight: FontWeight.bold,
-            ),
-          ),
-          Text(_technicianEmail),
-          const SizedBox(height: 30),
+          const SizedBox(height: 12),
+
           Card(
             margin: const EdgeInsets.only(bottom: 20),
+            shape: RoundedRectangleBorder(
+              borderRadius: BorderRadius.circular(12),
+            ),
+            elevation: 1,
             child: Column(
               children: [
                 ListTile(
@@ -67,48 +91,81 @@ class _ProfilePageState extends State<ProfilePage> {
               ],
             ),
           ),
-          ElevatedButton.icon(
-            icon: const Icon(Icons.edit, color: Colors.white),
-            label: const Text(
-              'Modifier le profil',
-              style: TextStyle(
-                  color: Colors.white,
-                  fontWeight: FontWeight.bold,
-                  fontSize: 16),
-            ),
-            onPressed: () {
-              _showEditProfileDialog();
-            },
-            style: ElevatedButton.styleFrom(
-              backgroundColor: widget.buttonColor,
-              foregroundColor: widget.buttonTextColor,
-              padding: const EdgeInsets.symmetric(horizontal: 30, vertical: 15),
-              elevation: 2,
-              shape: RoundedRectangleBorder(
-                borderRadius: BorderRadius.circular(10),
-              ),
+
+          const SizedBox(height: 24),
+
+          // Actions section
+          Text(
+            'Actions',
+            style: TextStyle(
+              fontSize: 20,
+              fontWeight: FontWeight.bold,
+              color: widget.primaryColor,
             ),
           ),
-          const SizedBox(height: 20),
-          ElevatedButton.icon(
-            icon: const Icon(Icons.logout, color: Colors.white),
-            label: const Text(
-              'Déconnexion',
-              style: TextStyle(
-                  color: Colors.white,
-                  fontWeight: FontWeight.bold,
-                  fontSize: 16),
+          const SizedBox(height: 12),
+
+          Card(
+            shape: RoundedRectangleBorder(
+              borderRadius: BorderRadius.circular(12),
             ),
-            onPressed: () {
-              _showLogoutConfirmation();
-            },
-            style: ElevatedButton.styleFrom(
-              backgroundColor: Colors.red[700],
-              foregroundColor: Colors.white,
-              padding: const EdgeInsets.symmetric(horizontal: 30, vertical: 15),
-              elevation: 2,
-              shape: RoundedRectangleBorder(
-                borderRadius: BorderRadius.circular(10),
+            elevation: 1,
+            child: Padding(
+              padding: const EdgeInsets.all(16),
+              child: Column(
+                children: [
+                  ElevatedButton.icon(
+                    icon: const Icon(Icons.edit, color: Colors.white),
+                    label: const Text(
+                      'Modifier le profil',
+                      style: TextStyle(
+                        color: Colors.white,
+                        fontWeight: FontWeight.bold,
+                        fontSize: 16,
+                      ),
+                    ),
+                    onPressed: () {
+                      _showEditProfileDialog();
+                    },
+                    style: ElevatedButton.styleFrom(
+                      backgroundColor: widget.buttonColor,
+                      foregroundColor: Colors.white,
+                      padding: const EdgeInsets.symmetric(
+                          horizontal: 30, vertical: 15),
+                      elevation: 2,
+                      minimumSize: const Size(double.infinity, 0),
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(10),
+                      ),
+                    ),
+                  ),
+                  const SizedBox(height: 12),
+                  ElevatedButton.icon(
+                    icon: const Icon(Icons.logout, color: Colors.white),
+                    label: const Text(
+                      'Déconnexion',
+                      style: TextStyle(
+                        color: Colors.white,
+                        fontWeight: FontWeight.bold,
+                        fontSize: 16,
+                      ),
+                    ),
+                    onPressed: () {
+                      _showLogoutConfirmation();
+                    },
+                    style: ElevatedButton.styleFrom(
+                      backgroundColor: Colors.red[700],
+                      foregroundColor: Colors.white,
+                      padding: const EdgeInsets.symmetric(
+                          horizontal: 30, vertical: 15),
+                      elevation: 2,
+                      minimumSize: const Size(double.infinity, 0),
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(10),
+                      ),
+                    ),
+                  ),
+                ],
               ),
             ),
           ),

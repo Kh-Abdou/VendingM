@@ -33,7 +33,7 @@ import 'technician_page/notifications_page.dart';
 // const String apiBaseUrl = 'http://localhost:5000'; // Fonctionne uniquement sur le web
 // const String apiBaseUrl = 'http://10.0.2.2:5000'; // Pour les émulateurs Android
 const String apiBaseUrl =
-    'http://192.168.86.32:5000'; // Pour votre téléphone physique
+    'http://192.168.238.32:5000'; // Pour votre téléphone physique
 // const String apiBaseUrl = 'http://[IP_DE_VOTRE_MACHINE]:5000'; // Pour les appareils physiques
 
 // ID de technicien par défaut (sera remplacé par l'ID réel après la connexion)

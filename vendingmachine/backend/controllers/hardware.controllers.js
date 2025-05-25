@@ -2,7 +2,10 @@ const Hardware = require('../models/hardware.model');
 const Product = require('../models/product.model');
 const NotificationModel = require('../models/notification.model');
 const UserModel = require('../models/user.model');
+const EWalletModel = require('../models/ewallet.model');
+const OrderModel = require('../models/order.model');
 const mongoose = require('mongoose');
+
 
 // Get all vending machines
 exports.getAllMachines = async (req, res) => {
@@ -330,12 +333,25 @@ exports.authenticateRfid = async (req, res) => {
       return res.status(400).json({ message: 'RFID UID is required' });
     }
     
-    // Find user by RFID UID (assuming there's an rfidUID field in your user model)
-    // Note: You might need to adjust this query based on your actual user model structure
+    // Find user by RFID UID
     const user = await UserModel.findOne({ rfidUID });
     
     if (!user) {
       return res.status(404).json({ message: 'User not found for this RFID card' });
+    }
+
+    // Get user's wallet if they are a client
+    let wallet = null;
+    if (user.role === 'client') {
+      wallet = await EWalletModel.findOne({ userId: user._id });
+      if (!wallet) {
+        // Create wallet if it doesn't exist
+        wallet = new EWalletModel({
+          userId: user._id,
+          balance: 0
+        });
+        await wallet.save();
+      }
     }
     
     res.status(200).json({
@@ -343,7 +359,8 @@ exports.authenticateRfid = async (req, res) => {
       userId: user._id,
       name: user.name,
       email: user.email,
-      role: user.role
+      role: user.role,
+      balance: wallet ? wallet.balance : null
     });
   } catch (error) {
     console.error('Error authenticating RFID:', error);
@@ -384,3 +401,196 @@ exports.getEnvironmentData = async (req, res) => {
     res.status(500).json({ message: 'Error fetching environment data' });
   }
 };
+
+// Process physical order from RFID and keypad
+exports.processPhysicalOrder = async (req, res) => {
+  try {
+    const { userId, couloir, quantity } = req.body;
+    
+    if (!userId || !couloir || !quantity) {
+      return res.status(400).json({ 
+        message: 'User ID, couloir number, and quantity are required' 
+      });
+    }
+
+    // Find the machine
+    const machine = await Hardware.findOne();
+    if (!machine) {
+      return res.status(404).json({ message: 'Vending machine not found' });
+    }
+
+    // Validate couloir number
+    if (couloir < 1 || couloir > 4) {
+      return res.status(400).json({ message: 'Invalid couloir number. Must be between 1 and 4' });
+    }
+
+    // Find the product mapping for this couloir
+    const productMapping = machine.productMapping.find(m => m.couloir === couloir);
+    if (!productMapping) {
+      return res.status(400).json({ message: 'No product configured for this couloir' });
+    }
+
+    // Check stock availability
+    if (productMapping.stockLevel < quantity) {
+      return res.status(400).json({ 
+        message: 'Insufficient stock',
+        available: productMapping.stockLevel
+      });
+    }
+
+    // Get product details
+    const product = await Product.findById(productMapping.productId);
+    if (!product) {
+      return res.status(404).json({ message: 'Product not found' });
+    }
+
+    // Calculate total cost
+    const totalCost = product.price * quantity;
+
+    // Get user's wallet
+    const wallet = await EWalletModel.findOne({ userId });
+    if (!wallet) {
+      return res.status(404).json({ message: 'Wallet not found' });
+    }
+
+    // Check balance
+    if (wallet.balance < totalCost) {
+      return res.status(400).json({ 
+        message: 'Insufficient balance',
+        required: totalCost,
+        balance: wallet.balance
+      });
+    }
+
+    // Create order
+    const order = new OrderModel({
+      userId,
+      products: [{
+        productId: product._id,
+        quantity: quantity,
+        couloir: couloir,
+        price: product.price
+      }],
+      total: totalCost,
+      status: 'PENDING',
+      paymentMethod: 'EWALLET',
+      vendingMachineId: machine.vendingMachineId
+    });
+
+    await order.save();
+
+    // Process payment
+    wallet.balance -= totalCost;
+    wallet.transactions.push({
+      type: 'PAYMENT',
+      amount: -totalCost,
+      orderId: order._id,
+      date: new Date()
+    });
+    await wallet.save();
+
+    // Update stock level
+    productMapping.stockLevel -= quantity;
+    if (productMapping.stockLevel < 0) productMapping.stockLevel = 0;
+    await machine.save();
+
+    // Return success with dispensing instructions
+    res.status(200).json({
+      message: 'Order processed successfully',
+      orderId: order._id,
+      dispensing: {
+        couloir,
+        quantity
+      },
+      payment: {
+        amount: totalCost,
+        newBalance: wallet.balance
+      }
+    });
+
+  } catch (error) {
+    console.error('Error processing physical order:', error);
+    res.status(500).json({ 
+      message: 'Error processing order',
+      error: error.message
+    });
+  }
+};
+
+// Process physical order (RFID + Keypad)
+exports.processPhysicalOrder = async (req, res) => {
+  try {
+    const { rfidTag, selectedCouloir, productId } = req.body;
+    
+    // Find user by RFID tag
+    const user = await UserModel.findOne({ rfidTag });
+    if (!user) {
+      return res.status(404).json({ message: 'User not found' });
+    }
+
+    // Get user's wallet
+    const wallet = await EWalletModel.findOne({ userId: user._id });
+    if (!wallet) {
+      return res.status(404).json({ message: 'Wallet not found' });
+    }
+
+    // Get the machine
+    const machine = await Hardware.findOne().populate('productMapping.productId');
+    if (!machine) {
+      return res.status(404).json({ message: 'Machine not found' });
+    }
+
+    // Find the product mapping for the selected couloir
+    const productMapping = machine.productMapping.find(
+      mapping => mapping.couloir === selectedCouloir && 
+      mapping.productId._id.toString() === productId
+    );
+
+    if (!productMapping) {
+      return res.status(400).json({ message: 'Invalid product or couloir selection' });
+    }
+
+    // Check if product is in stock
+    if (productMapping.quantity <= 0) {
+      return res.status(400).json({ message: 'Product out of stock' });
+    }
+
+    // Check if user has enough balance
+    if (wallet.balance < productMapping.productId.price) {
+      return res.status(400).json({ message: 'Insufficient balance' });
+    }
+
+    // Create order
+    const order = new OrderModel({
+      userId: user._id,
+      productId: productMapping.productId._id,
+      quantity: 1,
+      totalPrice: productMapping.productId.price,
+      status: 'pending',
+      vendingMachineId: machine.vendingMachineId,
+      couloir: selectedCouloir,
+      orderType: 'physical'
+    });
+
+    // Update wallet balance
+    wallet.balance -= productMapping.productId.price;
+    await wallet.save();
+
+    // Update stock
+    productMapping.quantity -= 1;
+    await machine.save();
+
+    // Save order
+    await order.save();
+
+    res.status(200).json({
+      message: 'Order processed successfully',
+      orderId: order._id,
+      remainingBalance: wallet.balance
+    });
+
+  } catch (error) {
+    console.error('Error processing physical order:', error);
+    res.status(500).json({ message: 'Error processing physical order' });
+  }
+}

@@ -2,6 +2,9 @@ const User = require('../models/user.model');
 const EWalletModel = require('../models/ewallet.model'); // Ajout du modèle EWallet
 const bcrypt = require('bcrypt');
 
+// Global variable to store pending RFID registrations
+let pendingRfidRegistrations = {};
+
 module.exports.setRegister = async (req, res) => {
     if (!req.body.name || !req.body.email || !req.body.password) {
         return res.status(400).json({ message: 'All fields are required' });
@@ -278,6 +281,157 @@ const updatePassword = async (req, res) => {
   }
 };
 
+// Initialize RFID registration process
+const initRfidRegistration = async (req, res) => {
+  try {
+    const { name, email, password, role } = req.body;
+    
+    if (!name || !email || !password || !role) {
+      return res.status(400).json({ message: 'Name, email, password and role are required' });
+    }
+    
+    // Hash password
+    const salt = await bcrypt.genSalt(10);
+    const hashedPassword = await bcrypt.hash(password, salt);
+
+    // Create new user with hashed password and role
+    const newUser = new User({
+      name,
+      email,
+      password: hashedPassword,
+      role: role
+    });
+
+    await newUser.save();
+
+    // Create a wallet if user is a client
+    if (role === 'client') {
+      const newWallet = new EWalletModel({
+        userId: newUser._id,
+        balance: 0
+      });
+      await newWallet.save();
+    }
+    
+    // Set pending registration with timestamp (expires after 2 minutes)
+    pendingRfidRegistrations[newUser._id] = {
+      timestamp: Date.now(),
+      status: 'waiting_for_card'
+    };
+      // Return success response with waiting status and user info
+    res.status(200).json({
+      message: 'RFID registration initiated',
+      status: 'waiting_for_card',
+      user: {
+        _id: newUser._id,
+        name: newUser.name,
+        email: newUser.email,
+        role: newUser.role
+      },
+      expiresIn: 120 // seconds
+    });
+    
+  } catch (error) {
+    console.error('Error initiating RFID registration:', error);
+    res.status(500).json({ message: 'Server error', error: error.message });
+  }
+};
+
+// Check if there is a pending RFID registration (for ESP32)
+const checkPendingRfidRegistration = async (req, res) => {
+  try {
+    // Clean expired registrations (older than 2 minutes)
+    const now = Date.now();
+    Object.keys(pendingRfidRegistrations).forEach(userId => {
+      if (now - pendingRfidRegistrations[userId].timestamp > 120000) {
+        delete pendingRfidRegistrations[userId];
+      }
+    });
+    
+    // Return pending registrations if any
+    const pendingRegistrations = Object.keys(pendingRfidRegistrations)
+      .filter(userId => pendingRfidRegistrations[userId].status === 'waiting_for_card')
+      .map(userId => ({
+        userId,
+        timestamp: pendingRfidRegistrations[userId].timestamp
+      }));
+    
+    if (pendingRegistrations.length > 0) {
+      res.status(200).json({
+        message: 'Pending RFID registrations found',
+        pendingRegistrations
+      });
+    } else {
+      res.status(404).json({
+        message: 'No pending RFID registrations'
+      });
+    }
+  } catch (error) {
+    console.error('Error checking pending RFID registrations:', error);
+    res.status(500).json({ message: 'Server error', error: error.message });
+  }
+};
+
+// Complete RFID registration with scanned card (from ESP32)
+const completeRfidRegistration = async (req, res) => {
+  try {
+    const { userId, rfidUID } = req.body;
+    
+    if (!userId || !rfidUID) {
+      return res.status(400).json({ message: 'User ID and RFID UID are required' });
+    }
+    
+    // Check if registration is pending
+    if (!pendingRfidRegistrations[userId] || 
+        pendingRfidRegistrations[userId].status !== 'waiting_for_card') {
+      return res.status(400).json({ message: 'No pending RFID registration for this user' });
+    }
+    
+    // Check if RFID is already registered to another user
+    const existingUser = await User.findOne({ rfidUID });
+    if (existingUser && existingUser._id.toString() !== userId) {
+      return res.status(409).json({ 
+        message: 'RFID card is already registered to another user',
+        user: {
+          id: existingUser._id,
+          name: existingUser.name,
+          email: existingUser.email
+        }
+      });
+    }
+    
+    // Update user with RFID UID
+    const updatedUser = await User.findByIdAndUpdate(
+      userId,
+      { rfidUID },
+      { new: true }
+    );
+    
+    if (!updatedUser) {
+      return res.status(404).json({ message: 'User not found' });
+    }
+    
+    // Clear pending registration
+    delete pendingRfidRegistrations[userId];
+    
+    // Return success response
+    res.status(200).json({
+      message: 'RFID registration successful',
+      user: {
+        _id: updatedUser._id,
+        name: updatedUser.name,
+        email: updatedUser.email,
+        role: updatedUser.role,
+        rfidUID: updatedUser.rfidUID
+      }
+    });
+    
+  } catch (error) {
+    console.error('Error completing RFID registration:', error);
+    res.status(500).json({ message: 'Server error', error: error.message });
+  }
+};
+
 // Export all functions together at the end
 module.exports = {
     setRegister: module.exports.setRegister,
@@ -288,5 +442,8 @@ module.exports = {
     updateUserById: module.exports.updateUserById,
     getClients,
     rechargeClientBalance,
-    updatePassword
+    updatePassword,
+    initRfidRegistration,
+    checkPendingRfidRegistration,
+    completeRfidRegistration
 };

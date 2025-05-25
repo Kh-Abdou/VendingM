@@ -1,6 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:lessvsfull/services/user_service.dart';
+import 'package:lessvsfull/theme/app_colors.dart';
 import 'dart:async';
+import '../main.dart' show apiBaseUrl;
 
 class AccountManagementPage extends StatefulWidget {
   const AccountManagementPage({super.key});
@@ -10,9 +12,8 @@ class AccountManagementPage extends StatefulWidget {
 }
 
 class _AccountManagementPageState extends State<AccountManagementPage> {
-  // Create instance of user service - Using 10.0.2.2 which is how Android emulators access host localhost
-  final UserService _userService =
-      UserService(baseUrl: 'http://192.168.86.32:5000');
+  // Create instance of user service
+  final UserService _userService = UserService(baseUrl: apiBaseUrl);
 
   // Lists to store user data
   List<Map<String, dynamic>> _clients = [];
@@ -119,13 +120,14 @@ class _AccountManagementPageState extends State<AccountManagementPage> {
         ),
       );
     }
-
     return DefaultTabController(
       length: 2,
       child: Column(
         children: [
-          const TabBar(
-            labelColor: Colors.blue, // Replace with your theme color
+          TabBar(
+            labelColor: AppColors.primary,
+            unselectedLabelColor: AppColors.textSecondary,
+            indicatorColor: AppColors.primary,
             tabs: [
               Tab(text: 'Clients'),
               Tab(text: 'Techniciens'),
@@ -158,13 +160,26 @@ class _AccountManagementPageState extends State<AccountManagementPage> {
                 itemBuilder: (context, index) {
                   final account = filteredAccounts[index];
                   return Card(
-                      elevation: 2,
+                      elevation: 1,
                       margin: const EdgeInsets.symmetric(
                           vertical: 4, horizontal: 8),
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(12),
+                        side: BorderSide(
+                          color: AppColors.border.withOpacity(0.1),
+                          width: 1,
+                        ),
+                      ),
                       child: ListTile(
                         leading: CircleAvatar(
-                          backgroundColor: Colors.blue.withOpacity(0.2),
-                          child: Text(account['name'].substring(0, 1)),
+                          backgroundColor: AppColors.primary.withOpacity(0.1),
+                          child: Text(
+                            account['name'].substring(0, 1),
+                            style: TextStyle(
+                              color: AppColors.primary,
+                              fontWeight: FontWeight.bold,
+                            ),
+                          ),
                         ),
                         title: Text('${account['name']}'),
                         subtitle: type == 'Client'
@@ -193,13 +208,13 @@ class _AccountManagementPageState extends State<AccountManagementPage> {
                           mainAxisSize: MainAxisSize.min,
                           children: [
                             IconButton(
-                              icon: const Icon(Icons.edit, color: Colors.blue),
+                              icon: Icon(Icons.edit, color: AppColors.primary),
                               onPressed: () {
                                 _showEditAccountDialog(account);
                               },
                             ),
                             IconButton(
-                              icon: const Icon(Icons.delete, color: Colors.red),
+                              icon: Icon(Icons.delete, color: AppColors.error),
                               onPressed: () {
                                 _showDeleteConfirmationDialog(account);
                               },
@@ -211,11 +226,13 @@ class _AccountManagementPageState extends State<AccountManagementPage> {
               ),
       ),
       floatingActionButton: FloatingActionButton(
-        backgroundColor: Colors.blue, // Replace with your theme color
+        backgroundColor: AppColors.primary,
+        foregroundColor: AppColors.onPrimary,
         onPressed: () {
           _showAddAccountDialog(type);
         },
         child: const Icon(Icons.add),
+        elevation: 4,
       ),
     );
   }
@@ -226,26 +243,26 @@ class _AccountManagementPageState extends State<AccountManagementPage> {
     final passwordController = TextEditingController();
     final confirmPasswordController = TextEditingController();
     final creditController = TextEditingController(text: '0.0');
-    final nfcIdController =
-        TextEditingController(text: 'En attente de scan NFC...');
+    final rfidIdController = TextEditingController(text: '');
+    final rfidPinController = TextEditingController();
 
     // Variables pour suivre si les champs sont valides
     String? nameError;
     String? emailError;
     String? passwordError;
     String? confirmPasswordError;
-    String? creditError;
+    String? rfidPinError;
 
     // Variables pour suivre l'état de validation des champs
     bool isNameValid = false;
     bool isEmailValid = false;
     bool isPasswordValid = false;
     bool isConfirmPasswordValid = false;
-    bool isCreditValid = true; // Par défaut à true car c'est initialisé à 0.0
+    bool isRfidPinValid = false;
 
-    // Variable pour suivre l'état du scan NFC
-    bool isNfcScanning = true;
-    bool isNfcDetected = false;
+    // Variable pour suivre l'état du scan RFID
+    bool isRfidScanning = false; // Only true when scan button pressed
+    bool isRfidDetected = false;
 
     // Variable pour suivre l'état de la soumission
     bool isSubmitting = false;
@@ -254,28 +271,115 @@ class _AccountManagementPageState extends State<AccountManagementPage> {
     bool isPasswordVisible = false;
     bool isConfirmPasswordVisible = false;
 
+    Future<void> scanRfidCard(StateSetter setState, String name, String email,
+        String password, String type) async {
+      setState(() {
+        isRfidScanning = true;
+        isRfidDetected = false;
+        rfidIdController.text = '';
+      });
+      try {
+        await _userService.initRfidRegistration(
+          name: name,
+          email: email,
+          password: password,
+          type: type,
+        );
+        bool registrationComplete = false;
+        while (!registrationComplete) {
+          await Future.delayed(const Duration(seconds: 2));
+          try {
+            final response = await _userService.checkPendingRfidRegistration();
+            if (response.containsKey('registeredUID')) {
+              setState(() {
+                rfidIdController.text = response['registeredUID'];
+                isRfidScanning = false;
+                isRfidDetected = true;
+              });
+              registrationComplete = true;
+              break;
+            }
+          } catch (_) {}
+        }
+      } catch (e) {
+        setState(() {
+          isRfidScanning = false;
+          isRfidDetected = false;
+          rfidIdController.text = '';
+        });
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+              content: Text('RFID scan failed: $e'),
+              backgroundColor: AppColors.error),
+        );
+      }
+    }
+
+    Future<void> createUser() async {
+      if (!isNameValid ||
+          !isEmailValid ||
+          !isPasswordValid ||
+          !isConfirmPasswordValid) {
+        return;
+      }
+      setState(() {
+        isSubmitting = true;
+      });
+      try {
+        await _userService.registerUser(
+          name: nameController.text,
+          email: emailController.text,
+          password: passwordController.text,
+          type: type,
+          rfidUID: (isRfidDetected && rfidIdController.text.isNotEmpty)
+              ? rfidIdController.text
+              : null,
+          credit: double.tryParse(creditController.text) ?? 0.0,
+        );
+        if (context.mounted) {
+          Navigator.pop(context);
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(content: Text('Account created successfully')),
+          );
+          _loadUsers();
+        }
+      } catch (e) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+              content: Text('Error creating account: $e'),
+              backgroundColor: Colors.red),
+        );
+      } finally {
+        setState(() {
+          isSubmitting = false;
+        });
+      }
+    }
+
     showDialog(
       context: context,
       builder: (context) {
         return StatefulBuilder(
           builder: (context, setState) {
-            // Simuler la détection du NFC après un délai
-            if (type == 'Client' && isNfcScanning) {
-              Future.delayed(const Duration(seconds: 3), () {
-                if (context.mounted) {
-                  setState(() {
-                    // Générer un code NFC hexadécimal aléatoire
-                    final String nfcCode =
-                        'A4:F5:${DateTime.now().millisecondsSinceEpoch.toString().substring(6)}';
-                    nfcIdController.text = nfcCode;
-                    isNfcScanning = false;
-                    isNfcDetected = true;
-                  });
+            // Fonctions de validation
+            void validateRfidPin(String value) {
+              setState(() {
+                if (value.isEmpty) {
+                  rfidPinError = 'Le code PIN est requis';
+                  isRfidPinValid = false;
+                } else if (value.length != 4) {
+                  rfidPinError = 'Le code PIN doit contenir 4 chiffres';
+                  isRfidPinValid = false;
+                } else if (!RegExp(r'^[0-9]{4}$').hasMatch(value)) {
+                  rfidPinError = 'Le code PIN doit être composé de 4 chiffres';
+                  isRfidPinValid = false;
+                } else {
+                  rfidPinError = null;
+                  isRfidPinValid = true;
                 }
               });
             }
 
-            // Fonctions de validation
             void validateName(String value) {
               setState(() {
                 if (value.isEmpty) {
@@ -344,37 +448,12 @@ class _AccountManagementPageState extends State<AccountManagementPage> {
               });
             }
 
-            void validateCredit(String value) {
-              setState(() {
-                if (value.isEmpty) {
-                  creditError = 'Le crédit ne peut pas être vide';
-                  isCreditValid = false;
-                } else {
-                  final creditValue = double.tryParse(value);
-                  if (creditValue == null) {
-                    creditError = 'Veuillez entrer un nombre valide';
-                    isCreditValid = false;
-                  } else if (creditValue < 0) {
-                    creditError = 'Le crédit ne peut pas être négatif';
-                    isCreditValid = false;
-                  } else {
-                    creditError = null;
-                    isCreditValid = true;
-                  }
-                }
-              });
-            }
-
-            // Validation initiale du crédit
-            validateCredit(creditController.text);
-
             // Fonction pour créer un utilisateur
             Future<void> createUser() async {
               if (!isNameValid ||
                   !isEmailValid ||
                   !isPasswordValid ||
-                  !isConfirmPasswordValid ||
-                  (type == 'Client' && !isCreditValid)) {
+                  !isConfirmPasswordValid) {
                 return;
               }
 
@@ -383,40 +462,35 @@ class _AccountManagementPageState extends State<AccountManagementPage> {
               });
 
               try {
-                final userData = {
-                  'name': nameController.text,
-                  'email': emailController.text,
-                  'password': passwordController.text,
-                  'role': type == 'Client' ? 'client' : 'technician',
-                };
-
-                if (type == 'Client') {
-                  // Conversion en nombre plutôt qu'en chaîne de caractères
-                  userData['credit'] =
-                      double.parse(creditController.text).toString();
-                  if (isNfcDetected) {
-                    userData['nfcId'] = nfcIdController.text;
-                  }
-                }
-
-                await _userService.createUser(userData);
+                await _userService.registerUser(
+                  name: nameController.text,
+                  email: emailController.text,
+                  password: passwordController.text,
+                  type: type,
+                  rfidUID: (isRfidDetected && rfidIdController.text.isNotEmpty)
+                      ? rfidIdController.text
+                      : null,
+                  credit: double.tryParse(creditController.text) ?? 0.0,
+                );
 
                 if (context.mounted) {
                   Navigator.pop(context);
                   ScaffoldMessenger.of(context).showSnackBar(
                     const SnackBar(
-                        content: Text('Account created successfully')),
+                      content: Text('Account created successfully'),
+                    ),
                   );
                   _loadUsers(); // Reload users list
                 }
               } catch (e) {
-                if (context.mounted) {
-                  ScaffoldMessenger.of(context).showSnackBar(
-                    SnackBar(content: Text('Error creating account: $e')),
-                  );
-                }
+                ScaffoldMessenger.of(context).showSnackBar(
+                  SnackBar(
+                    content: Text('Error creating account: $e'),
+                    backgroundColor: Colors.red,
+                  ),
+                );
               } finally {
-                if (context.mounted) {
+                if (mounted) {
                   setState(() {
                     isSubmitting = false;
                   });
@@ -430,99 +504,256 @@ class _AccountManagementPageState extends State<AccountManagementPage> {
                 child: Column(
                   mainAxisSize: MainAxisSize.min,
                   children: [
-                    // Ajout du champ NFC ID en lecture seule avec meilleure lisibilité
-                    if (type == 'Client') ...[
-                      Container(
-                        padding: const EdgeInsets.all(4),
-                        decoration: BoxDecoration(
-                          borderRadius: BorderRadius.circular(8),
-                          border: Border.all(
-                            color: isNfcDetected ? Colors.green : Colors.blue,
-                            width: 2,
-                          ),
+                    // RFID Card section
+                    Container(
+                      padding: const EdgeInsets.all(12),
+                      decoration: BoxDecoration(
+                        borderRadius: BorderRadius.circular(8),
+                        border: Border.all(
+                          color:
+                              isRfidDetected ? Colors.green : Colors.grey[300]!,
+                          width: 1.5,
                         ),
-                        child: Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                            Row(
-                              children: [
-                                Icon(
-                                  Icons.nfc,
-                                  color: isNfcDetected
-                                      ? Colors.green
-                                      : Colors.blue,
-                                  size: 24,
-                                ),
-                                const SizedBox(width: 8),
-                                Text(
-                                  'NFC ID',
-                                  style: TextStyle(
-                                    fontWeight: FontWeight.bold,
-                                    color: isNfcDetected
+                        color: Colors.grey[50],
+                      ),
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Row(
+                            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                            children: [
+                              Row(
+                                children: [
+                                  Icon(
+                                    Icons.contactless,
+                                    color: isRfidDetected
                                         ? Colors.green
-                                        : Colors.blue,
+                                        : Colors.blue[700],
+                                    size: 20,
                                   ),
-                                ),
-                                const Spacer(),
-                                if (isNfcScanning)
-                                  const SizedBox(
-                                    width: 20,
-                                    height: 20,
-                                    child: CircularProgressIndicator(
-                                      strokeWidth: 2,
-                                      valueColor: AlwaysStoppedAnimation<Color>(
-                                          Colors.blue),
+                                  const SizedBox(width: 8),
+                                  Text(
+                                    'RFID Card (Optional)',
+                                    style: TextStyle(
+                                      fontWeight: FontWeight.bold,
+                                      color: isRfidDetected
+                                          ? Colors.green
+                                          : Colors.blue[700],
                                     ),
                                   ),
-                                if (isNfcDetected)
-                                  const Icon(Icons.check_circle,
-                                      color: Colors.green, size: 20),
+                                ],
+                              ),
+                              if (isRfidDetected)
+                                Chip(
+                                  backgroundColor:
+                                      Colors.green.withOpacity(0.1),
+                                  side: const BorderSide(color: Colors.green),
+                                  avatar: const Icon(
+                                    Icons.check_circle,
+                                    color: Colors.green,
+                                    size: 16,
+                                  ),
+                                  label: const Text(
+                                    'Registered',
+                                    style: TextStyle(color: Colors.green),
+                                  ),
+                                ),
+                            ],
+                          ),
+                          const SizedBox(height: 12),
+                          AnimatedContainer(
+                            duration: const Duration(milliseconds: 300),
+                            width: double.infinity,
+                            padding: const EdgeInsets.all(16),
+                            decoration: BoxDecoration(
+                              color: isRfidDetected
+                                  ? Colors.green.withOpacity(0.1)
+                                  : isRfidScanning
+                                      ? Colors.blue.withOpacity(0.1)
+                                      : Colors.grey[100],
+                              borderRadius: BorderRadius.circular(8),
+                              border: Border.all(
+                                color: isRfidDetected
+                                    ? Colors.green
+                                    : isRfidScanning
+                                        ? Colors.blue
+                                        : Colors.grey[300]!,
+                              ),
+                            ),
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                Row(
+                                  children: [
+                                    Icon(
+                                      isRfidDetected
+                                          ? Icons.check_circle
+                                          : isRfidScanning
+                                              ? Icons.pending
+                                              : Icons.info_outline,
+                                      color: isRfidDetected
+                                          ? Colors.green
+                                          : isRfidScanning
+                                              ? Colors.blue
+                                              : Colors.grey[700],
+                                    ),
+                                    const SizedBox(width: 8),
+                                    Text(
+                                      isRfidDetected
+                                          ? 'Card Registered'
+                                          : isRfidScanning
+                                              ? 'Waiting for Card...'
+                                              : 'No Card Scanned',
+                                      style: TextStyle(
+                                        fontWeight: FontWeight.w500,
+                                        color: isRfidDetected
+                                            ? Colors.green
+                                            : isRfidScanning
+                                                ? Colors.blue
+                                                : Colors.grey[700],
+                                      ),
+                                    ),
+                                    if (isRfidScanning)
+                                      Padding(
+                                        padding: const EdgeInsets.only(left: 8),
+                                        child: SizedBox(
+                                          width: 16,
+                                          height: 16,
+                                          child: CircularProgressIndicator(
+                                            strokeWidth: 2,
+                                            valueColor:
+                                                AlwaysStoppedAnimation<Color>(
+                                              Colors.blue,
+                                            ),
+                                          ),
+                                        ),
+                                      ),
+                                  ],
+                                ),
+                                if (isRfidDetected)
+                                  Padding(
+                                    padding: const EdgeInsets.only(top: 8),
+                                    child: Text(
+                                      rfidIdController.text,
+                                      style: const TextStyle(
+                                        fontFamily: 'Roboto Mono',
+                                        fontSize: 14,
+                                      ),
+                                    ),
+                                  ),
                               ],
                             ),
-                            const SizedBox(height: 8),
-                            Container(
-                              width: double.infinity,
-                              padding: const EdgeInsets.symmetric(
-                                  vertical: 12, horizontal: 16),
-                              decoration: BoxDecoration(
-                                color: isNfcDetected
-                                    ? Colors.green.withOpacity(0.1)
-                                    : Colors.grey[200],
-                                borderRadius: BorderRadius.circular(4),
+                          ),
+                          const SizedBox(height: 16),
+                          Center(
+                            child: ElevatedButton.icon(
+                              onPressed: isRfidScanning || isRfidDetected
+                                  ? null
+                                  : () {
+                                      validateName(nameController.text);
+                                      validateEmail(emailController.text);
+                                      validatePassword(passwordController.text);
+                                      validateConfirmPassword(
+                                          confirmPasswordController.text);
+                                      if (!isNameValid ||
+                                          !isEmailValid ||
+                                          !isPasswordValid ||
+                                          !isConfirmPasswordValid) {
+                                        ScaffoldMessenger.of(context)
+                                            .showSnackBar(
+                                          const SnackBar(
+                                            content: Text(
+                                                'Please fill all required fields correctly before scanning'),
+                                            backgroundColor: AppColors.warning,
+                                          ),
+                                        );
+                                        return;
+                                      }
+                                      scanRfidCard(
+                                          setState,
+                                          nameController.text,
+                                          emailController.text,
+                                          passwordController.text,
+                                          type);
+                                    },
+                              icon: isRfidScanning
+                                  ? const SizedBox(
+                                      width: 18,
+                                      height: 18,
+                                      child: CircularProgressIndicator(
+                                        strokeWidth: 2,
+                                        valueColor:
+                                            AlwaysStoppedAnimation<Color>(
+                                                Colors.white),
+                                      ),
+                                    )
+                                  : const Icon(Icons.contactless),
+                              label: Text(
+                                isRfidDetected
+                                    ? 'Card Registered'
+                                    : isRfidScanning
+                                        ? 'Scanning...'
+                                        : 'Scan RFID Card',
                               ),
-                              child: Text(
-                                nfcIdController.text,
-                                style: TextStyle(
-                                  fontFamily: 'Courier', // Police monospace
-                                  fontSize: 18,
-                                  letterSpacing: 1.5,
-                                  fontWeight: FontWeight.bold,
-                                  color: isNfcDetected
-                                      ? Colors.green[800]
-                                      : Colors.grey[600],
+                              style: ElevatedButton.styleFrom(
+                                backgroundColor:
+                                    isRfidDetected ? Colors.green : null,
+                                padding: const EdgeInsets.symmetric(
+                                  horizontal: 24,
+                                  vertical: 12,
                                 ),
                               ),
                             ),
+                          ),
+                          if (!isRfidDetected && !isRfidScanning)
                             Padding(
-                              padding: const EdgeInsets.only(top: 4, left: 4),
-                              child: Text(
-                                isNfcDetected
-                                    ? 'Tag NFC détecté avec succès'
-                                    : 'Scanning en cours...',
-                                style: TextStyle(
-                                  fontSize: 12,
-                                  color: isNfcDetected
-                                      ? Colors.green
-                                      : Colors.grey[600],
-                                  fontStyle: FontStyle.italic,
+                              padding: const EdgeInsets.only(top: 8),
+                              child: Center(
+                                child: Text(
+                                  'RFID card is optional. You can create the account without it.',
+                                  style: TextStyle(
+                                    fontSize: 12,
+                                    color: Colors.grey[600],
+                                    fontStyle: FontStyle.italic,
+                                  ),
+                                  textAlign: TextAlign.center,
                                 ),
                               ),
                             ),
-                          ],
-                        ),
+                        ],
                       ),
-                      const SizedBox(height: 16),
-                    ],
+                    ),
+                    const SizedBox(height: 16),
+                    // Champ pour le code PIN de la carte RFID
+                    TextField(
+                      controller: rfidPinController,
+                      decoration: InputDecoration(
+                        labelText: 'Code PIN RFID (4 chiffres)',
+                        border: const OutlineInputBorder(),
+                        errorText: rfidPinError,
+                        helperText: isRfidPinValid
+                            ? 'Code PIN valide'
+                            : 'Entrez un code PIN à 4 chiffres',
+                        helperStyle: TextStyle(
+                          color:
+                              isRfidPinValid ? Colors.green : Colors.grey[600],
+                        ),
+                        enabledBorder: OutlineInputBorder(
+                          borderSide: BorderSide(
+                            color: isRfidPinValid ? Colors.green : Colors.grey,
+                            width: isRfidPinValid ? 2.0 : 1.0,
+                          ),
+                        ),
+                        prefixIcon: const Icon(Icons.pin),
+                        suffixIcon: isRfidPinValid
+                            ? const Icon(Icons.check_circle,
+                                color: Colors.green)
+                            : null,
+                      ),
+                      keyboardType: TextInputType.number,
+                      maxLength: 4,
+                      onChanged: validateRfidPin,
+                    ),
                     TextField(
                       controller: nameController,
                       decoration: InputDecoration(
@@ -697,53 +928,6 @@ class _AccountManagementPageState extends State<AccountManagementPage> {
                       ),
                       onChanged: validateConfirmPassword,
                     ),
-                    // Only show credit field for clients
-                    if (type == 'Client') ...[
-                      const SizedBox(height: 16),
-                      TextField(
-                        controller: creditController,
-                        decoration: InputDecoration(
-                          labelText: 'Credit (DA)',
-                          border: const OutlineInputBorder(),
-                          errorText: creditError,
-                          helperText: isCreditValid
-                              ? 'Crédit valide'
-                              : 'Entrez un nombre valide',
-                          helperStyle: TextStyle(
-                            color:
-                                isCreditValid ? Colors.green : Colors.grey[600],
-                          ),
-                          prefixIcon: const Icon(Icons.account_balance_wallet),
-                          suffixText: 'DA',
-                          suffixStyle: const TextStyle(
-                            fontWeight: FontWeight.bold,
-                          ),
-                        ),
-                        keyboardType: const TextInputType.numberWithOptions(
-                            decimal: true),
-                        onChanged: (value) {
-                          try {
-                            final amount = double.parse(value);
-                            if (amount >= 0) {
-                              setState(() {
-                                creditError = null;
-                                isCreditValid = true;
-                              });
-                            } else {
-                              setState(() {
-                                creditError = 'Le montant doit être positif';
-                                isCreditValid = false;
-                              });
-                            }
-                          } catch (e) {
-                            setState(() {
-                              creditError = 'Veuillez entrer un nombre valide';
-                              isCreditValid = false;
-                            });
-                          }
-                        },
-                      ),
-                    ],
                   ],
                 ),
               ),
@@ -756,28 +940,19 @@ class _AccountManagementPageState extends State<AccountManagementPage> {
                   onPressed: isSubmitting
                       ? null
                       : () {
-                          // Validation finale avant création
                           validateName(nameController.text);
                           validateEmail(emailController.text);
                           validatePassword(passwordController.text);
                           validateConfirmPassword(
                               confirmPasswordController.text);
-                          if (type == 'Client') {
-                            validateCredit(creditController.text);
-                          }
-
-                          // Vérifier si tous les champs sont valides après validation finale
+                          validateRfidPin(rfidPinController.text);
                           if (nameController.text.isEmpty ||
                               emailController.text.isEmpty ||
                               passwordController.text.isEmpty ||
                               confirmPasswordController.text.isEmpty ||
-                              (type == 'Client' &&
-                                  (creditError != null ||
-                                      creditController.text.isEmpty))) {
+                              rfidPinController.text.isEmpty) {
                             return;
                           }
-
-                          // Call the API to create user
                           createUser();
                         },
                   child: isSubmitting

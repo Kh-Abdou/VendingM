@@ -5,11 +5,11 @@ import 'package:path/path.dart' as path;
 import 'package:flutter/material.dart';
 import 'package:mime/mime.dart';
 import 'package:http_parser/http_parser.dart';
+import '../main.dart' show apiBaseUrl;
 
 class ApiService {
-  // URL de base de l'API (adresse du serveur backend)
-  static const String baseUrl =
-      'http://192.168.86.32:5000'; // URL pour appareil physique
+  // Import the URL from main.dart
+  static const String baseUrl = apiBaseUrl;
 
   // Headers communs pour les requêtes
   static Map<String, String> headers = {

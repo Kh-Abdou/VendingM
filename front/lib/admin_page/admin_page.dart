@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import '../Login/login_page.dart'; // Add this import for logout functionality
+import '../theme/app_colors.dart';
 import 'dashboard_page.dart';
 import 'recharge_page.dart';
 import 'account_page.dart';
@@ -22,7 +23,7 @@ class _AdminHomePageState extends State<AdminHomePage> {
   void initState() {
     super.initState();
     _pages = [
-      DashboardPage(), // Dashboard Page
+      // Dashboard Page
       const RechargeClientPage(), // Credit Recharge Page
       const AccountManagementPage(), // Account Management Page
       const TransactionHistoryPage(), // Transaction History Page
@@ -33,12 +34,14 @@ class _AdminHomePageState extends State<AdminHomePage> {
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(
-        title: const Text('Admin Dashboard'),
-        backgroundColor: Colors.blue, // Replace with your theme color
+        title: const Text('Admin Dashboard',
+            style: TextStyle(color: AppColors.textOnPrimary)),
+        backgroundColor: AppColors.primary,
+        elevation: 2,
         actions: [
           // Ajouter un bouton de déconnexion dans l'appbar
           IconButton(
-            icon: const Icon(Icons.logout),
+            icon: const Icon(Icons.logout, color: AppColors.textOnPrimary),
             onPressed: () {
               _showLogoutConfirmation();
             },
@@ -48,21 +51,20 @@ class _AdminHomePageState extends State<AdminHomePage> {
       body: _pages[_selectedIndex],
       bottomNavigationBar: BottomNavigationBar(
         currentIndex: _selectedIndex,
-        type: BottomNavigationBarType
-            .fixed, // Important si vous avez plus de 3 éléments
-        backgroundColor: Colors.white,
-        selectedItemColor: Colors.blue,
-        unselectedItemColor: Colors.grey,
+        type: BottomNavigationBarType.fixed,
+        backgroundColor: AppColors.surfaceLight,
+        selectedItemColor: AppColors.primary,
+        unselectedItemColor: AppColors.textSecondary,
         onTap: (index) {
           setState(() {
             _selectedIndex = index;
           });
         },
         items: const [
-          BottomNavigationBarItem(
-            icon: Icon(Icons.dashboard),
-            label: 'Dashboard',
-          ),
+          // BottomNavigationBarItem(
+          //   icon: Icon(Icons.dashboard),
+          //   label: 'Dashboard',
+          // ),
           BottomNavigationBarItem(
             icon: Icon(Icons.account_balance_wallet),
             label: 'Crédit',
@@ -88,7 +90,7 @@ class _AdminHomePageState extends State<AdminHomePage> {
         return AlertDialog(
           title: Row(
             children: [
-              Icon(Icons.logout, color: Colors.red[700]),
+              Icon(Icons.logout, color: AppColors.error),
               const SizedBox(width: 10),
               const Text('Logout'),
             ],
@@ -97,13 +99,14 @@ class _AdminHomePageState extends State<AdminHomePage> {
           shape: RoundedRectangleBorder(
             borderRadius: BorderRadius.circular(15),
           ),
+          backgroundColor: AppColors.surfaceLight,
           actions: [
             TextButton(
               onPressed: () {
                 Navigator.pop(context);
               },
               style: TextButton.styleFrom(
-                foregroundColor: Colors.grey[800],
+                foregroundColor: AppColors.textSecondary,
               ),
               child: const Text('Cancel'),
             ),
@@ -123,7 +126,7 @@ class _AdminHomePageState extends State<AdminHomePage> {
                 ScaffoldMessenger.of(context).showSnackBar(
                   SnackBar(
                     content: const Text('Logout successful'),
-                    backgroundColor: Colors.green[700],
+                    backgroundColor: AppColors.success,
                     duration: const Duration(seconds: 3),
                     behavior: SnackBarBehavior.floating,
                     shape: RoundedRectangleBorder(

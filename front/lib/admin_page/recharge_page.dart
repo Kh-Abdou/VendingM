@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import '../models/client.dart';
 import '../services/client_service.dart';
+import '../main.dart' show apiBaseUrl;
 
 class RechargeClientPage extends StatefulWidget {
   const RechargeClientPage({super.key});
@@ -10,8 +11,7 @@ class RechargeClientPage extends StatefulWidget {
 }
 
 class _RechargeClientPageState extends State<RechargeClientPage> {
-  final ClientService _clientService =
-      ClientService(baseUrl: 'http://192.168.86.32:5000');
+  final ClientService _clientService = ClientService(baseUrl: apiBaseUrl);
 
   List<Client> _clients = [];
   List<Client> _filteredClients = [];

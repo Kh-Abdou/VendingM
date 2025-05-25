@@ -1,3 +1,4 @@
+// filepath: c:\Users\Khobz\Documents\Projects\PFE\front\lib\technician_page\notifications_page.dart
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import 'package:flutter_staggered_animations/flutter_staggered_animations.dart';
@@ -233,7 +234,7 @@ class _NotificationsPageState extends State<NotificationsPage>
               ),
             ),
 
-            // Environment data card - always visible at the top
+            // Environment data card - This UI is now hidden but functionality remains
             _buildEnvironmentDataCard(),
 
             Expanded(
@@ -696,117 +697,63 @@ class _NotificationsPageState extends State<NotificationsPage>
     );
   }
 
-  // Widget to display environment data
+  // Widget to display environment data - UI COMMENTED OUT
   Widget _buildEnvironmentDataCard() {
     return Consumer<HardwareProvider>(
       builder: (context, hardwareProvider, child) {
-        // Keep the data loading functionality but don't display UI
-        if (_isLoadingEnvironment) {
-          // Still process data in background
-          return Container(); // Return empty container instead of UI
-        }
-
-        if (_environmentError != null) {
-          // There's an error but we won't display it visually
-          print('❌ Environment data error: $_environmentError');
-          return Container(); // Return empty container instead of error UI
-        }
-
-        // Access environment data from all machines (keep functionality)
+        // Data processing still happens behind the scenes
         final environmentData = hardwareProvider.environmentData;
-
-        if (environmentData.isEmpty) {
-          print('⚠️ No environment data available');
-          return Container(); // Return empty container
-        }
-
-        // Log data for debugging purposes
-        for (var machine in environmentData) {
-          final temperature = machine['temperature'] ?? 0;
-          final humidity = machine['humidity'] ?? 0;
-          final name = machine['name'] ?? 'Unknown Machine';
-
-          print(
-              '🏭 Machine: $name, Temperature: $temperature°C, Humidity: $humidity%');
-
-          // Check for alerts (preserve alert detection logic)
-          final bool tempAlert = machine['alerts'] != null
-              ? machine['alerts']['temperature'] ?? false
-              : (temperature > 30 || temperature < 10);
-          final bool humidityAlert = machine['alerts'] != null
-              ? machine['alerts']['humidity'] ?? false
-              : (humidity > 70 || humidity < 20);
-
-          if (tempAlert || humidityAlert) {
-            print(
-                '⚠️ ALERT for $name: ${tempAlert ? "Temperature" : ""}${tempAlert && humidityAlert ? " and " : ""}${humidityAlert ? "Humidity" : ""}');
-          }
-        }
-
-        // Return empty container instead of UI
+        
+        // Return an empty container instead of the UI
         return Container();
       },
     );
   }
 
-  // Helper widget for environment values
+  // Helper widget for environment values - COMMENTED OUT
   Widget _buildEnvironmentValue(String label, String value,
       {required IconData icon, bool isAlert = false}) {
-    // Keep track of alerts but don't display UI
-    if (isAlert) {
-      print('🚨 Alert: $label - $value');
-    }
-
-    // Return empty container instead of UI elements
+    // Return an empty container instead of the UI
     return Container();
   }
 
-  // Show all environment data in a dialog
-  void _showAllEnvironmentData(List<dynamic> environmentData) {
-    // Just log the data instead of showing a dialog
-    print(
-        '🔍 Showing all environment data (${environmentData.length} machines)');
+  // Helper method for formatting date - This is still needed
+  String _formatDate(DateTime date) {
+    return '${date.day}/${date.month}/${date.year} ${date.hour}:${date.minute.toString().padLeft(2, '0')}';
+  }
 
-    // Process data in the background but don't show UI
-    for (var index = 0; index < environmentData.length; index++) {
-      final machine = environmentData[index];
-      final temperature = machine['temperature'] ?? 0;
-      final humidity = machine['humidity'] ?? 0;
-      final name = machine['name'] ?? 'Machine ${index + 1}';
-      final location = machine['location'] ?? 'Emplacement non spécifié';
-      final status = machine['status'] ?? 'UNKNOWN';
-      final lastUpdate = machine['lastCommunication'] != null
-          ? DateTime.parse(machine['lastCommunication'])
-          : DateTime.now();
+  // Helper method for connection status colors - Still needed for other features
+  Color _getConnectionStatusColor(DateTime lastUpdate) {
+    final now = DateTime.now();
+    final difference = now.difference(lastUpdate);
 
-      // Keep alert detection logic
-      final bool tempAlert = machine['alerts'] != null
-          ? machine['alerts']['temperature'] ?? false
-          : (temperature > 30 || temperature < 10);
-      final bool humidityAlert = machine['alerts'] != null
-          ? machine['alerts']['humidity'] ?? false
-          : (humidity > 70 || humidity < 20);
-
-      // Log information instead of displaying it
-      print('🏭 Machine $index: $name ($location)');
-      print('   - Status: $status');
-      print('   - Temperature: $temperature°C ${tempAlert ? "⚠️" : ""}');
-      print('   - Humidity: $humidity% ${humidityAlert ? "⚠️" : ""}');
-
-      // Format the date and status manually without calling helper methods to avoid errors
-      String formattedDate =
-          '${lastUpdate.day}/${lastUpdate.month}/${lastUpdate.year} ${lastUpdate.hour}:${lastUpdate.minute.toString().padLeft(2, '0')}';
-      String connectionStatus = lastUpdate
-                  .difference(DateTime.now())
-                  .inMinutes
-                  .abs() <
-              5
-          ? 'En ligne'
-          : 'Mis à jour il y a ${lastUpdate.difference(DateTime.now()).inMinutes.abs()} min';
-
-      print('   - Last updated: $formattedDate ($connectionStatus)');
+    if (difference.inMinutes < 5) {
+      return Colors.green;
+    } else if (difference.inHours < 1) {
+      return Colors.orange;
+    } else {
+      return Colors.red;
     }
+  }
 
-    // No dialog is shown
+  // Method to show environment data details - COMMENTED OUT
+  void _showAllEnvironmentData(List<dynamic> environmentData) {
+    // This is now empty but would normally show a dialog with environment data
+  }
+
+  // Helper method for connection status text - Still needed for other features
+  String _getConnectionStatusText(DateTime lastUpdate) {
+    final now = DateTime.now();
+    final difference = now.difference(lastUpdate);
+
+    if (difference.inMinutes < 5) {
+      return 'En ligne';
+    } else if (difference.inHours < 1) {
+      return 'Mis à jour il y a ${difference.inMinutes} min';
+    } else if (difference.inDays < 1) {
+      return 'Mis à jour il y a ${difference.inHours} h';
+    } else {
+      return 'Hors ligne (${difference.inDays} jours)';
+    }
   }
 }

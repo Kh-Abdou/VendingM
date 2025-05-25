@@ -1,5 +1,4 @@
 import 'package:flutter/material.dart';
-import '../Login/login_page.dart';
 import 'stock_management_page.dart';
 import 'machine_status_page.dart';
 import 'notifications_page.dart';
@@ -29,31 +28,6 @@ class _TechnicianHomePageState extends State<TechnicianHomePage> {
       appBar: AppBar(
         title: const Text('Panneau Technicien'),
         backgroundColor: primaryColor,
-        actions: [
-          // Updated logout button in AppBar
-          Container(
-            margin: const EdgeInsets.only(right: 8),
-            child: ElevatedButton.icon(
-              icon: const Icon(Icons.logout, color: Colors.white, size: 18),
-              label: const Text(
-                'Déconnecter',
-                style:
-                    TextStyle(color: Colors.white, fontWeight: FontWeight.bold),
-              ),
-              onPressed: () {
-                _showLogoutConfirmation();
-              },
-              style: ElevatedButton.styleFrom(
-                backgroundColor: Colors.red[700],
-                foregroundColor: Colors.white,
-                shape: RoundedRectangleBorder(
-                  borderRadius: BorderRadius.circular(20),
-                ),
-                elevation: 0,
-              ),
-            ),
-          ),
-        ],
       ),
       body: _getPage(_currentIndex),
       bottomNavigationBar: BottomNavigationBar(
@@ -130,76 +104,5 @@ class _TechnicianHomePageState extends State<TechnicianHomePage> {
           buttonTextColor: buttonTextColor,
         );
     }
-  }
-
-  void _showLogoutConfirmation() {
-    showDialog(
-      context: context,
-      builder: (context) {
-        return AlertDialog(
-          title: Row(
-            children: [
-              Icon(Icons.logout, color: Colors.red[700]),
-              const SizedBox(width: 10),
-              const Text('Déconnexion'),
-            ],
-          ),
-          content: const Text('Êtes-vous sûr de vouloir vous déconnecter?'),
-          shape: RoundedRectangleBorder(
-            borderRadius: BorderRadius.circular(15),
-          ),
-          actions: [
-            TextButton(
-              onPressed: () {
-                Navigator.pop(context);
-              },
-              style: TextButton.styleFrom(
-                foregroundColor: Colors.grey[800],
-              ),
-              child: const Text('Annuler'),
-            ),
-            ElevatedButton(
-              onPressed: () {
-                // Close the dialog first
-                Navigator.pop(context);
-
-                // Navigate to login page and remove all previous routes
-                Navigator.pushAndRemoveUntil(
-                  context,
-                  MaterialPageRoute(builder: (context) => LoginPage()),
-                  (route) => false,
-                );
-
-                // The logout confirmation will be shown in the login page
-                ScaffoldMessenger.of(context).showSnackBar(
-                  SnackBar(
-                    content: const Text('Déconnexion réussie'),
-                    backgroundColor: Colors.green[700],
-                    duration: const Duration(seconds: 3),
-                    behavior: SnackBarBehavior.floating,
-                    shape: RoundedRectangleBorder(
-                      borderRadius: BorderRadius.circular(10),
-                    ),
-                    margin:
-                        const EdgeInsets.only(bottom: 10, left: 10, right: 10),
-                  ),
-                );
-              },
-              style: ElevatedButton.styleFrom(
-                backgroundColor: Colors.red[700],
-                foregroundColor: Colors.white,
-                shape: RoundedRectangleBorder(
-                  borderRadius: BorderRadius.circular(8),
-                ),
-              ),
-              child: const Text(
-                'Déconnexion',
-                style: TextStyle(fontWeight: FontWeight.bold),
-              ),
-            ),
-          ],
-        );
-      },
-    );
   }
 }

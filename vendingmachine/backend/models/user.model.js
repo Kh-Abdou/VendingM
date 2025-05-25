@@ -19,6 +19,11 @@ const userSchema = new mongoose.Schema({
         type: String,
         required: true,
     },
+    rfidUID: {
+        type: String,
+        unique: true,
+        sparse: true, // Allows null values to not count for uniqueness
+    },
     role: {
         type: String,
         enum: ['admin', 'client', 'technician'], // Allowed roles

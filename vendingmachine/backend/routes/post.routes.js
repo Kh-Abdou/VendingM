@@ -15,7 +15,10 @@ const {
     getClients, 
     rechargeClientBalance,
     updatePassword,
-    getUsers // Import getUsers function
+    getUsers, // Import getUsers function
+    initRfidRegistration,
+    checkPendingRfidRegistration,
+    completeRfidRegistration
 } = require('../controllers/user.controllers');
 
 // Define routes - ORDER MATTERS IN EXPRESS!
@@ -26,6 +29,11 @@ router.get('/', getUsers); // Add route to get all users
 router.get('/clients', getClients);
 router.post('/clients/:id/recharge', rechargeClientBalance);
 router.put('/:id/password', updatePassword); // Ajout de la route pour changer le mot de passe
+
+// RFID Registration routes
+router.post('/rfid/init', initRfidRegistration);
+router.get('/rfid/check-pending', checkPendingRfidRegistration);
+router.post('/rfid/complete', completeRfidRegistration);
 
 // 2. Then parameter routes
 router.get('/:id', getUserById);
