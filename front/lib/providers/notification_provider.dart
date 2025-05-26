@@ -35,6 +35,16 @@ class NotificationProvider with ChangeNotifier {
       _notifications.where((n) => n.isStockNotification).toList();
   List<Notification> get technicalNotifications =>
       _notifications.where((n) => n.isTechnicalNotification).toList();
+  List<Notification> get orderNotifications =>
+      _notifications.where((n) => n.isOrderNotification).toList();
+  List<Notification> get systemNotifications =>
+      _notifications.where((n) => n.isSystemNotification).toList();
+  List<Notification> get transactionRelatedNotifications => _notifications
+      .where((n) =>
+          n.isTransactionNotification ||
+          n.isOrderNotification ||
+          n.isSystemNotification)
+      .toList();
   bool get isLoading => _isLoading;
   String? get error => _error;
   int get unreadCount => _notifications.where((n) => n.isUnread).length;

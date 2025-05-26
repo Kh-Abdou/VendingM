@@ -1,23 +1,17 @@
 import 'package:flutter/material.dart';
 import 'package:lessvsfull/client_page/products_page.dart';
 import 'package:provider/provider.dart';
-import 'package:http/http.dart' as http;
 import 'package:flutter_screenutil/flutter_screenutil.dart';
-import 'package:google_fonts/google_fonts.dart'; // Import Google Fonts
 import 'package:badges/badges.dart' as badges;
 import 'theme/app_design_system.dart'; // Import our design system
 import 'theme/app_theme.dart'; // Import our theme
 import 'Login/login_page.dart';
 import 'admin_page/admin_page.dart';
 import 'client_page/notification_page.dart';
-import 'client_page/notification_page.dart'; // Ensure NotificationsPage is imported
-import 'client_page/products_page.dart' as products_page
-    show GenerateCodePage, ProductsPage, ProduitPanier;
+import 'client_page/products_page.dart' as products_page show ProduitPanier;
 import 'client_page/profile_page.dart';
 import 'services/notification_service.dart';
-import 'services/produit_service.dart';
 import 'services/order_service.dart';
-import 'services/user_service.dart';
 import 'services/hardware_service.dart'; // Import for hardware service
 import 'providers/notification_provider.dart';
 import 'providers/user_provider.dart'; // Import du nouveau provider
@@ -33,7 +27,7 @@ import 'technician_page/notifications_page.dart';
 // const String apiBaseUrl = 'http://localhost:5000'; // Fonctionne uniquement sur le web
 // const String apiBaseUrl = 'http://10.0.2.2:5000'; // Pour les émulateurs Android
 const String apiBaseUrl =
-    'http://192.168.238.32:5000'; // Pour votre téléphone physique
+    'http://192.168.28.32:5000'; // Pour votre téléphone physique
 // const String apiBaseUrl = 'http://[IP_DE_VOTRE_MACHINE]:5000'; // Pour les appareils physiques
 
 // ID de technicien par défaut (sera remplacé par l'ID réel après la connexion)
@@ -116,27 +110,17 @@ class HomePage extends StatefulWidget {
   _HomePageState createState() => _HomePageState();
 }
 
-class _HomePageState extends State<HomePage> with TickerProviderStateMixin {
+class _HomePageState extends State<HomePage> {
   int _selectedIndex = 0;
   bool isInMaintenance = false;
   List<products_page.ProduitPanier> panier = [];
-  late AnimationController _cartAnimationController;
 
   // Initialisation du service de commande
   late final OrderService _orderService;
-  late final UserService _userService;
-
   @override
   void initState() {
     super.initState();
     _orderService = OrderService(baseUrl: apiBaseUrl);
-    _userService = UserService(baseUrl: apiBaseUrl);
-
-    // Initialize animation controller for cart
-    _cartAnimationController = AnimationController(
-      vsync: this,
-      duration: const Duration(milliseconds: 300),
-    );
 
     // Récupérer le solde de l'utilisateur au démarrage
     _fetchUserData();
@@ -790,10 +774,12 @@ class _HomePageState extends State<HomePage> with TickerProviderStateMixin {
         userId: userProvider.userId,
         amount: totalAmount,
         products: productsData,
-      ); // Fermer le dialogue de chargement
+      );
+
+      // Fermer le dialogue de chargement
       Navigator.of(context).pop();
 
-      if (result == null || !result.containsKey('orderId')) {
+      if (!result.containsKey('orderId')) {
         throw Exception("La réponse du serveur est invalide ou incomplète");
       } // Afficher le dialogue d'attente pour les produits
       showDialog(
@@ -820,29 +806,115 @@ class _HomePageState extends State<HomePage> with TickerProviderStateMixin {
             ),
           );
         },
-      );
-
-      // Polling pour vérifier l'état de la commande
-      bool productsDetected = false;
+      ); // Polling pour vérifier l'état de la commande
+      bool orderProcessed = false;
+      bool orderSuccessful = false;
+      String failureReason = "";
+      Map<String, dynamic>?
+          lastOrderStatus; // Store the last order status for detailed error display
       int attempts = 0;
-      const maxAttempts = 30; // 30 x 2 secondes = 1 minute max d'attente
 
-      while (!productsDetected && attempts < maxAttempts) {
+      // Calculate dynamic timeout based on order size: 30s base + 5s per product (max 2 minutes)
+      int totalProducts = panier.fold(0, (sum, item) => sum + item.quantite);
+      int calculatedMaxAttempts =
+          (30 + (totalProducts * 5)).clamp(30, 120); // 30s to 2min
+      developer.log(
+          'Dynamic timeout: $calculatedMaxAttempts seconds for $totalProducts products',
+          name: 'OrderPolling');
+
+      const pollInterval =
+          1; // Polling chaque seconde pour une meilleure réactivité
+
+      while (!orderProcessed && attempts < calculatedMaxAttempts) {
         attempts++;
-        await Future.delayed(Duration(seconds: 2));
-
+        await Future.delayed(Duration(seconds: pollInterval));
         try {
           final orderStatus =
               await _orderService.getOrderStatus(result['orderId']);
+
+          // Store the latest order status for potential use in error dialog
+          lastOrderStatus = orderStatus;
           developer.log(
-              'Checking order status (attempt $attempts/$maxAttempts): ${orderStatus.toString()}',
+              'Polling attempt $attempts/$calculatedMaxAttempts - Status: ${orderStatus['status']}',
               name: 'OrderPolling');
 
-          if (orderStatus.containsKey('dispensingStatus') &&
-              orderStatus['dispensingStatus']['allProductsDetected'] == true) {
-            productsDetected = true;
-            developer.log('Products detected successfully!',
+          // DETAILED DEBUGGING: Log all response fields
+          developer.log('Order Status Details:', name: 'OrderPolling');
+          developer.log('- orderId: ${orderStatus['orderId']}',
+              name: 'OrderPolling');
+          developer.log('- status: ${orderStatus['status']}',
+              name: 'OrderPolling');
+          developer.log(
+              '- success: ${orderStatus['success']} (type: ${orderStatus['success'].runtimeType})',
+              name: 'OrderPolling');
+          developer.log(
+              '- dispensingStatus: ${orderStatus['dispensingStatus']}',
+              name: 'OrderPolling');
+          if (orderStatus['dispensingStatus'] != null) {
+            developer.log(
+                '- allProductsDetected: ${orderStatus['dispensingStatus']['allProductsDetected']}',
                 name: 'OrderPolling');
+            developer.log(
+                '- dispensedAt: ${orderStatus['dispensingStatus']['dispensedAt']}',
+                name: 'OrderPolling');
+            developer.log(
+                '- isDispensingInProgress: ${orderStatus['dispensingStatus']['isDispensingInProgress']}',
+                name: 'OrderPolling');
+          }
+          if (orderStatus.containsKey('status')) {
+            String currentStatus = orderStatus['status'];
+
+            // Check for completed order (success)
+            if (currentStatus == 'COMPLETED') {
+              orderProcessed = true;
+
+              // Check for partial dispensing
+              bool isPartialDispensing =
+                  orderStatus['isPartialDispensing'] ?? false;
+              if (isPartialDispensing) {
+                orderSuccessful =
+                    false; // Treat partial as failure for UI dialog
+                int totalDispensed =
+                    orderStatus['dispensingStatus']?['totalDispensed'] ?? 0;
+                int totalExpected =
+                    orderStatus['dispensingStatus']?['totalExpected'] ?? 0;
+                failureReason =
+                    "Distribution partielle: $totalDispensed/$totalExpected produits distribués";
+                developer.log('Order partially completed: $failureReason',
+                    name: 'OrderPolling');
+
+                // Clear cart for partial dispensing since products were partially delivered
+                setState(() {
+                  panier.clear();
+                });
+                developer.log('Cart cleared after partial dispensing',
+                    name: 'OrderProcessing');
+              } else {
+                orderSuccessful = true;
+                developer.log('Order completed successfully: status=COMPLETED',
+                    name: 'OrderPolling');
+              }
+              break;
+            }
+
+            // Check for failed order
+            if (currentStatus == 'FAILED') {
+              orderProcessed = true;
+              orderSuccessful = false;
+              failureReason = orderStatus['failureReason'] ??
+                  orderStatus['message'] ??
+                  "Erreur lors de la distribution";
+              developer.log('Order failed: $failureReason',
+                  name: 'OrderPolling');
+              break;
+            }
+
+            // For PENDING status, continue polling (don't break)
+            if (currentStatus == 'PENDING') {
+              developer.log('Order still pending, continuing to poll...',
+                  name: 'OrderPolling');
+              // Continue the loop - don't break or set orderProcessed = true
+            }
           }
         } catch (e) {
           developer.log('Erreur lors de la vérification du statut: $e',
@@ -850,42 +922,94 @@ class _HomePageState extends State<HomePage> with TickerProviderStateMixin {
         }
       }
 
-      // Si les produits n'ont pas été détectés après le nombre maximum de tentatives
-      if (!productsDetected) {
+      // Si les produits n'ont pas été traités après le nombre maximum de tentatives
+      if (!orderProcessed) {
         developer.log('Temps d\'attente dépassé pour la détection des produits',
             name: 'OrderPolling');
-      }
+        // Considérer comme un échec après le timeout
+        orderSuccessful = false;
+        failureReason =
+            "Délai d'attente dépassé pour la détection des produits";
+      } // Fermer le dialogue d'attente
+      Navigator.of(context)
+          .pop(); // Gérer le résultat en fonction du succès/échec de la commande
+      if (orderSuccessful) {
+        // Refresh balance from server to ensure accuracy
+        developer.log('Order successful, refreshing balance from server',
+            name: 'OrderProcessing');
 
-      // Fermer le dialogue d'attente
-      Navigator.of(context).pop();
+        // Make multiple attempts to fetch fresh balance if needed
+        double freshBalance = 0;
+        bool balanceRefreshed = false;
 
-      // Récupérer et convertir le solde, en gérant les types int et double
-      double newBalance;
-      if (result['balance'] != null) {
-        // Convertir en double si c'est un int
-        newBalance = result['balance'] is int
-            ? (result['balance'] as int).toDouble()
-            : result['balance'];
+        for (int i = 0; i < 3; i++) {
+          // Make up to 3 attempts
+          try {
+            // Wait briefly before retry to allow backend to complete transaction
+            if (i > 0) {
+              await Future.delayed(Duration(milliseconds: 500));
+            }
+
+            freshBalance =
+                await _orderService.getEWalletBalance(userProvider.userId);
+            developer.log(
+                'Fresh balance retrieved (attempt ${i + 1}): $freshBalance',
+                name: 'OrderProcessing');
+
+            balanceRefreshed = true;
+            break; // Exit the retry loop if successful
+          } catch (e) {
+            developer.log('Error refreshing balance (attempt ${i + 1}): $e',
+                name: 'OrderProcessing');
+          }
+        }
+
+        if (balanceRefreshed) {
+          // Update user balance with fresh data from server
+          userProvider.updateBalance(freshBalance);
+        } else {
+          // Fallback: use balance from order response if available
+          developer.log('Using fallback balance calculation',
+              name: 'OrderProcessing');
+          double fallbackBalance;
+          if (result['balance'] != null) {
+            fallbackBalance = result['balance'] is int
+                ? (result['balance'] as int).toDouble()
+                : result['balance'];
+            developer.log('Using balance from response: $fallbackBalance',
+                name: 'OrderProcessing');
+          } else {
+            // Final fallback: calculate manually
+            fallbackBalance = userProvider.userBalance - totalAmount;
+            developer.log('Using calculated balance: $fallbackBalance',
+                name: 'OrderProcessing');
+          }
+
+          userProvider.updateBalance(fallbackBalance);
+        }
+
+        // Clear cart after successful order
+        setState(() {
+          panier.clear();
+        });
+
+        // Show success dialog with proper balance
+        _showPaiementReussi(userProvider.userBalance, totalAmount, panierCopy);
       } else {
-        // Fallback si balance n'est pas présent
-        newBalance = userProvider.userBalance - totalAmount;
-      }
+        // Si la commande a échoué, ne pas déduire le montant
+        // Afficher un message d'échec avec la raison
+        _showCommandeEchouee(
+            failureReason, result['orderId'], panierCopy, lastOrderStatus);
 
-      // Mettre à jour le solde utilisateur
-      userProvider.updateBalance(newBalance);
-
-      // Vider le panier après traitement
-      setState(() {
-        panier.clear();
+        // Pas besoin de vider le panier en cas d'échec
+      } // Rafraîchir les notifications après un délai pour permettre au backend de traiter
+      Future.delayed(const Duration(seconds: 2), () {
+        if (mounted) {
+          final notificationProvider =
+              Provider.of<NotificationProvider>(context, listen: false);
+          notificationProvider.forceRefresh();
+        }
       });
-
-      // Afficher confirmation de paiement réussi avec les détails des produits
-      _showPaiementReussi(userProvider.userBalance, totalAmount, panierCopy);
-
-      // Rafraîchir les notifications (pour afficher la nouvelle notification de transaction)
-      final notificationProvider =
-          Provider.of<NotificationProvider>(context, listen: false);
-      notificationProvider.forceRefresh();
     } catch (e) {
       // Fermer le dialogue de chargement
       Navigator.of(context).pop();
@@ -915,8 +1039,11 @@ class _HomePageState extends State<HomePage> with TickerProviderStateMixin {
       context: context,
       builder: (BuildContext context) {
         return AlertDialog(
-          title: Text('Paiement accepté',
-              style: TextStyle(fontSize: 18.sp, fontWeight: FontWeight.bold)),
+          title: Text('Commande Complétée',
+              style: TextStyle(
+                  fontSize: 18.sp,
+                  fontWeight: FontWeight.bold,
+                  color: Colors.green)),
           content: SizedBox(
             width: double.maxFinite,
             child: Column(
@@ -1082,13 +1209,318 @@ class _HomePageState extends State<HomePage> with TickerProviderStateMixin {
     // Vérifier si l'ID utilisateur dans le NotificationProvider est différent de celui dans UserProvider
     if (notificationProvider.userId != userProvider.userId &&
         userProvider.userId.isNotEmpty) {
-      // Technique pour mettre à jour l'ID utilisateur du NotificationProvider
-      // Créer un nouveau NotificationProvider avec le bon ID et remplacer l'ancien
-      final service = NotificationService(baseUrl: apiBaseUrl);
-
       // Utiliser le même service mais avec le nouvel ID utilisateur
       Provider.of<NotificationProvider>(context, listen: false)
           .updateUserId(userProvider.userId);
     }
+  }
+
+  // Méthode pour afficher une alerte lorsque la commande a échoué
+  void _showCommandeEchouee(
+      String raison, String orderId, List<products_page.ProduitPanier> produits,
+      [Map<String, dynamic>? orderStatusData]) {
+    // Check if this is a partial dispensing case
+    bool isPartialDispensing = raison.contains("Distribution partielle");
+
+    // Extract dispensing details from order status data
+    Map<String, dynamic>? dispensingStatus =
+        orderStatusData?['dispensingStatus'];
+    int totalDispensed = dispensingStatus?['totalDispensed'] ?? 0;
+    int totalExpected = dispensingStatus?['totalExpected'] ??
+        produits.fold(0, (sum, item) => sum + item.quantite);
+
+    // Get detailed per-couloir dispensing information if available
+    List<dynamic>? dispensingDetails =
+        orderStatusData?['hardwareDetails']?['completion']?['details'];
+
+    showDialog(
+      context: context,
+      builder: (BuildContext context) {
+        return AlertDialog(
+          title: Text(
+              isPartialDispensing
+                  ? 'Distribution partielle'
+                  : 'Commande non complétée',
+              style: TextStyle(
+                  fontSize: 18.sp,
+                  fontWeight: FontWeight.bold,
+                  color: isPartialDispensing ? Colors.orange : Colors.red)),
+          content: SizedBox(
+            width: double.maxFinite,
+            child: SingleChildScrollView(
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Icon(
+                    isPartialDispensing
+                        ? Icons.warning_amber
+                        : Icons.error_outline,
+                    color: isPartialDispensing ? Colors.orange : Colors.red,
+                    size: 60.sp,
+                  ),
+                  SizedBox(height: 20.h),
+                  Text(
+                      isPartialDispensing
+                          ? 'Certains produits n\'ont pas pu être distribués.'
+                          : 'La distribution des produits a échoué.',
+                      style: TextStyle(fontSize: 16.sp)),
+
+                  if (isPartialDispensing &&
+                      totalDispensed > 0 &&
+                      totalExpected > 0) ...[
+                    SizedBox(height: 10.h),
+                    Container(
+                      padding: EdgeInsets.all(12.w),
+                      decoration: BoxDecoration(
+                        color: Colors.orange.withOpacity(0.1),
+                        borderRadius: BorderRadius.circular(8.r),
+                        border:
+                            Border.all(color: Colors.orange.withOpacity(0.3)),
+                      ),
+                      child: Row(
+                        children: [
+                          Icon(Icons.info_outline,
+                              color: Colors.orange, size: 20.sp),
+                          SizedBox(width: 8.w),
+                          Expanded(
+                            child: Text(
+                              'Produits distribués: $totalDispensed sur $totalExpected',
+                              style: TextStyle(
+                                fontSize: 14.sp,
+                                fontWeight: FontWeight.w500,
+                                color: Colors.orange[800],
+                              ),
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                  ],
+
+                  SizedBox(height: 15.h),
+                  Text('ID de commande: $orderId',
+                      style:
+                          TextStyle(fontSize: 14.sp, color: Colors.grey[700])),
+                  SizedBox(height: 15.h),
+
+                  // Enhanced product details with dispensing status
+                  Text(
+                    isPartialDispensing
+                        ? 'État de distribution par produit:'
+                        : 'Produits commandés:',
+                    style: TextStyle(
+                      fontWeight: FontWeight.bold,
+                      fontSize: 16.sp,
+                    ),
+                  ),
+                  SizedBox(height: 10.h),
+
+                  // Enhanced product list with individual status
+                  Container(
+                    constraints: BoxConstraints(maxHeight: 200.h),
+                    child: SingleChildScrollView(
+                      child: Column(
+                        children: produits.asMap().entries.map((entry) {
+                          int index = entry.key;
+                          products_page.ProduitPanier item = entry.value;
+
+                          // Try to find dispensing info for this product
+                          int dispensedForProduct =
+                              item.quantite; // Default: assume all dispensed
+                          bool hasDispensingData = false;
+
+                          if (dispensingDetails != null &&
+                              dispensingDetails.isNotEmpty) {
+                            // For now, we'll use proportional calculation since we don't have
+                            // direct product-to-couloir mapping in the frontend
+                            if (totalExpected > 0) {
+                              dispensedForProduct =
+                                  ((totalDispensed * item.quantite) /
+                                          totalExpected)
+                                      .round();
+                              hasDispensingData = true;
+                            }
+                          }
+
+                          // For complete failures, assume 0 dispensed
+                          if (!isPartialDispensing) {
+                            dispensedForProduct = 0;
+                            hasDispensingData = true;
+                          } // Fix the product color coding logic
+                          bool wasFullyDispensed =
+                              dispensedForProduct >= item.quantite;
+                          bool wasPartiallyDispensed =
+                              dispensedForProduct > 0 &&
+                                  dispensedForProduct < item.quantite;
+
+                          return Container(
+                            margin: EdgeInsets.symmetric(vertical: 4.h),
+                            padding: EdgeInsets.all(12.w),
+                            decoration: BoxDecoration(
+                              color: wasFullyDispensed
+                                  ? Colors.green.withOpacity(0.1)
+                                  : Colors.grey.withOpacity(
+                                      0.1), // Gray for partial/failed
+                              borderRadius: BorderRadius.circular(8.r),
+                              border: Border.all(
+                                color: wasFullyDispensed
+                                    ? Colors.green.withOpacity(0.3)
+                                    : Colors.grey.withOpacity(
+                                        0.3), // Gray for partial/failed
+                              ),
+                            ),
+                            child: Row(
+                              children: [
+                                Icon(
+                                  wasFullyDispensed
+                                      ? Icons.check_circle_outline
+                                      : wasPartiallyDispensed
+                                          ? Icons.warning_amber_outlined
+                                          : Icons.cancel_outlined,
+                                  color: wasFullyDispensed
+                                      ? Colors.green
+                                      : Colors
+                                          .grey, // Gray for partial/failed products
+                                  size: 20.sp,
+                                ),
+                                SizedBox(width: 12.w),
+                                Expanded(
+                                  child: Column(
+                                    crossAxisAlignment:
+                                        CrossAxisAlignment.start,
+                                    children: [
+                                      Text(
+                                        item.produit.nom,
+                                        style: TextStyle(
+                                          fontSize: 14.sp,
+                                          fontWeight: FontWeight.w500,
+                                        ),
+                                        overflow: TextOverflow.ellipsis,
+                                      ),
+                                      if (hasDispensingData) ...[
+                                        SizedBox(height: 4.h),
+                                        Text(
+                                          wasFullyDispensed
+                                              ? 'Distribué: ${item.quantite}/${item.quantite}'
+                                              : wasPartiallyDispensed
+                                                  ? 'Distribué: $dispensedForProduct/${item.quantite}'
+                                                  : 'Non distribué: 0/${item.quantite}',
+                                          style: TextStyle(
+                                            fontSize: 12.sp,
+                                            color: wasFullyDispensed
+                                                ? Colors.green[700]
+                                                : Colors.grey[
+                                                    700], // Gray for partial/failed
+                                          ),
+                                        ),
+                                      ] else ...[
+                                        SizedBox(height: 4.h),
+                                        Text(
+                                          'Quantité: ${item.quantite}',
+                                          style: TextStyle(
+                                            fontSize: 12.sp,
+                                            color: Colors.grey[600],
+                                          ),
+                                        ),
+                                      ],
+                                    ],
+                                  ),
+                                ),
+                                Text(
+                                  '${(item.produit.prix * item.quantite).toStringAsFixed(2)} DA',
+                                  style: TextStyle(
+                                    fontSize: 14.sp,
+                                    decoration: (!isPartialDispensing ||
+                                            wasFullyDispensed)
+                                        ? null
+                                        : TextDecoration.lineThrough,
+                                    color: (!isPartialDispensing ||
+                                            wasFullyDispensed)
+                                        ? null
+                                        : Colors.grey[600],
+                                  ),
+                                ),
+                              ],
+                            ),
+                          );
+                        }).toList(),
+                      ),
+                    ),
+                  ),
+
+                  SizedBox(height: 20.h),
+                  Container(
+                    padding: EdgeInsets.all(12.w),
+                    decoration: BoxDecoration(
+                      color: isPartialDispensing
+                          ? Colors.orange.withOpacity(0.1)
+                          : Colors.green.withOpacity(0.1),
+                      borderRadius: BorderRadius.circular(8.r),
+                      border: Border.all(
+                        color: isPartialDispensing
+                            ? Colors.orange.withOpacity(0.3)
+                            : Colors.green.withOpacity(0.3),
+                      ),
+                    ),
+                    child: Row(
+                      children: [
+                        Icon(
+                          isPartialDispensing ? Icons.payment : Icons.money_off,
+                          color: isPartialDispensing
+                              ? Colors.orange
+                              : Colors.green,
+                          size: 20.sp,
+                        ),
+                        SizedBox(width: 8.w),
+                        Expanded(
+                          child: Text(
+                            isPartialDispensing
+                                ? 'Vous avez été facturé uniquement pour les produits distribués.'
+                                : 'Aucun montant n\'a été débité de votre compte.',
+                            style: TextStyle(
+                              fontWeight: FontWeight.w500,
+                              fontSize: 14.sp,
+                              color: isPartialDispensing
+                                  ? Colors.orange[800]
+                                  : Colors.green[700],
+                            ),
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+
+                  if (isPartialDispensing) ...[
+                    SizedBox(height: 15.h),
+                    Text(
+                      'Si vous avez des questions, veuillez contacter notre support client avec l\'ID de commande ci-dessus.',
+                      style: TextStyle(
+                        fontSize: 12.sp,
+                        color: Colors.grey[600],
+                        fontStyle: FontStyle.italic,
+                      ),
+                      textAlign: TextAlign.center,
+                    ),
+                  ],
+                ],
+              ),
+            ),
+          ),
+          actions: [
+            ElevatedButton(
+              style: ElevatedButton.styleFrom(
+                backgroundColor:
+                    isPartialDispensing ? Colors.orange : Colors.red,
+                foregroundColor: Colors.white,
+              ),
+              child: Text('Compris', style: TextStyle(fontSize: 16.sp)),
+              onPressed: () {
+                Navigator.pop(context);
+              },
+            ),
+          ],
+        );
+      },
+    );
   }
 }

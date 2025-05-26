@@ -64,13 +64,20 @@ class OrderService {
     }
   }
 
-  // Vérifier le solde e-wallet
+  // Vérifier le solde e-wallet avec paramètre timestamp pour éviter le cache
   Future<double> getEWalletBalance(String userId) async {
     try {
       print('👤 Récupération du solde pour l\'utilisateur: $userId');
+
+      // Add timestamp parameter to prevent caching
+      final timestamp = DateTime.now().millisecondsSinceEpoch.toString();
       final response = await http.get(
-        Uri.parse('$baseUrl/ewallet/$userId'),
-        headers: {'Content-Type': 'application/json'},
+        Uri.parse('$baseUrl/ewallet/$userId?t=$timestamp'),
+        headers: {
+          'Content-Type': 'application/json',
+          'Cache-Control': 'no-cache',
+          'Pragma': 'no-cache',
+        },
       );
 
       print('📡 Statut de la réponse: ${response.statusCode}');
@@ -115,9 +122,15 @@ class OrderService {
   // Vérifier le statut d'une commande
   Future<Map<String, dynamic>> getOrderStatus(String orderId) async {
     try {
+      // Set a short timeout to allow for frequent polling
       final response = await http.get(
-        Uri.parse('$baseUrl/order/status/$orderId'),
+        Uri.parse('$baseUrl/orders/status/$orderId'),
         headers: {'Content-Type': 'application/json'},
+      ).timeout(
+        const Duration(seconds: 3),
+        onTimeout: () {
+          throw Exception('Timeout lors de la récupération du statut');
+        },
       );
 
       if (response.statusCode == 200) {

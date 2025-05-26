@@ -97,9 +97,8 @@ exports.completeOrder = async (req, res) => {
                 reference: `Order #${orderId} completion`,
                 details: details ? JSON.stringify(details) : undefined
             });
-            await wallet.save();
-        }        // Update order status with enhanced details
-        order.status = 'completed';
+            await wallet.save();        }        // Update order status with enhanced details
+        order.status = 'COMPLETED';
         order.completedAt = new Date();
         
         // Store hardware completion details if available

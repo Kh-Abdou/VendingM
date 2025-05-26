@@ -195,6 +195,12 @@ class NotificationItem {
       case 'CODE':
         type = NotificationType.code;
         break;
+      case 'SYSTEM':
+        type = NotificationType.system;
+        break;
+      case 'ORDER':
+        type = NotificationType.order;
+        break;
       default:
         type = NotificationType.other;
     }
@@ -212,7 +218,6 @@ class NotificationItem {
       metadata: notification.metadata,
     );
   }
-
   // Convert to the model in the existing system
   notification_model.Notification toNotificationModel() {
     String notificationType;
@@ -222,6 +227,12 @@ class NotificationItem {
         break;
       case NotificationType.code:
         notificationType = 'CODE';
+        break;
+      case NotificationType.system:
+        notificationType = 'SYSTEM';
+        break;
+      case NotificationType.order:
+        notificationType = 'ORDER';
         break;
       default:
         notificationType = 'OTHER';
@@ -243,6 +254,8 @@ class NotificationItem {
 enum NotificationType {
   transaction,
   code,
+  system,
+  order,
   other,
 }
 

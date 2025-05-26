@@ -25,6 +25,26 @@ class _NotificationPageState extends State<NotificationPage> {
     });
   }
 
+  // Helper method to get the appropriate icon for each notification type
+  IconData _getNotificationIcon(String type) {
+    switch (type) {
+      case 'TRANSACTION':
+        return Icons.receipt;
+      case 'CODE':
+        return Icons.qr_code;
+      case 'SYSTEM':
+        return Icons.notification_important;
+      case 'ORDER':
+        return Icons.shopping_cart;
+      case 'MAINTENANCE':
+        return Icons.engineering;
+      case 'STOCK':
+        return Icons.inventory;
+      default:
+        return Icons.notifications;
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     // Utiliser le provider
@@ -96,15 +116,12 @@ class _NotificationPageState extends State<NotificationPage> {
           ],
         ),
       );
-    }
-
-    // Filtrer les notifications par type
-    final transactionNotifications = notificationProvider.notifications
-        .where((n) => n.type == 'TRANSACTION')
-        .toList();
+    } // Filtrer les notifications par type using our helper methods
+    final transactionNotifications =
+        notificationProvider.transactionRelatedNotifications;
 
     final codeNotifications = notificationProvider.notifications
-        .where((n) => n.type == 'CODE')
+        .where((n) => n.isCodeNotification)
         .toList();
 
     return DefaultTabController(
@@ -234,7 +251,7 @@ class _NotificationPageState extends State<NotificationPage> {
                             ? AppColors.success.withOpacity(0.2)
                             : AppColors.textSecondary.withOpacity(0.1),
                         child: Icon(
-                          Icons.receipt,
+                          _getNotificationIcon(notification.type),
                           color: notification.isUnread
                               ? AppColors.success
                               : AppColors.textSecondary,
@@ -252,17 +269,28 @@ class _NotificationPageState extends State<NotificationPage> {
                         formattedDate,
                         style: AppTextStyles.bodySmall,
                       ),
-                      trailing: Text(
-                        '${montant.toStringAsFixed(2)} DA',
-                        style: TextStyle(
-                          color: notification.type == 'TRANSACTION' &&
-                                  (notification.amount ?? 0) < 0
-                              ? AppColors.error
-                              : AppColors.success,
-                          fontWeight: FontWeight.bold,
-                          fontSize: 16.sp,
-                        ),
-                      ),
+                      trailing: notification.type == 'ORDER' ||
+                              notification.type == 'SYSTEM'
+                          ? Icon(
+                              notification.type == 'ORDER'
+                                  ? Icons.error_outline
+                                  : Icons.info_outline,
+                              color: notification.type == 'ORDER'
+                                  ? AppColors.error
+                                  : AppColors.primary,
+                              size: 24.sp,
+                            )
+                          : Text(
+                              '${montant.toStringAsFixed(2)} DA',
+                              style: TextStyle(
+                                color: notification.type == 'TRANSACTION' &&
+                                        (notification.amount ?? 0) < 0
+                                    ? AppColors.error
+                                    : AppColors.success,
+                                fontWeight: FontWeight.bold,
+                                fontSize: 16.sp,
+                              ),
+                            ),
                       maintainState: true, // Keep widget state when collapsed
                       initiallyExpanded: false,
                       onExpansionChanged: (expanded) {
@@ -291,6 +319,37 @@ class _NotificationPageState extends State<NotificationPage> {
                                 style: AppTextStyles.bodyMedium,
                               ),
                               SizedBox(height: AppSpacing.md),
+                              if (notification.type == 'ORDER' ||
+                                  notification.type == 'SYSTEM')
+                                // Pour les notifications d'ordre ou système, afficher des informations supplémentaires
+                                Column(
+                                  crossAxisAlignment: CrossAxisAlignment.start,
+                                  children: [
+                                    if (notification.type == 'ORDER')
+                                      Card(
+                                        color: AppColors.error.withOpacity(0.1),
+                                        child: Padding(
+                                          padding:
+                                              EdgeInsets.all(AppSpacing.sm),
+                                          child: Row(
+                                            children: [
+                                              Icon(Icons.info_outline,
+                                                  color: AppColors.error),
+                                              SizedBox(width: 10.w),
+                                              Expanded(
+                                                child: Text(
+                                                  'Un problème est survenu avec votre commande. Veuillez contacter le support si nécessaire.',
+                                                  style: TextStyle(
+                                                      color: AppColors.error),
+                                                ),
+                                              ),
+                                            ],
+                                          ),
+                                        ),
+                                      ),
+                                    SizedBox(height: AppSpacing.md),
+                                  ],
+                                ),
                               Text(
                                 'Détails de la commande:',
                                 style: AppTextStyles.subtitle.copyWith(

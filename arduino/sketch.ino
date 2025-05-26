@@ -10,20 +10,19 @@
 #define RELAY1 26  // Chariot 1
 #define RELAY2 25  // Chariot 2 
 #define RELAY3 33  // Chariot 3
-#define RELAY4 32  // Chariot 4
 
 struct ChariotRelay {
   const char* id;
   int pin;
+  unsigned long activationTimeMs; // Activation time in milliseconds
 };
 
 const ChariotRelay CHARIOT_RELAY_MAP[] = {
-  {"CHARIOT1", RELAY1},
-  {"CHARIOT2", RELAY2}, 
-  {"CHARIOT3", RELAY3},
-  {"CHARIOT4", RELAY4}
+  {"CHARIOT1", RELAY1, 4625}, // 5 seconds for CHARIOT1 remplacer par 4.75
+  {"CHARIOT2", RELAY2, 4625}, // 2.5 seconds for CHARIOT2 remplacer par 3
+  {"CHARIOT3", RELAY3, 3000}  // 3 seconds for CHARIOT3
 };
-const int NUM_CHARIOTS = 4;
+const int NUM_CHARIOTS = 3; // Updated for 3 couloirs
 
 int getRelayPinForChariot(String chariotId) {
   chariotId.trim();
@@ -37,6 +36,18 @@ int getRelayPinForChariot(String chariotId) {
   }
   Serial.println("ERROR: No relay pin found for chariot ID: " + chariotId);
   return -1;
+}
+
+unsigned long getActivationTimeForChariot(String chariotId) {
+  chariotId.trim();
+  chariotId.toUpperCase();
+  for(int i = 0; i < NUM_CHARIOTS; i++) {
+    if(chariotId == CHARIOT_RELAY_MAP[i].id) {
+      return CHARIOT_RELAY_MAP[i].activationTimeMs;
+    }
+  }
+  Serial.println("ERROR: No activation time found for chariot ID: " + chariotId);
+  return 0; // Default to 0 if not found
 }
 
 Adafruit_VL53L0X lox = Adafruit_VL53L0X();
@@ -60,7 +71,7 @@ char keys[ROWS][COLS] = {
   {'*', '0', '#', 'D'}
 };
 
-const char* serverUrl = "http://192.168.86.32:5000";
+const char* serverUrl = "http://192.168.28.32:5000";
 const char* vendingMachineId = "VM001";
 
 // WiFiManager object
@@ -79,7 +90,7 @@ const int COULOIR4_MAX = 450;
 unsigned long orderCooldownUntil = 0;
 const unsigned long ORDER_COOLDOWN_MS = 2000; // Reduced for testing
 unsigned long orderStartTime = 0; // Track when order starts
-const unsigned long ORDER_TIMEOUT_MS = 30000; // 30 seconds timeout for stuck orders
+unsigned long ORDER_TIMEOUT_MS = 30000; // Default timeout - will be calculated dynamically
 
 struct OrderItem {
   int couloir;
@@ -87,7 +98,12 @@ struct OrderItem {
   int detectedCount;
 };
 
-OrderItem currentOrder[4];
+unsigned long lastSensorReset = 0;
+const unsigned long SENSOR_RESET_INTERVAL = 600000; // Reset every 1 hour
+int unexpectedDetectionCount = 0;
+const int MAX_UNEXPECTED_DETECTIONS = 5;
+
+OrderItem currentOrder[3]; // Updated for 3 couloirs
 int totalItemsInOrder = 0;
 bool orderInProgress = false;
 String currentOrderId = "";
@@ -139,8 +155,6 @@ void checkProductUpdates();
 void resetOrderState();
 void checkForRfidRegistration();
 void processRfidRegistration(String cardUID);
-void checkForRfidRegistration();
-void processRfidRegistration(String cardUID);
 
 // Modified setupWiFi function
 void setupWiFi() {
@@ -182,11 +196,9 @@ void setup() {
   pinMode(RELAY1, OUTPUT);
   pinMode(RELAY2, OUTPUT);
   pinMode(RELAY3, OUTPUT);
-  pinMode(RELAY4, OUTPUT);
   digitalWrite(RELAY1, HIGH);
   digitalWrite(RELAY2, HIGH);
   digitalWrite(RELAY3, HIGH);
-  digitalWrite(RELAY4, HIGH);
   Serial.println("Relays initialized.");
 
   if (!lox.begin()) {
@@ -385,7 +397,7 @@ void checkForApiOrders() {
       String orderId = doc["orderId"].as<String>();
       currentOrderId = orderId;
 
-      for (int i = 0; i < 4; i++) {
+      for (int i = 0; i < NUM_CHARIOTS; i++) {
         currentOrder[i].couloir = 0;
         currentOrder[i].quantity = 0;
         currentOrder[i].detectedCount = 0;
@@ -401,16 +413,21 @@ void checkForApiOrders() {
       for (JsonVariant product : products) {
         int couloir = product["couloir"].as<int>();
         int quantity = product["quantity"].as<int>();
-        if (orderIndex < 4) {
+        if (orderIndex < NUM_CHARIOTS) {
           currentOrder[orderIndex].couloir = couloir;
           currentOrder[orderIndex].quantity = quantity;
           Serial.println("- Couloir " + String(couloir) + ": " + String(quantity) + " items");
           orderIndex++;
         }
-      }
-
-      totalItemsInOrder = orderIndex;
+      }      totalItemsInOrder = orderIndex;
       if (totalItemsInOrder > 0) {
+        // Calculate dynamic timeout based on order size
+        // Base timeout: 30 seconds + 10 seconds per product (with max 2 minutes)
+        unsigned long calculatedTimeout = 30000 + (totalItemsInOrder * 10000);
+        ORDER_TIMEOUT_MS = min(calculatedTimeout, 120000UL); // Max 2 minutes
+        
+        Serial.println("Dynamic timeout calculated: " + String(ORDER_TIMEOUT_MS / 1000) + " seconds for " + String(totalItemsInOrder) + " total items");
+        
         orderInProgress = true;
         orderFailed = false;
         orderStartTime = millis(); // Record order start time
@@ -451,8 +468,6 @@ void processActiveOrder() {
   }
   Serial.println("----------------------------");
 
-  bool orderSuccess = true;
-
   for (int i = 0; i < totalItemsInOrder; i++) {
     int couloir = currentOrder[i].couloir;
     int quantity = currentOrder[i].quantity;
@@ -465,19 +480,37 @@ void processActiveOrder() {
       Serial.println("Dispensing item " + String(j + 1) + " of " + String(quantity) + " from couloir " + String(couloir));
       bool itemDetected = dispenseSingleItem(couloir);
       if (itemDetected) {
-        currentOrder[i].detectedCount++;
-        Serial.println("Item detected in couloir " + String(couloir));
+        Serial.println("✓ Item " + String(j + 1) + " detected in couloir " + String(couloir));
       } else {
-        orderSuccess = false;
-        orderFailed = true;
-        Serial.println("Failed to detect item from couloir " + String(couloir));
-        failOrder("Product detection failed for couloir " + String(couloir));
-        return;
+        Serial.println("✗ Item " + String(j + 1) + " NOT detected in couloir " + String(couloir) + " - continuing with next item");
       }
     }
+    
+    Serial.println("Couloir " + String(couloir) + " summary: " + String(currentOrder[i].detectedCount) + "/" + String(quantity) + " items detected");
   }
 
-  if (orderSuccess) {
+  int totalExpected = 0;
+  int totalDispensed = 0;
+  
+  for (int i = 0; i < totalItemsInOrder; i++) {
+    totalExpected += currentOrder[i].quantity;
+    totalDispensed += currentOrder[i].detectedCount;
+  }
+
+  Serial.println("\n========== FINAL ORDER RESULTS ==========");
+  Serial.println("Total expected: " + String(totalExpected));
+  Serial.println("Total dispensed: " + String(totalDispensed));
+
+  if (totalDispensed == 0) {
+    Serial.println("❌ COMPLETE FAILURE: No products were dispensed");
+    orderFailed = true;
+    failOrder("No products were detected - complete dispensing failure");
+  } else if (totalDispensed == totalExpected) {
+    Serial.println("✅ COMPLETE SUCCESS: All products were dispensed");
+    completeOrder();
+  } else {
+    Serial.println("⚠ PARTIAL SUCCESS: " + String(totalDispensed) + "/" + String(totalExpected) + " products dispensed");
+    Serial.println("Marking as completed - backend will handle partial dispensing logic");
     completeOrder();
   }
 }
@@ -575,14 +608,21 @@ bool dispenseSingleItem(int couloir) {
 
   String chariotId = "CHARIOT" + String(couloir);
   int relayPin = getRelayPinForChariot(chariotId);
-  if (relayPin == -1) {
-    Serial.println("ERROR: Invalid chariot ID: " + chariotId);
+  unsigned long activationTimeMs = getActivationTimeForChariot(chariotId);
+  if (relayPin == -1 || activationTimeMs == 0) {
+    Serial.println("ERROR: Invalid chariot ID or activation time for: " + chariotId);
     return false;
   }
 
-  const unsigned long DETECTION_TIMEOUT = 3000;
-  const int MIN_DETECTION_TIME_MS = 50;
+  const unsigned long DETECTION_TIMEOUT = 1500; // 1.5 seconds
   Serial.println("Dispensing item from chariot: " + String(couloir) + " using relay pin: " + String(relayPin));
+
+  // Reinitialize VL53L0X sensor before dispensing to prevent drift
+  if (!lox.begin()) {
+    Serial.println("Failed to reinitialize VL53L0X!");
+    return false;
+  }
+  Serial.println("VL53L0X reinitialized for dispensing.");
 
   pinMode(relayPin, OUTPUT);
 
@@ -590,18 +630,15 @@ bool dispenseSingleItem(int couloir) {
   Serial.println("Activating relay " + String(relayPin) + " for couloir " + String(couloir) + " at " + String(activationStartTime) + "ms");
 
   digitalWrite(relayPin, LOW);
-  Serial.print("Keeping relay active for 1500ms: ");
-  for (int i = 0; i < 5; i++) {
-    delay(300);
-    Serial.print("●");
-  }
-  Serial.println(" Done!");
+  Serial.println("Keeping relay active for " + String(activationTimeMs) + "ms");
+  delay(activationTimeMs);
+  Serial.println("Done!");
 
   unsigned long deactivationTime = millis();
   Serial.println("Deactivating relay " + String(relayPin) + " at " + String(deactivationTime) + "ms");
   digitalWrite(relayPin, HIGH);
 
-  unsigned long productFallDelay = 1000;
+  unsigned long productFallDelay = 800; // Increased to 800ms for product to fall
   Serial.println("Waiting for product to fall for " + String(productFallDelay) + "ms");
   delay(productFallDelay);
 
@@ -610,42 +647,21 @@ bool dispenseSingleItem(int couloir) {
 
   bool productDetected = false;
   int detectedCouloir = 0;
+  static unsigned long lastDetectionTime = 0; // Debounce detections
 
   while (millis() - startTime < DETECTION_TIMEOUT) {
-    detectedCouloir = detectItemCouloir();
-    if (detectedCouloir > 0 && detectedCouloir == couloir) { // Ensure correct couloir
-      Serial.println("\n▶ Potential detection at " + String(millis()) + "ms in couloir " + String(detectedCouloir));
-      Serial.println("Verifying with multiple readings...");
-
-      delay(MIN_DETECTION_TIME_MS);
-
-      int confirmationReadings = 0;
-      const int REQUIRED_CONFIRMATIONS = 3;
-      const int TOTAL_READINGS = REQUIRED_CONFIRMATIONS + 3;
-
-      for (int i = 0; i < TOTAL_READINGS; i++) {
-        if (detectItemCouloir() == detectedCouloir) {
-          confirmationReadings++;
-          Serial.print("✓");
-        } else {
-          Serial.print("✗");
-        }
-        delay(15);
-      }
-      Serial.println();
-
-      if (confirmationReadings >= REQUIRED_CONFIRMATIONS - 1) {
-        productDetected = true;
-        Serial.println("\n---------- PRODUCT DETECTED ----------");
-        Serial.println("Product confirmed in couloir " + String(detectedCouloir) + " after " + String(millis() - startTime) + "ms");
-        updateItemDetection(detectedCouloir);
-        Serial.println("---------------------------------------");
-        break;
-      } else {
-        Serial.println("False detection - only " + String(confirmationReadings) + "/" + String(TOTAL_READINGS) + " confirmations");
-      }
+    detectedCouloir = detectItemCouloir(couloir);
+    if (detectedCouloir == couloir && (millis() - lastDetectionTime > 1000)) { // 1-second debounce
+      Serial.println("\n---------- PRODUCT DETECTED ----------");
+      Serial.println("Product confirmed in couloir " + String(detectedCouloir) + " at " + String(millis() - startTime) + "ms");
+      updateItemDetection(detectedCouloir);
+      Serial.println("---------------------------------------");
+      productDetected = true;
+      lastDetectionTime = millis();
+      delay(500); // Stabilization delay
+      break; // Exit immediately after detection
     }
-    delay(10);
+    delay(10); // Short delay between readings
   }
 
   if (!productDetected) {
@@ -656,7 +672,7 @@ bool dispenseSingleItem(int couloir) {
   return true;
 }
 
-int detectItemCouloir() {
+int detectItemCouloir(int requestedCouloir) {
   VL53L0X_RangingMeasurementData_t measure;
   lox.rangingTest(&measure, false);
 
@@ -664,24 +680,13 @@ int detectItemCouloir() {
     int distance = measure.RangeMilliMeter;
     Serial.println("VL53L0X reading: " + String(distance) + "mm");
 
-    // Validate distance to prevent false positives
-    if (distance < COULOIR1_MIN || distance > COULOIR4_MAX) {
-      Serial.println("Distance out of valid range (" + String(distance) + "mm)");
+    // Basic detection with minimum distance to filter mechanism/chute
+    if (distance > 50 && distance < 800) { // Adjusted range for product detection
+      Serial.println("Item detected for couloir " + String(requestedCouloir));
+      return requestedCouloir;
+    } else {
+      Serial.println("Invalid distance reading: " + String(distance) + "mm (outside 50–800mm)");
       return 0;
-    }
-
-    if (distance >= COULOIR1_MIN && distance <= COULOIR1_MAX) {
-      Serial.println("Distance " + String(distance) + "mm corresponds to COULOIR1");
-      return 1;
-    } else if (distance >= COULOIR2_MIN && distance <= COULOIR2_MAX) {
-      Serial.println("Distance " + String(distance) + "mm corresponds to COULOIR2");
-      return 2;
-    } else if (distance >= COULOIR3_MIN && distance <= COULOIR3_MAX) {
-      Serial.println("Distance " + String(distance) + "mm corresponds to COULOIR3");
-      return 3;
-    } else if (distance >= COULOIR4_MIN && distance <= COULOIR4_MAX) {
-      Serial.println("Distance " + String(distance) + "mm corresponds to COULOIR4");
-      return 4;
     }
   } else {
     Serial.println("VL53L0X: Out of range or invalid reading");
@@ -696,7 +701,6 @@ void updateItemDetection(int detectedCouloir) {
     return;
   }
 
-  delay(1000);
   Serial.println("\n--- Item Detection Update ---");
   if (!orderInProgress || totalItemsInOrder == 0) {
     Serial.println("No active order to update");
@@ -714,32 +718,34 @@ void updateItemDetection(int detectedCouloir) {
     Serial.println("Target quantity: " + String(targetQuantity));
     Serial.println("Current count: " + String(currentCount));
 
-    if (currentOrder[i].couloir == detectedCouloir &&
-        currentOrder[i].detectedCount < currentOrder[i].quantity) {
+    if (currentOrder[i].couloir == detectedCouloir && currentOrder[i].detectedCount < currentOrder[i].quantity) {
       currentOrder[i].detectedCount++;
-      Serial.println("✓ Detected product from CORRECT couloir " + String(couloir));
+      Serial.println("✓ Detected product from CORRECT couloir " + String(couloir) + ", new count: " + String(currentOrder[i].detectedCount));
       productMatched = true;
-
-      bool allItemsDetected = true;
-      for (int j = 0; j < totalItemsInOrder; j++) {
-        if (currentOrder[j].detectedCount < currentOrder[j].quantity) {
-          allItemsDetected = false;
-          break;
-        }
-      }
-      if (allItemsDetected && !orderFailed) {
-        completeOrder();
-      }
-      break;
+      break; // Exit loop after updating the correct item
     }
   }
 
   if (!productMatched) {
     Serial.println("⚠ No exact couloir match found for detected product from couloir " + String(detectedCouloir));
     failOrder("Product detected in wrong couloir " + String(detectedCouloir));
+    return;
+  }
+
+  // Check if all items are dispensed
+  int totalExpected = 0;
+  int totalDispensed = 0;
+  for (int j = 0; j < totalItemsInOrder; j++) {
+    totalExpected += currentOrder[j].quantity;
+    totalDispensed += currentOrder[j].detectedCount;
+  }
+
+  Serial.println("Total expected: " + String(totalExpected) + ", Total dispensed: " + String(totalDispensed));
+  if (totalDispensed >= totalExpected && !orderFailed) {
+    Serial.println("All items detected, completing order");
+    completeOrder();
   }
 }
-
 void completeOrder() {
   if (!orderInProgress || orderFailed) {
     Serial.println("Cannot complete order: No active order or order has failed");
@@ -753,27 +759,55 @@ void completeOrder() {
 
   int totalExpected = 0;
   int totalDispensed = 0;
+  bool hasPartialDispensing = false;
+  
   for (int i = 0; i < totalItemsInOrder; i++) {
     totalExpected += currentOrder[i].quantity;
     totalDispensed += currentOrder[i].detectedCount;
+    
+    if (currentOrder[i].detectedCount < currentOrder[i].quantity && currentOrder[i].detectedCount > 0) {
+      hasPartialDispensing = true;
+    }
+    
     Serial.println("- Couloir " + String(currentOrder[i].couloir) + ": " + 
                    String(currentOrder[i].detectedCount) + "/" + 
-                   String(currentOrder[i].quantity) + " items detected ✓");
+                   String(currentOrder[i].quantity) + " items detected" +
+                   (currentOrder[i].detectedCount == currentOrder[i].quantity ? " ✓" : " ⚠"));
   }
-  Serial.println("Total dispensed: " + String(totalDispensed) + "/" + String(totalExpected) + " items (100%)");
+  
+  int completionPercentage = (totalExpected > 0) ? (totalDispensed * 100 / totalExpected) : 0;
+  Serial.println("Total dispensed: " + String(totalDispensed) + "/" + String(totalExpected) + 
+                " items (" + String(completionPercentage) + "%)");
   Serial.println("Completion timestamp: " + String(completionTime) + "ms");
-
+  
+  // Check for partial dispensing scenario
+  if (totalDispensed > 0 && totalDispensed < totalExpected) {
+    Serial.println("⚠ PARTIAL DISPENSING DETECTED: Some but not all products were dispensed");
+    hasPartialDispensing = true;
+  }
   HTTPClient http;
   String url = String(serverUrl) + "/hardware/dispense/complete";
   http.begin(url);
   http.addHeader("Content-Type", "application/json");
-
   String jsonPayload = "{\"orderId\":\"" + currentOrderId +
                       "\",\"vendingMachineId\":\"" + String(vendingMachineId) + "\"," +
                       "\"details\":{" +
                       "\"totalDispensed\":" + String(totalDispensed) + "," +
-                      "\"completionTimestamp\":" + String(completionTime) +
-                      "}}";
+                      "\"totalExpected\":" + String(totalExpected) + "," +
+                      "\"hasPartialDispensing\":" + (hasPartialDispensing ? "true" : "false") + "," +
+                      "\"completionPercentage\":" + String(completionPercentage) + "," +
+                      "\"completionTimestamp\":" + String(completionTime) + "," +
+                      "\"details\":[";
+  
+  // Add detailed per-couloir information
+  for (int i = 0; i < totalItemsInOrder; i++) {
+    if (i > 0) jsonPayload += ",";
+    jsonPayload += "{\"couloir\":" + String(currentOrder[i].couloir) + 
+                   ",\"expected\":" + String(currentOrder[i].quantity) + 
+                   ",\"detectedCount\":" + String(currentOrder[i].detectedCount) + "}";
+  }
+  
+  jsonPayload += "]}}";
   Serial.print("Sending request to: ");
   Serial.println(url);
   Serial.print("With payload: ");
@@ -823,7 +857,7 @@ void processKeypadOrder() {
     Serial.println("Cannot process keypad order: User not authenticated");
     return;
   }
-  if (selectedCouloir < 1 || selectedCouloir > 4) {
+  if (selectedCouloir < 1 || selectedCouloir > NUM_CHARIOTS) {
     Serial.println("Invalid couloir selected: " + String(selectedCouloir));
     return;
   }
@@ -899,7 +933,7 @@ void handleKeypadInput(char key) {
       }
       break;
     case LcdState::ENTER_COULOIR:
-      if (key >= '1' && key <= '4') {
+      if (key >= '1' && key <= '3') { // Updated for 3 couloirs
         selectedCouloir = key - '0';
         showQuantityPrompt();
       } else if (key == '#') {
@@ -933,22 +967,20 @@ void handleKeypadInput(char key) {
 
 void testRelays() {
   Serial.println("\nTesting Relays...");
-  for (int i = 1; i <= 4; i++) {
-    int relayPin;
-    switch (i) {
-      case 1: relayPin = RELAY1; break;
-      case 2: relayPin = RELAY2; break;
-      case 3: relayPin = RELAY3; break;
-      case 4: relayPin = RELAY4; break;
-    }
-    Serial.print("Turning ON Relay ");
-    Serial.println(i);
+  for (int i = 1; i <= NUM_CHARIOTS; i++) {
+    int relayPin = getRelayPinForChariot("CHARIOT" + String(i));
+    unsigned long activationTimeMs = getActivationTimeForChariot("CHARIOT" + String(i));
+    Serial.print("Testing Relay for CHARIOT");
+    Serial.print(i);
+    Serial.print(" (Pin ");
+    Serial.print(relayPin);
+    Serial.print(") for ");
+    Serial.print(activationTimeMs);
+    Serial.println("ms");
     digitalWrite(relayPin, LOW);
-    delay(1000);
-    Serial.print("Turning OFF Relay ");
-    Serial.println(i);
+    delay(activationTimeMs);
     digitalWrite(relayPin, HIGH);
-    delay(1000);
+    delay(1000); // Delay between tests
   }
 }
 
@@ -1099,7 +1131,7 @@ void resetOrderState() {
   currentUserId = "";
   totalItemsInOrder = 0;
   orderStartTime = 0;
-  for (int i = 0; i < 4; i++) {
+  for (int i = 0; i < NUM_CHARIOTS; i++) {
     currentOrder[i].couloir = 0;
     currentOrder[i].quantity = 0;
     currentOrder[i].detectedCount = 0;
@@ -1107,7 +1139,6 @@ void resetOrderState() {
   Serial.println("Order state fully reset");
 }
 
-// Check for pending RFID registrations
 void checkForRfidRegistration() {
   if (rfidRegistrationMode) {
     // Check if we've timed out waiting for an RFID card
@@ -1164,7 +1195,6 @@ void checkForRfidRegistration() {
   http.end();
 }
 
-// Process an RFID card for registration
 void processRfidRegistration(String cardUID) {
   Serial.println("Processing RFID registration for card: " + cardUID);
   
@@ -1282,24 +1312,28 @@ void loop() {
     checkProductUpdates();
     lastProductUpdateCheck = millis();
   }
-
-  // Check for RFID registration
-  checkForRfidRegistration();
-
-  // Handle RFID registration processing
-  if (rfidRegistrationMode && rfid.PICC_IsNewCardPresent() && rfid.PICC_ReadCardSerial()) {
-    String cardUID = "";
-    for (byte i = 0; i < rfid.uid.size; i++) {
-      cardUID += (rfid.uid.uidByte[i] < 0x10 ? "0" : "");
-      cardUID += String(rfid.uid.uidByte[i], HEX);
+  // Periodically reset VL53L0X to prevent drift
+  if (millis() - lastSensorReset > SENSOR_RESET_INTERVAL || unexpectedDetectionCount >= MAX_UNEXPECTED_DETECTIONS) {
+    Serial.println("Reinitializing VL53L0X sensor to prevent drift...");
+    if (!lox.begin()) {
+      Serial.println("Failed to reinitialize VL53L0X!");
+    } else {
+      Serial.println("VL53L0X reinitialized successfully.");
+      lastSensorReset = millis();
+      unexpectedDetectionCount = 0;
     }
-    Serial.print("RFID Card UID for registration: ");
-    Serial.println(cardUID);
-
-    processRfidRegistration(cardUID);
-
-    rfid.PICC_HaltA();
   }
 
-  delay(100);
+  // Monitor for unexpected detections outside dispensing
+  if (!orderInProgress) {
+    VL53L0X_RangingMeasurementData_t measure;
+    lox.rangingTest(&measure, false);
+    if (measure.RangeStatus != 4 && measure.RangeMilliMeter > 50 && measure.RangeMilliMeter < 800) {
+      unexpectedDetectionCount++;
+      Serial.println("Unexpected detection #" + String(unexpectedDetectionCount) + " outside order!");
+    }
+  }
+
+  delay(1000);
 }
+  

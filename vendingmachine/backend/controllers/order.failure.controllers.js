@@ -24,17 +24,28 @@ exports.handleOrderFailure = async (req, res) => {
     order.failedAt = new Date();
     order.vendingMachineId = vendingMachineId;
 
-    await order.save();
-
-    // Create a notification for both the user and technicians
+    await order.save();    // Create a notification for both the user and technicians
     const userNotification = new NotificationModel({
       userId: order.userId,
       title: 'Problème avec votre commande',
       message: `Votre commande n'a pas pu être distribuée. Raison: ${reason || 'Erreur technique'}`,
-      type: 'ORDER',
+      type: 'ORDER', // Now using the proper ORDER type that we added to the schema enum
       orderId: order._id,
-      priority: 'HIGH',
+      priority: 5, // 5 = highest priority (critical)
       status: 'UNREAD',
+      // Include more details about the order in the notification
+      metadata: {
+        orderId: order._id.toString(),
+        failureReason: reason || 'Erreur technique',
+        failureDetails: details || {},
+        failedAt: new Date().toISOString(),
+        refundStatus: "NO_PAYMENT_PROCESSED", // To indicate no money was deducted
+        orderDetails: {
+          totalAmount: order.totalAmount,
+          paymentMethod: order.paymentMethod,
+          products: order.products
+        }
+      }
     });
 
     await userNotification.save();

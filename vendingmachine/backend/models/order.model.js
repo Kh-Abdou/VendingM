@@ -57,9 +57,17 @@ const OrderSchema = mongoose.Schema(
     },
     vendingMachineId: {
       type: String,
-      default: null,
-    },    dispensedAt: {
+      default: null,    },    dispensedAt: {
       type: Date,
+      default: null,
+    },
+    dispensingDetails: {
+      type: {
+        totalDispensed: { type: Number, default: 0 },
+        totalExpected: { type: Number, default: 0 },
+        isPartialDispensing: { type: Boolean, default: false },
+        completionPercentage: { type: Number, default: 0 }
+      },
       default: null,
     },
     failureReason: {

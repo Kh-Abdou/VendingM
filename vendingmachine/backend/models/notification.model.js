@@ -14,10 +14,9 @@ const NotificationSchema = mongoose.Schema(
     message: {
       type: String,
       required: true,
-    },
-    type: {
+    },    type: {
       type: String,
-      enum: ["TRANSACTION", "CODE", "SYSTEM", "MAINTENANCE", "STOCK"],
+      enum: ["TRANSACTION", "CODE", "SYSTEM", "MAINTENANCE", "STOCK", "ORDER"],
       required: true,
     },
     status: {
@@ -81,12 +80,18 @@ const NotificationSchema = mongoose.Schema(
           default: 0,
         },
       },
-    ],
-    priority: {
+    ],    priority: {
       type: Number,
       min: 1,
       max: 5,
       default: 3, // Medium priority
+      /* Priority levels:
+         1 = Lowest priority
+         2 = Low priority
+         3 = Medium priority
+         4 = High priority
+         5 = Highest priority/Critical
+      */
     },
     metadata: {
       type: mongoose.Schema.Types.Mixed,

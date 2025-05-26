@@ -109,17 +109,11 @@ module.exports.processPayment = async (req, res) => {
         message: "Insufficient funds",
       });
     }
+      // Do NOT deduct amount immediately - the payment is processed only after successful dispensing
+    // Instead, verify there are sufficient funds and then create a pending order
+    // The actual balance deduction will happen in dispense.controllers.js after successful product detection
     
-    // Deduct amount
-    wallet.balance -= amount;
-    
-    // Save transaction history
-    wallet.transactions.push({
-      type: "PAYMENT",
-      amount: -amount,
-      date: new Date(),
-    });
-      await wallet.save();    // Create order 
+    // Create order 
     const order = new OrderModel({
       userId,
       products,
@@ -127,28 +121,13 @@ module.exports.processPayment = async (req, res) => {
       paymentMethod: "EWALLET",
       status: "PENDING", // Changed from COMPLETED to PENDING for dispenser to pick up
     });
-    
-    await order.save();
-    
-    // Create notification
-    const notification = new NotificationModel({      userId,
-      title: "Paiement effectué",
-      message: `Votre paiement de ${amount.toFixed(2)} DA a été effectué`,
-      type: "TRANSACTION",
-      amount: -amount,
-      orderId: order._id,
-      products: products.map(p => ({
-        productId: p.productId,
-        quantity: p.quantity,
-        price: p.price
-      })),
-    });
-    
-    await notification.save();
-    
-    res.status(200).json({
-      message: "Payment processed successfully",
-      balance: wallet.balance,
+      await order.save();
+    // Notification removed - "commande créée" notifications are unnecessary
+    // Payment completion notifications are handled in dispense.controllers.js after successful dispensing
+      res.status(200).json({
+      message: "Order created successfully - payment will be processed after successful dispensing",
+      balance: wallet.balance, // Return current balance (no deduction yet)
+      pendingAmount: amount,
       orderId: order._id,
     });
   } catch (err) {

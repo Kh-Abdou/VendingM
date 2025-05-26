@@ -94,6 +94,18 @@ class Notification {
   // Retourne true si la notification est une notification technique/maintenance
   bool get isTechnicalNotification => type == 'MAINTENANCE';
 
+  // Retourne true si la notification est liée à une commande avec problème
+  bool get isOrderNotification => type == 'ORDER';
+
+  // Retourne true si la notification est système
+  bool get isSystemNotification => type == 'SYSTEM';
+
+  // Retourne true si la notification est liée à une transaction
+  bool get isTransactionNotification => type == 'TRANSACTION';
+
+  // Retourne true si la notification est liée à un code
+  bool get isCodeNotification => type == 'CODE';
+
   // Retourne true si la notification est non lue
   bool get isUnread => status == 'UNREAD';
 }
