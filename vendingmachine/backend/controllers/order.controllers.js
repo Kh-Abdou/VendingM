@@ -170,16 +170,25 @@ exports.processOrder = async (req, res) => {
             return res.status(400).json({ 
                 message: 'Invalid request body. Please provide userId and products array.'
             });
-        }
-
-        // Validate vending machine exists and is available
+        }        // Validate vending machine exists and check status
         const machine = await Hardware.findById(vendingMachineId);
         if (!machine) {
             return res.status(404).json({
                 message: 'Vending machine not found'
             });
         }
-        if (machine.status !== 'AVAILABLE') {
+        
+        // Prevent orders if machine is in restricted status
+        if (machine.status === 'NEEDS_RESTOCKING' || machine.status === 'MAINTENANCE') {
+            const statusMessage = machine.status === 'NEEDS_RESTOCKING' ? 'réapprovisionnement' : 'maintenance';
+            return res.status(403).json({
+                message: `Commandes temporairement indisponibles - Machine en ${statusMessage}`,
+                machineStatus: machine.status,
+                statusMessage: machine.statusMessage
+            });
+        }
+        
+        if (machine.status !== 'AVAILABLE' && machine.status !== 'OPERATIONAL') {
             return res.status(400).json({
                 message: 'Vending machine is not available'
             });

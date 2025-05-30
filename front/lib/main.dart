@@ -20,6 +20,7 @@ import 'models/produit.dart';
 import 'dart:developer' as developer;
 
 import 'technician_page/notifications_page.dart';
+import 'components/machine_status_upbar.dart';
 
 // Définir l'URL du backend - modifier cette URL selon votre environnement
 // Pour le développement sur émulateur Android, utilisez 10.0.2.2:5000
@@ -27,7 +28,7 @@ import 'technician_page/notifications_page.dart';
 // const String apiBaseUrl = 'http://localhost:5000'; // Fonctionne uniquement sur le web
 // const String apiBaseUrl = 'http://10.0.2.2:5000'; // Pour les émulateurs Android
 const String apiBaseUrl =
-    'http://192.168.28.32:5000'; // Pour votre téléphone physique
+    'http://192.168.1.8:5000'; // Pour votre téléphone physique
 // const String apiBaseUrl = 'http://[IP_DE_VOTRE_MACHINE]:5000'; // Pour les appareils physiques
 
 // ID de technicien par défaut (sera remplacé par l'ID réel après la connexion)
@@ -180,14 +181,14 @@ class _HomePageState extends State<HomePage> {
     return Scaffold(
       appBar: AppBar(
         title: Text(_getTitle()),
-        leading: IconButton(
-          icon: Icon(
-            isInMaintenance ? Icons.warning_amber_rounded : Icons.check_circle,
-            color: isInMaintenance ? Colors.amber : Colors.green,
-          ),
-          onPressed: () => _showStatusDialog(),
-        ),
         actions: [
+          // Machine status upbar
+          Padding(
+            padding: EdgeInsets.only(right: 8.w),
+            child: MachineStatusUpbar(
+              primaryColor: Theme.of(context).primaryColor,
+            ),
+          ),
           // Cart icon with animated badge
           Padding(
             padding: EdgeInsets.only(right: 8.w),
@@ -836,9 +837,8 @@ class _HomePageState extends State<HomePage> {
           lastOrderStatus = orderStatus;
           developer.log(
               'Polling attempt $attempts/$calculatedMaxAttempts - Status: ${orderStatus['status']}',
-              name: 'OrderPolling');
-
-          // DETAILED DEBUGGING: Log all response fields
+              name:
+                  'OrderPolling'); // DETAILED DEBUGGING: Log all response fields
           developer.log('Order Status Details:', name: 'OrderPolling');
           developer.log('- orderId: ${orderStatus['orderId']}',
               name: 'OrderPolling');
@@ -849,6 +849,14 @@ class _HomePageState extends State<HomePage> {
               name: 'OrderPolling');
           developer.log(
               '- dispensingStatus: ${orderStatus['dispensingStatus']}',
+              name: 'OrderPolling');
+          developer.log(
+              '- isPartialDispensing: ${orderStatus['isPartialDispensing']}',
+              name: 'OrderPolling');
+          developer.log('- hardwareDetails: ${orderStatus['hardwareDetails']}',
+              name: 'OrderPolling');
+          developer.log(
+              '- dispensingDetails: ${orderStatus['dispensingDetails']}',
               name: 'OrderPolling');
           if (orderStatus['dispensingStatus'] != null) {
             developer.log(
@@ -1227,11 +1235,26 @@ class _HomePageState extends State<HomePage> {
         orderStatusData?['dispensingStatus'];
     int totalDispensed = dispensingStatus?['totalDispensed'] ?? 0;
     int totalExpected = dispensingStatus?['totalExpected'] ??
-        produits.fold(0, (sum, item) => sum + item.quantite);
+        produits.fold(
+            0,
+            (sum, item) =>
+                sum +
+                item.quantite); // Get detailed per-couloir dispensing information if available
+    List<dynamic>? dispensingDetails = orderStatusData?['hardwareDetails']
+            ?['completion']?['details'] ??
+        orderStatusData?['dispensingDetails']?['details'];
 
-    // Get detailed per-couloir dispensing information if available
-    List<dynamic>? dispensingDetails =
-        orderStatusData?['hardwareDetails']?['completion']?['details'];
+    // Debug: Log what dispensing details we received
+    if (dispensingDetails != null) {
+      developer.log('Detailed dispensing data received: $dispensingDetails',
+          name: 'DispensingDetails');
+    } else {
+      developer.log('No detailed dispensing data available',
+          name: 'DispensingDetails');
+      developer.log(
+          'Available order status data keys: ${orderStatusData?.keys.toList()}',
+          name: 'DispensingDetails');
+    }
 
     showDialog(
       context: context,
@@ -1324,63 +1347,108 @@ class _HomePageState extends State<HomePage> {
                           int index = entry.key;
                           products_page.ProduitPanier item = entry.value;
 
-                          // Try to find dispensing info for this product
+                          // Calculate dispensed quantity for this product
                           int dispensedForProduct =
                               item.quantite; // Default: assume all dispensed
-                          bool hasDispensingData = false;
 
-                          if (dispensingDetails != null &&
-                              dispensingDetails.isNotEmpty) {
-                            // For now, we'll use proportional calculation since we don't have
-                            // direct product-to-couloir mapping in the frontend
-                            if (totalExpected > 0) {
+                          // Always show dispensing data when we have partial or failed dispensing
+                          bool hasDispensingData = isPartialDispensing ||
+                              (!isPartialDispensing && totalDispensed == 0);
+
+                          // Calculate actual dispensed amount based on scenario
+                          if (isPartialDispensing && totalExpected > 0) {
+                            // Try to use detailed hardware data first
+                            if (dispensingDetails != null &&
+                                dispensingDetails.isNotEmpty) {
+                              // Look for matching couloir data from Arduino
+                              // Since we don't have direct product-to-couloir mapping here,
+                              // we'll use the order index to match with dispensing details
+                              if (index < dispensingDetails.length) {
+                                var detailItem = dispensingDetails[index];
+                                int expectedFromArduino =
+                                    detailItem['expected'] ?? item.quantite;
+                                int detectedFromArduino =
+                                    detailItem['detectedCount'] ?? 0;
+
+                                // Use the Arduino's actual detection count
+                                dispensedForProduct = detectedFromArduino;
+
+                                // Validate that the expected quantity matches what we ordered
+                                if (expectedFromArduino != item.quantite) {
+                                  developer.log(
+                                      'Warning: Arduino expected $expectedFromArduino but order has ${item.quantite} for product ${item.produit.nom}',
+                                      name: 'DispensingDetails');
+                                }
+                              } else {
+                                // Fallback to proportional calculation if no detailed data for this index
+                                dispensedForProduct =
+                                    ((totalDispensed * item.quantite) /
+                                            totalExpected)
+                                        .round();
+                                dispensedForProduct =
+                                    dispensedForProduct.clamp(0, item.quantite);
+                              }
+                            } else {
+                              // Fallback to proportional calculation
                               dispensedForProduct =
                                   ((totalDispensed * item.quantite) /
                                           totalExpected)
                                       .round();
-                              hasDispensingData = true;
+                              dispensedForProduct =
+                                  dispensedForProduct.clamp(0, item.quantite);
                             }
-                          }
-
-                          // For complete failures, assume 0 dispensed
-                          if (!isPartialDispensing) {
+                          } else if (!isPartialDispensing &&
+                              totalDispensed == 0) {
+                            // Complete failure - nothing was dispensed
                             dispensedForProduct = 0;
-                            hasDispensingData = true;
-                          } // Fix the product color coding logic
+                          } else if (!isPartialDispensing &&
+                              totalDispensed > 0) {
+                            // Complete success - everything was dispensed
+                            dispensedForProduct = item.quantite;
+                          } // Determine dispensing status for color coding
                           bool wasFullyDispensed =
                               dispensedForProduct >= item.quantite;
                           bool wasPartiallyDispensed =
                               dispensedForProduct > 0 &&
                                   dispensedForProduct < item.quantite;
 
+                          // Color scheme: Green = fully dispensed, Grey = partially dispensed, Red = not dispensed
+                          Color backgroundColor;
+                          Color borderColor;
+                          Color iconColor;
+                          IconData iconData;
+
+                          if (wasFullyDispensed) {
+                            backgroundColor = Colors.green.withOpacity(0.1);
+                            borderColor = Colors.green.withOpacity(0.3);
+                            iconColor = Colors.green;
+                            iconData = Icons.check_circle_outline;
+                          } else if (wasPartiallyDispensed) {
+                            backgroundColor = Colors.grey.withOpacity(0.1);
+                            borderColor = Colors.grey.withOpacity(0.3);
+                            iconColor = Colors.grey[600]!;
+                            iconData = Icons.warning_amber_outlined;
+                          } else {
+                            // Not dispensed
+                            backgroundColor = Colors.red.withOpacity(0.1);
+                            borderColor = Colors.red.withOpacity(0.3);
+                            iconColor = Colors.red;
+                            iconData = Icons.cancel_outlined;
+                          }
+
                           return Container(
                             margin: EdgeInsets.symmetric(vertical: 4.h),
                             padding: EdgeInsets.all(12.w),
                             decoration: BoxDecoration(
-                              color: wasFullyDispensed
-                                  ? Colors.green.withOpacity(0.1)
-                                  : Colors.grey.withOpacity(
-                                      0.1), // Gray for partial/failed
+                              color: backgroundColor,
                               borderRadius: BorderRadius.circular(8.r),
-                              border: Border.all(
-                                color: wasFullyDispensed
-                                    ? Colors.green.withOpacity(0.3)
-                                    : Colors.grey.withOpacity(
-                                        0.3), // Gray for partial/failed
-                              ),
+                              border: Border.all(color: borderColor),
                             ),
                             child: Row(
                               children: [
                                 Icon(
-                                  wasFullyDispensed
-                                      ? Icons.check_circle_outline
-                                      : wasPartiallyDispensed
-                                          ? Icons.warning_amber_outlined
-                                          : Icons.cancel_outlined,
-                                  color: wasFullyDispensed
-                                      ? Colors.green
-                                      : Colors
-                                          .grey, // Gray for partial/failed products
+                                  iconData,
+                                  color: iconColor,
                                   size: 20.sp,
                                 ),
                                 SizedBox(width: 12.w),
@@ -1400,17 +1468,14 @@ class _HomePageState extends State<HomePage> {
                                       if (hasDispensingData) ...[
                                         SizedBox(height: 4.h),
                                         Text(
-                                          wasFullyDispensed
-                                              ? 'Distribué: ${item.quantite}/${item.quantite}'
-                                              : wasPartiallyDispensed
-                                                  ? 'Distribué: $dispensedForProduct/${item.quantite}'
-                                                  : 'Non distribué: 0/${item.quantite}',
+                                          'Distribué: $dispensedForProduct/${item.quantite}',
                                           style: TextStyle(
                                             fontSize: 12.sp,
                                             color: wasFullyDispensed
                                                 ? Colors.green[700]
-                                                : Colors.grey[
-                                                    700], // Gray for partial/failed
+                                                : wasPartiallyDispensed
+                                                    ? Colors.grey[700]
+                                                    : Colors.red[700],
                                           ),
                                         ),
                                       ] else ...[

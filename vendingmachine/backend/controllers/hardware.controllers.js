@@ -540,6 +540,16 @@ exports.processPhysicalOrder = async (req, res) => {
       return res.status(404).json({ message: 'Machine not found' });
     }
 
+    // Check machine status before processing physical order
+    if (machine.status === 'NEEDS_RESTOCKING' || machine.status === 'MAINTENANCE') {
+      const statusMessage = machine.status === 'NEEDS_RESTOCKING' ? 'réapprovisionnement' : 'maintenance';
+      return res.status(403).json({
+        message: `Commandes temporairement indisponibles - Machine en ${statusMessage}`,
+        machineStatus: machine.status,
+        statusMessage: machine.statusMessage
+      });
+    }
+
     // Find the product mapping for the selected couloir
     const productMapping = machine.productMapping.find(
       mapping => mapping.couloir === selectedCouloir && 

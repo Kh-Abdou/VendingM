@@ -31,6 +31,7 @@ app.use("/code", require("./routes/code.routes"));
 app.use("/notification", require("./routes/notification.routes"));
 app.use("/hardware", require("./routes/hardware.routes"));
 app.use("/orders", require("./routes/order.routes"));
+app.use("/machine-status", require("./routes/machine.status.routes"));
 // app.use("/dispense", require("./routes/dispense.routes"));
 
 // Route de test simple pour vérifier que le serveur fonctionne

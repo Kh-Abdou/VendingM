@@ -6,6 +6,8 @@
 #include <HTTPClient.h>
 #include <ArduinoJson.h>
 #include <WiFiManager.h>
+#include <LiquidCrystal_I2C.h>
+#include <Keypad.h>
 
 #define RELAY1 26  // Chariot 1
 #define RELAY2 25  // Chariot 2 
@@ -14,23 +16,21 @@
 struct ChariotRelay {
   const char* id;
   int pin;
-  unsigned long activationTimeMs; // Activation time in milliseconds
+  unsigned long activationTimeMs;
 };
 
 const ChariotRelay CHARIOT_RELAY_MAP[] = {
-  {"CHARIOT1", RELAY1, 4625}, // 5 seconds for CHARIOT1 remplacer par 4.75
-  {"CHARIOT2", RELAY2, 4625}, // 2.5 seconds for CHARIOT2 remplacer par 3
-  {"CHARIOT3", RELAY3, 3000}  // 3 seconds for CHARIOT3
+  {"CHARIOT1", RELAY1, 4625},
+  {"CHARIOT2", RELAY2, 4625},
+  {"CHARIOT3", RELAY3, 3000}
 };
-const int NUM_CHARIOTS = 3; // Updated for 3 couloirs
+const int NUM_CHARIOTS = 3;
 
 int getRelayPinForChariot(String chariotId) {
   chariotId.trim();
   chariotId.toUpperCase();
-  Serial.println("Looking for relay pin for chariot ID: " + chariotId);
   for(int i = 0; i < NUM_CHARIOTS; i++) {
     if(chariotId == CHARIOT_RELAY_MAP[i].id) {
-      Serial.println("Found relay pin " + String(CHARIOT_RELAY_MAP[i].pin) + " for " + chariotId);
       return CHARIOT_RELAY_MAP[i].pin;
     }
   }
@@ -47,10 +47,13 @@ unsigned long getActivationTimeForChariot(String chariotId) {
     }
   }
   Serial.println("ERROR: No activation time found for chariot ID: " + chariotId);
-  return 0; // Default to 0 if not found
+  return 0;
 }
 
 Adafruit_VL53L0X lox = Adafruit_VL53L0X();
+
+// LCD Display (16x2) - I2C address 0x3F
+LiquidCrystal_I2C lcd(0x3F, 16, 2);
 
 #define DHTPIN 4
 #define DHTTYPE DHT11
@@ -71,13 +74,14 @@ char keys[ROWS][COLS] = {
   {'*', '0', '#', 'D'}
 };
 
-const char* serverUrl = "http://192.168.28.32:5000";
+// Initialize keypad
+Keypad keypad = Keypad(makeKeymap(keys), rowPins, colPins, ROWS, COLS);
+
+const char* serverUrl = "http://192.168.1.8:5000";
 const char* vendingMachineId = "VM001";
 
-// WiFiManager object
 WiFiManager wm;
 
-// Couloir distance ranges for VL53L0X sensor (in millimeters)
 const int COULOIR1_MIN = 50;
 const int COULOIR1_MAX = 150;
 const int COULOIR2_MIN = 150;
@@ -88,9 +92,9 @@ const int COULOIR4_MIN = 350;
 const int COULOIR4_MAX = 450;
 
 unsigned long orderCooldownUntil = 0;
-const unsigned long ORDER_COOLDOWN_MS = 2000; // Reduced for testing
-unsigned long orderStartTime = 0; // Track when order starts
-unsigned long ORDER_TIMEOUT_MS = 30000; // Default timeout - will be calculated dynamically
+const unsigned long ORDER_COOLDOWN_MS = 2000;
+unsigned long orderStartTime = 0;
+unsigned long ORDER_TIMEOUT_MS = 30000;
 
 struct OrderItem {
   int couloir;
@@ -99,73 +103,77 @@ struct OrderItem {
 };
 
 unsigned long lastSensorReset = 0;
-const unsigned long SENSOR_RESET_INTERVAL = 600000; // Reset every 1 hour
+const unsigned long SENSOR_RESET_INTERVAL = 600000;
 int unexpectedDetectionCount = 0;
 const int MAX_UNEXPECTED_DETECTIONS = 5;
 
-OrderItem currentOrder[3]; // Updated for 3 couloirs
+OrderItem currentOrder[3];
 int totalItemsInOrder = 0;
 bool orderInProgress = false;
 String currentOrderId = "";
 String currentUserId = "";
 bool orderFailed = false;
 
+// Enhanced LCD states for RFID ordering
 enum LcdState {
   WELCOME,
-  ENTER_COULOIR,
+  MAIN_MENU,
+  SELECT_PRODUCT,
   ENTER_QUANTITY,
+  ADD_MORE_OR_PROCEED,
+  SCAN_RFID,
+  ENTER_PIN,
+  ORDER_SUMMARY,
   PROCESSING,
+  DISPENSING,
   COMPLETE,
-  ERROR
+  ERROR_STATE,
+  TIMEOUT,
+  CANCELLED,
+  ENTER_COULOIR // Legacy state for old keypad ordering
 };
 
-LcdState lcdState = LcdState::WELCOME;
+LcdState lcdState = LcdState::MAIN_MENU;
+
+// RFID ordering variables
+struct ProductInfo {
+  String id;
+  String name;
+  int quantity;
+  int chariot;
+  float price;
+};
+
+struct OrderProduct {
+  ProductInfo product;
+  int requestedQuantity;
+};
+
+ProductInfo availableProducts[10]; // Max 10 products
+int numAvailableProducts = 0;
+OrderProduct orderCart[10]; // Max 10 different products in cart
+int cartSize = 0;
+int selectedProductIndex = 0;
 int selectedCouloir = 0;
 int selectedQuantity = 0;
 String keypadBuffer = "";
+String pinBuffer = "";
+String scannedRfidUID = "";
 bool isAuthenticated = false;
+unsigned long lastInputTime = 0;
+const unsigned long INPUT_TIMEOUT = 40000; // 40 seconds timeout
+int pinAttempts = 0;
+const int MAX_PIN_ATTEMPTS = 3;
+float totalOrderCost = 0.0;
 
-// Variables for RFID registration
 bool rfidRegistrationMode = false;
 unsigned long rfidRegistrationStartTime = 0;
-unsigned long RFID_REGISTRATION_TIMEOUT = 120000; // 2 minutes timeout
+unsigned long RFID_REGISTRATION_TIMEOUT = 120000;
 
-void testRelays();
-void testVL53L0X();
-void testDHT11();
-void testRFID();
-void setupWiFi();
-void showWelcomeScreen();
-void registerMachine();
-void sendEnvironmentData();
-bool authenticateCard(String cardUID);
-void checkForApiOrders();
-void processActiveOrder();
-void failOrder(String reason);
-bool dispenseSingleItem(int couloir);
-int detectItemCouloir();
-void updateItemDetection(int detectedCouloir);
-void completeOrder();
-void processKeypadOrder();
-void showCouloirPrompt();
-void showQuantityPrompt();
-void handleKeypadInput(char key);
-char getKey();
-void checkProductUpdates();
-void resetOrderState();
-void checkForRfidRegistration();
-void processRfidRegistration(String cardUID);
-
-// Modified setupWiFi function
 void setupWiFi() {
   Serial.println("Setting up WiFi with WiFiManager...");
-
-  // Optional: Reset WiFi settings for testing (uncomment if needed)
-  // wm.resetSettings();
-
-  // Set a password for the configuration portal
-  const char* portalPassword = "VendingM"; // Change this to your desired password
-  wm.setConfigPortalTimeout(180); // Timeout for portal in seconds (3 minutes)
+  const char* portalPassword = "VendingM";
+  wm.setConfigPortalTimeout(180);
   wm.setAPCallback([](WiFiManager *myWiFiManager) {
     Serial.println("Entered configuration mode");
     Serial.print("Config Portal SSID: ");
@@ -174,11 +182,8 @@ void setupWiFi() {
     Serial.println(WiFi.softAPIP());
   });
 
-  // Start WiFiManager with password-protected portal
   if (!wm.autoConnect("VendingMachine-AP", portalPassword)) {
     Serial.println("Failed to connect to WiFi and hit timeout");
-    // Optionally, handle failure (e.g., retry or proceed without WiFi)
-    // For now, we'll just continue to allow offline functionality
   } else {
     Serial.println("Connected to WiFi!");
     Serial.print("IP address: ");
@@ -191,7 +196,6 @@ void setup() {
   while (!Serial) {
     delay(1);
   }
-  Serial.println("ESP32 Vending Machine Starting...");
 
   pinMode(RELAY1, OUTPUT);
   pinMode(RELAY2, OUTPUT);
@@ -199,32 +203,18 @@ void setup() {
   digitalWrite(RELAY1, HIGH);
   digitalWrite(RELAY2, HIGH);
   digitalWrite(RELAY3, HIGH);
-  Serial.println("Relays initialized.");
 
   if (!lox.begin()) {
     Serial.println("Failed to initialize VL53L0X!");
     while (1);
   }
-  Serial.println("VL53L0X initialized.");
 
   dht.begin();
-  Serial.println("DHT11 initialized.");
-
-  float testHumidity = dht.readHumidity();
-  float testTemp = dht.readTemperature();
-  if (isnan(testHumidity) || isnan(testTemp)) {
-    Serial.println("WARNING: Failed to read from DHT sensor! Check wiring.");
-  } else {
-    Serial.print("DHT Test - Temp: ");
-    Serial.print(testTemp);
-    Serial.print("°C, Humidity: ");
-    Serial.print(testHumidity);
-    Serial.println("%");
-  }
-
   SPI.begin();
   rfid.PCD_Init();
-  Serial.println("RFID initialized.");
+
+  // Initialize LCD
+  initializeLCD();
 
   for (byte i = 0; i < ROWS; i++) {
     pinMode(rowPins[i], OUTPUT);
@@ -233,12 +223,6 @@ void setup() {
   for (byte i = 0; i < COLS; i++) {
     pinMode(colPins[i], INPUT_PULLUP);
   }
-  Serial.println("Keypad initialized.");
-
-  testRelays();
-  testVL53L0X();
-  testDHT11();
-  testRFID();
 
   setupWiFi();
 
@@ -279,41 +263,24 @@ void registerMachine() {
 void sendEnvironmentData() {
   float h = dht.readHumidity();
   float t = dht.readTemperature();
-  Serial.println("Reading DHT sensor...");
-  Serial.print("Humidity: ");
-  Serial.print(h);
-  Serial.print("%, Temperature: ");
-  Serial.print(t);
-  Serial.println("°C");
-
   if (isnan(h) || isnan(t)) {
-    Serial.println("Failed to read from DHT sensor! Check wiring and make sure sensor is plugged in.");
-    return;
-  }
-
-  if (h < 0 || h > 100 || t < -40 || t > 80) {
-    Serial.println("DHT sensor returned unreasonable values. Possible sensor fault.");
+    Serial.println("Failed to read from DHT sensor!");
     return;
   }
 
   if (WiFi.status() != WL_CONNECTED) {
-    Serial.println("WiFi not connected. Cannot send environment data.");
     setupWiFi();
-    if (WiFi.status() != WL_CONNECTED) {
-      return;
-    }
+    if (WiFi.status() != WL_CONNECTED) return;
   }
 
   HTTPClient http;
   String url = String(serverUrl) + "/hardware/environment";
-  Serial.print("Sending environment data to: ");
-  Serial.println(url);
-
   http.begin(url);
   http.addHeader("Content-Type", "application/json");
 
-  String jsonPayload = "{\"temperature\":" + String(t) +
-                      ",\"humidity\":" + String(h) + "}";
+  String jsonPayload = "{\"temperature\":" + String(t) + ",\"humidity\":" + String(h) + "}";
+  Serial.print("Sending environment data to: ");
+  Serial.println(url);
   Serial.print("JSON payload: ");
   Serial.println(jsonPayload);
 
@@ -349,12 +316,9 @@ bool authenticateCard(String cardUID) {
 
     DynamicJsonDocument doc(1024);
     DeserializationError error = deserializeJson(doc, response);
-    if (!error) {
-      bool isAuthenticated = doc["isAuthenticated"];
-      if (isAuthenticated) {
-        currentUserId = doc["userId"].as<String>();
-        return true;
-      }
+    if (!error && doc["isAuthenticated"]) {
+      currentUserId = doc["userId"].as<String>();
+      return true;
     }
   } else {
     Serial.print("Error code: ");
@@ -365,449 +329,194 @@ bool authenticateCard(String cardUID) {
 }
 
 void checkForApiOrders() {
-  if (orderInProgress) {
-    Serial.println("Cannot check for orders: Another order is already in progress");
-    return;
-  }  
-  if (millis() < orderCooldownUntil) {
-    unsigned long remainingCooldown = (orderCooldownUntil - millis()) / 1000;
-    Serial.println("Cannot check for orders: In cooldown period - " + String(remainingCooldown) + " seconds remaining");
-    return;
-  }
+    if (orderInProgress || millis() < orderCooldownUntil) return;
 
-  HTTPClient http;
-  String url = String(serverUrl) + "/hardware/dispense/new-orders";
-  http.begin(url);
-  http.addHeader("Content-Type", "application/json");
+    HTTPClient http;
+    String url = String(serverUrl) + "/hardware/dispense/new-orders";
+    http.begin(url);
+    http.addHeader("Content-Type", "application/json");
 
-  String jsonPayload = "{\"vendingMachineId\":\"" + String(vendingMachineId) + "\"}";
-  Serial.print("Sending request to: ");
-  Serial.println(url);
-  Serial.print("With payload: ");
-  Serial.println(jsonPayload);
+    String jsonPayload = "{\"vendingMachineId\":\"" + String(vendingMachineId) + "\"}";
+    Serial.print("Sending request to: ");
+    Serial.println(url);
+    Serial.print("With payload: ");
+    Serial.println(jsonPayload);
 
-  int httpResponseCode = http.POST(jsonPayload);
-  if (httpResponseCode == 200) {
-    String response = http.getString();
-    Serial.println("Response code 200 OK. Received: " + response);
+    int httpResponseCode = http.POST(jsonPayload);
+    if (httpResponseCode == 200) {
+        String response = http.getString();
+        Serial.println("Response code 200 OK. Received: " + response);
 
-    DynamicJsonDocument doc(1024);
-    DeserializationError error = deserializeJson(doc, response);
-    if (!error) {
-      String orderId = doc["orderId"].as<String>();
-      currentOrderId = orderId;
+        DynamicJsonDocument doc(1024);
+        DeserializationError error = deserializeJson(doc, response);
+        if (!error) {
+            currentOrderId = doc["orderId"].as<String>();
+            for (int i = 0; i < NUM_CHARIOTS; i++) {
+                currentOrder[i] = {0, 0, 0};
+            }
 
-      for (int i = 0; i < NUM_CHARIOTS; i++) {
-        currentOrder[i].couloir = 0;
-        currentOrder[i].quantity = 0;
-        currentOrder[i].detectedCount = 0;
-      }
-
-      JsonArray products = doc["products"].as<JsonArray>();
-      int orderIndex = 0;
-      Serial.println("\nReceived new order to dispense:");
-      Serial.println("Order ID: " + orderId);
-      Serial.println("Products to dispense:");
-      Serial.println("Raw API response: " + response);
-
-      for (JsonVariant product : products) {
-        int couloir = product["couloir"].as<int>();
-        int quantity = product["quantity"].as<int>();
-        if (orderIndex < NUM_CHARIOTS) {
-          currentOrder[orderIndex].couloir = couloir;
-          currentOrder[orderIndex].quantity = quantity;
-          Serial.println("- Couloir " + String(couloir) + ": " + String(quantity) + " items");
-          orderIndex++;
+            JsonArray products = doc["products"].as<JsonArray>();
+            int orderIndex = 0;
+            for (JsonVariant product : products) {
+                if (orderIndex < NUM_CHARIOTS) {
+                    currentOrder[orderIndex].couloir = product["couloir"].as<int>();
+                    currentOrder[orderIndex].quantity = product["quantity"].as<int>();
+                    orderIndex++;
+                }
+            }
+            totalItemsInOrder = orderIndex;
+            if (totalItemsInOrder > 0) {
+                ORDER_TIMEOUT_MS = min(30000UL + (totalItemsInOrder * 10000UL), 120000UL);
+                orderInProgress = true;
+                orderFailed = false;
+                orderStartTime = millis();
+                processActiveOrder();
+            }
         }
-      }      totalItemsInOrder = orderIndex;
-      if (totalItemsInOrder > 0) {
-        // Calculate dynamic timeout based on order size
-        // Base timeout: 30 seconds + 10 seconds per product (with max 2 minutes)
-        unsigned long calculatedTimeout = 30000 + (totalItemsInOrder * 10000);
-        ORDER_TIMEOUT_MS = min(calculatedTimeout, 120000UL); // Max 2 minutes
-        
-        Serial.println("Dynamic timeout calculated: " + String(ORDER_TIMEOUT_MS / 1000) + " seconds for " + String(totalItemsInOrder) + " total items");
-        
-        orderInProgress = true;
-        orderFailed = false;
-        orderStartTime = millis(); // Record order start time
-        processActiveOrder();
-      } else {
-        Serial.println("Error: Order contains no valid products to dispense");
-      }
+    } else if (httpResponseCode != 404) {
+        String errorResponse = http.getString();
+        Serial.print("HTTP error: ");
+        Serial.println(httpResponseCode);
+        Serial.print("Error response: ");
+        Serial.println(errorResponse);
     }
-  } else if (httpResponseCode == 404) {
-    Serial.println("No new orders to dispense (HTTP 404)");
-  } else {
-    String errorResponse = http.getString();
-    Serial.print("HTTP error: ");
-    Serial.println(httpResponseCode);
-    Serial.print("Error response: ");
-    Serial.println(errorResponse);
-  }
-  http.end();
+    http.end();
 }
 
 void processActiveOrder() {
   if (!orderInProgress || totalItemsInOrder == 0) {
-    Serial.println("No active order to process");
     resetOrderState();
     return;
   }
 
-  Serial.println("\n=== Processing New Order ===");
-  Serial.println("Order ID: " + currentOrderId);
-  Serial.println("Total items in order: " + String(totalItemsInOrder));
-
-  Serial.println("\n--- Complete Order Details ---");
-  for (int i = 0; i < totalItemsInOrder; i++) {
-    Serial.println("Item " + String(i+1) + ":");
-    Serial.println("  Couloir: " + String(currentOrder[i].couloir) + " (CHARIOT" + String(currentOrder[i].couloir) + ")");
-    Serial.println("  Quantity: " + String(currentOrder[i].quantity));
-    Serial.println("  Relay Pin: " + String(getRelayPinForChariot("CHARIOT" + String(currentOrder[i].couloir))));
-  }
-  Serial.println("----------------------------");
-
+  Serial.println("Processing order " + currentOrderId);
   for (int i = 0; i < totalItemsInOrder; i++) {
     int couloir = currentOrder[i].couloir;
     int quantity = currentOrder[i].quantity;
-
-    Serial.println("\n--- Product " + String(i + 1) + " Details ---");
-    Serial.println("Assigned Chariot/Couloir: " + String(couloir));
-    Serial.println("Quantity requested: " + String(quantity));
-
+    Serial.println("Dispensing " + String(quantity) + " from couloir " + String(couloir));
     for (int j = 0; j < quantity; j++) {
-      Serial.println("Dispensing item " + String(j + 1) + " of " + String(quantity) + " from couloir " + String(couloir));
-      bool itemDetected = dispenseSingleItem(couloir);
-      if (itemDetected) {
-        Serial.println("✓ Item " + String(j + 1) + " detected in couloir " + String(couloir));
-      } else {
-        Serial.println("✗ Item " + String(j + 1) + " NOT detected in couloir " + String(couloir) + " - continuing with next item");
-      }
+      dispenseSingleItem(couloir);
     }
-    
-    Serial.println("Couloir " + String(couloir) + " summary: " + String(currentOrder[i].detectedCount) + "/" + String(quantity) + " items detected");
   }
 
-  int totalExpected = 0;
-  int totalDispensed = 0;
-  
+  int totalExpected = 0, totalDispensed = 0;
   for (int i = 0; i < totalItemsInOrder; i++) {
     totalExpected += currentOrder[i].quantity;
     totalDispensed += currentOrder[i].detectedCount;
   }
 
-  Serial.println("\n========== FINAL ORDER RESULTS ==========");
-  Serial.println("Total expected: " + String(totalExpected));
-  Serial.println("Total dispensed: " + String(totalDispensed));
-
+  Serial.println("Order result: " + String(totalDispensed) + "/" + String(totalExpected) + " dispensed");
   if (totalDispensed == 0) {
-    Serial.println("❌ COMPLETE FAILURE: No products were dispensed");
-    orderFailed = true;
-    failOrder("No products were detected - complete dispensing failure");
-  } else if (totalDispensed == totalExpected) {
-    Serial.println("✅ COMPLETE SUCCESS: All products were dispensed");
-    completeOrder();
+    failOrder("No products dispensed");
   } else {
-    Serial.println("⚠ PARTIAL SUCCESS: " + String(totalDispensed) + "/" + String(totalExpected) + " products dispensed");
-    Serial.println("Marking as completed - backend will handle partial dispensing logic");
     completeOrder();
   }
 }
 
 void failOrder(String reason) {
-  if (!orderInProgress) {
-    Serial.println("No active order to fail");
-    return;
-  }
+  if (!orderInProgress) return;
 
-  Serial.println("\n========== ORDER FAILURE AT " + String(millis()) + "ms ==========");
-  Serial.println("Order ID: " + currentOrderId);
-  Serial.println("Failure reason: " + reason);
-  Serial.println("Dispensed items status:");
-
-  int totalExpected = 0;
-  int totalDispensed = 0;
-  for (int i = 0; i < totalItemsInOrder; i++) {
-    totalExpected += currentOrder[i].quantity;
-    totalDispensed += currentOrder[i].detectedCount;
-    Serial.println("- Couloir " + String(currentOrder[i].couloir) + ": " + 
-                  String(currentOrder[i].detectedCount) + "/" + 
-                  String(currentOrder[i].quantity) + " items detected" +
-                  (currentOrder[i].detectedCount < currentOrder[i].quantity ? " ⚠ INCOMPLETE" : " ✓ COMPLETE"));
-  }
-  int completionPercentage = (totalExpected > 0) ? (totalDispensed * 100 / totalExpected) : 0;
-  Serial.println("Overall completion: " + String(completionPercentage) + "% (" + 
-                String(totalDispensed) + "/" + String(totalExpected) + " products)");
-
-  // Store orderId for HTTP request
+  Serial.println("Order " + currentOrderId + " failed: " + reason);
   String tempOrderId = currentOrderId;
-
-  // Reset order state except orderId
   orderInProgress = false;
   orderFailed = true;
   currentUserId = "";
   totalItemsInOrder = 0;
   orderCooldownUntil = millis() + ORDER_COOLDOWN_MS;
-  Serial.println("Order state reset (except orderId). Setting cooldown until: " + String(orderCooldownUntil) + "ms");
 
-  // Attempt HTTP request with retry
   HTTPClient http;
   String url = String(serverUrl) + "/orders/fail";
+  int totalExpected = 0, totalDispensed = 0;
+  for (int i = 0; i < totalItemsInOrder; i++) {
+    totalExpected += currentOrder[i].quantity;
+    totalDispensed += currentOrder[i].detectedCount;
+  }
   String jsonPayload = "{\"orderId\":\"" + tempOrderId +
                       "\",\"vendingMachineId\":\"" + String(vendingMachineId) +
                       "\",\"reason\":\"" + reason + "\"," +
-                      "\"details\":{" +
-                      "\"totalExpected\":" + String(totalExpected) + "," +
-                      "\"totalDispensed\":" + String(totalDispensed) + "," +
-                      "\"completionPercentage\":" + String(completionPercentage) + "," +
-                      "\"timestamp\":" + String(millis()) +
-                      "}}";
+                      "\"details\":{\"totalExpected\":" + String(totalExpected) +
+                      ",\"totalDispensed\":" + String(totalDispensed) + "}}";
   Serial.print("Sending failure request to: ");
   Serial.println(url);
   Serial.print("With payload: ");
   Serial.println(jsonPayload);
 
-  bool httpSuccess = false;
-  for (int attempt = 1; attempt <= 2; attempt++) {
-    http.begin(url);
-    http.addHeader("Content-Type", "application/json");
-    int httpResponseCode = http.POST(jsonPayload);
-    String response = http.getString();
-    
-    Serial.println("Attempt " + String(attempt) + " - HTTP Response code: " + String(httpResponseCode));
-    Serial.println("Response: " + response);
-
-    if (httpResponseCode == 200) {
-      Serial.println("✓ Order failure successfully logged");
-      httpSuccess = true;
-      break;
-    } else {
-      Serial.println("✗ Error logging order failure on attempt " + String(attempt));
-      if (attempt < 2) {
-        Serial.println("Retrying...");
-        delay(1000); // Wait 1 second before retry
-      }
-    }
-    http.end();
-  }
-
-  if (!httpSuccess) {
-    Serial.println("✗ Failed to log order failure after 2 attempts. Order state already reset to prevent lock");
-  }
-
-  // Reset orderId after HTTP attempt
+  http.begin(url);
+  http.addHeader("Content-Type", "application/json");
+  int httpResponseCode = http.POST(jsonPayload);
+  String response = http.getString();
+  Serial.println("HTTP Response code: " + String(httpResponseCode));
+  Serial.println("Response: " + response);
+  http.end();
   currentOrderId = "";
-  Serial.println("OrderId reset. Failure handling complete");
-  Serial.println("===================================\n");
 }
 
 bool dispenseSingleItem(int couloir) {
-  Serial.println("\n--- Dispensing Single Item ---");
-  Serial.println("Chariot/Couloir: " + String(couloir));
-
   String chariotId = "CHARIOT" + String(couloir);
   int relayPin = getRelayPinForChariot(chariotId);
   unsigned long activationTimeMs = getActivationTimeForChariot(chariotId);
-  if (relayPin == -1 || activationTimeMs == 0) {
-    Serial.println("ERROR: Invalid chariot ID or activation time for: " + chariotId);
-    return false;
-  }
+  if (relayPin == -1 || activationTimeMs == 0) return false;
 
-  const unsigned long DETECTION_TIMEOUT = 1500; // 1.5 seconds
-  Serial.println("Dispensing item from chariot: " + String(couloir) + " using relay pin: " + String(relayPin));
-
-  // Reinitialize VL53L0X sensor before dispensing to prevent drift
-  if (!lox.begin()) {
-    Serial.println("Failed to reinitialize VL53L0X!");
-    return false;
-  }
-  Serial.println("VL53L0X reinitialized for dispensing.");
-
-  pinMode(relayPin, OUTPUT);
-
-  unsigned long activationStartTime = millis();
-  Serial.println("Activating relay " + String(relayPin) + " for couloir " + String(couloir) + " at " + String(activationStartTime) + "ms");
+  if (!lox.begin()) return false;
 
   digitalWrite(relayPin, LOW);
-  Serial.println("Keeping relay active for " + String(activationTimeMs) + "ms");
   delay(activationTimeMs);
-  Serial.println("Done!");
-
-  unsigned long deactivationTime = millis();
-  Serial.println("Deactivating relay " + String(relayPin) + " at " + String(deactivationTime) + "ms");
   digitalWrite(relayPin, HIGH);
+  delay(800);
 
-  unsigned long productFallDelay = 800; // Increased to 800ms for product to fall
-  Serial.println("Waiting for product to fall for " + String(productFallDelay) + "ms");
-  delay(productFallDelay);
-
+  const unsigned long DETECTION_TIMEOUT = 1500;
   unsigned long startTime = millis();
-  Serial.println("Starting detection window at " + String(startTime) + "ms for " + String(DETECTION_TIMEOUT) + "ms");
-
-  bool productDetected = false;
-  int detectedCouloir = 0;
-  static unsigned long lastDetectionTime = 0; // Debounce detections
-
   while (millis() - startTime < DETECTION_TIMEOUT) {
-    detectedCouloir = detectItemCouloir(couloir);
-    if (detectedCouloir == couloir && (millis() - lastDetectionTime > 1000)) { // 1-second debounce
-      Serial.println("\n---------- PRODUCT DETECTED ----------");
-      Serial.println("Product confirmed in couloir " + String(detectedCouloir) + " at " + String(millis() - startTime) + "ms");
+    int detectedCouloir = detectItemCouloir(couloir);
+    if (detectedCouloir == couloir) {
       updateItemDetection(detectedCouloir);
-      Serial.println("---------------------------------------");
-      productDetected = true;
-      lastDetectionTime = millis();
-      delay(500); // Stabilization delay
-      break; // Exit immediately after detection
+      Serial.println("Item detected in couloir " + String(couloir));
+      return true;
     }
-    delay(10); // Short delay between readings
+    delay(10);
   }
-
-  if (!productDetected) {
-    Serial.println("\n❌ FAILED: No product detected within " + String(DETECTION_TIMEOUT) + "ms for couloir " + String(couloir));
-    return false;
-  }
-
-  return true;
+  Serial.println("Item not detected in couloir " + String(couloir));
+  return false;
 }
 
 int detectItemCouloir(int requestedCouloir) {
   VL53L0X_RangingMeasurementData_t measure;
   lox.rangingTest(&measure, false);
-
   if (measure.RangeStatus != 4) {
     int distance = measure.RangeMilliMeter;
-    Serial.println("VL53L0X reading: " + String(distance) + "mm");
-
-    // Basic detection with minimum distance to filter mechanism/chute
-    if (distance > 50 && distance < 800) { // Adjusted range for product detection
-      Serial.println("Item detected for couloir " + String(requestedCouloir));
-      return requestedCouloir;
-    } else {
-      Serial.println("Invalid distance reading: " + String(distance) + "mm (outside 50–800mm)");
-      return 0;
-    }
-  } else {
-    Serial.println("VL53L0X: Out of range or invalid reading");
+    if (distance > 50 && distance < 800) return requestedCouloir;
   }
   return 0;
 }
 
 void updateItemDetection(int detectedCouloir) {
-  if (orderFailed) {
-    Serial.println("\n--- Item Detection Ignored ---");
-    Serial.println("Order has failed, ignoring detection in couloir " + String(detectedCouloir));
-    return;
-  }
+  if (orderFailed || !orderInProgress) return;
 
-  Serial.println("\n--- Item Detection Update ---");
-  if (!orderInProgress || totalItemsInOrder == 0) {
-    Serial.println("No active order to update");
-    return;
-  }
-
-  bool productMatched = false;
   for (int i = 0; i < totalItemsInOrder; i++) {
-    int couloir = currentOrder[i].couloir;
-    int targetQuantity = currentOrder[i].quantity;
-    int currentCount = currentOrder[i].detectedCount;
-
-    Serial.println("\nProduct " + String(i + 1) + " Status:");
-    Serial.println("Chariot/Couloir: " + String(couloir));
-    Serial.println("Target quantity: " + String(targetQuantity));
-    Serial.println("Current count: " + String(currentCount));
-
     if (currentOrder[i].couloir == detectedCouloir && currentOrder[i].detectedCount < currentOrder[i].quantity) {
       currentOrder[i].detectedCount++;
-      Serial.println("✓ Detected product from CORRECT couloir " + String(couloir) + ", new count: " + String(currentOrder[i].detectedCount));
-      productMatched = true;
-      break; // Exit loop after updating the correct item
+      break;
     }
   }
-
-  if (!productMatched) {
-    Serial.println("⚠ No exact couloir match found for detected product from couloir " + String(detectedCouloir));
-    failOrder("Product detected in wrong couloir " + String(detectedCouloir));
-    return;
-  }
-
-  // Check if all items are dispensed
-  int totalExpected = 0;
-  int totalDispensed = 0;
-  for (int j = 0; j < totalItemsInOrder; j++) {
-    totalExpected += currentOrder[j].quantity;
-    totalDispensed += currentOrder[j].detectedCount;
-  }
-
-  Serial.println("Total expected: " + String(totalExpected) + ", Total dispensed: " + String(totalDispensed));
-  if (totalDispensed >= totalExpected && !orderFailed) {
-    Serial.println("All items detected, completing order");
-    completeOrder();
-  }
 }
+
 void completeOrder() {
-  if (!orderInProgress || orderFailed) {
-    Serial.println("Cannot complete order: No active order or order has failed");
-    return;
-  }
+  if (!orderInProgress || orderFailed) return;
 
-  unsigned long completionTime = millis();
-  Serial.println("\n========== ORDER COMPLETION AT " + String(completionTime) + "ms ==========");
-  Serial.println("Order ID: " + currentOrderId);
-  Serial.println("Dispensed items summary:");
-
-  int totalExpected = 0;
-  int totalDispensed = 0;
-  bool hasPartialDispensing = false;
-  
+  int totalExpected = 0, totalDispensed = 0;
   for (int i = 0; i < totalItemsInOrder; i++) {
     totalExpected += currentOrder[i].quantity;
     totalDispensed += currentOrder[i].detectedCount;
-    
-    if (currentOrder[i].detectedCount < currentOrder[i].quantity && currentOrder[i].detectedCount > 0) {
-      hasPartialDispensing = true;
-    }
-    
-    Serial.println("- Couloir " + String(currentOrder[i].couloir) + ": " + 
-                   String(currentOrder[i].detectedCount) + "/" + 
-                   String(currentOrder[i].quantity) + " items detected" +
-                   (currentOrder[i].detectedCount == currentOrder[i].quantity ? " ✓" : " ⚠"));
   }
-  
-  int completionPercentage = (totalExpected > 0) ? (totalDispensed * 100 / totalExpected) : 0;
-  Serial.println("Total dispensed: " + String(totalDispensed) + "/" + String(totalExpected) + 
-                " items (" + String(completionPercentage) + "%)");
-  Serial.println("Completion timestamp: " + String(completionTime) + "ms");
-  
-  // Check for partial dispensing scenario
-  if (totalDispensed > 0 && totalDispensed < totalExpected) {
-    Serial.println("⚠ PARTIAL DISPENSING DETECTED: Some but not all products were dispensed");
-    hasPartialDispensing = true;
-  }
+
   HTTPClient http;
   String url = String(serverUrl) + "/hardware/dispense/complete";
   http.begin(url);
   http.addHeader("Content-Type", "application/json");
   String jsonPayload = "{\"orderId\":\"" + currentOrderId +
-                      "\",\"vendingMachineId\":\"" + String(vendingMachineId) + "\"," +
-                      "\"details\":{" +
-                      "\"totalDispensed\":" + String(totalDispensed) + "," +
-                      "\"totalExpected\":" + String(totalExpected) + "," +
-                      "\"hasPartialDispensing\":" + (hasPartialDispensing ? "true" : "false") + "," +
-                      "\"completionPercentage\":" + String(completionPercentage) + "," +
-                      "\"completionTimestamp\":" + String(completionTime) + "," +
-                      "\"details\":[";
-  
-  // Add detailed per-couloir information
-  for (int i = 0; i < totalItemsInOrder; i++) {
-    if (i > 0) jsonPayload += ",";
-    jsonPayload += "{\"couloir\":" + String(currentOrder[i].couloir) + 
-                   ",\"expected\":" + String(currentOrder[i].quantity) + 
-                   ",\"detectedCount\":" + String(currentOrder[i].detectedCount) + "}";
-  }
-  
-  jsonPayload += "]}}";
+                      "\",\"vendingMachineId\":\"" + String(vendingMachineId) +
+                      "\",\"details\":{\"totalDispensed\":" + String(totalDispensed) +
+                      ",\"totalExpected\":" + String(totalExpected) + "}}";
   Serial.print("Sending request to: ");
   Serial.println(url);
   Serial.print("With payload: ");
@@ -815,56 +524,19 @@ void completeOrder() {
 
   int httpResponseCode = http.POST(jsonPayload);
   String response = http.getString();
-
   if (httpResponseCode == 200) {
-    Serial.println("✓ Order completed successfully!");
+    Serial.println("Order completed successfully!");
     Serial.println("Response: " + response);
-
-    String productDetectionUrl = String(serverUrl) + "/hardware/dispense/product-detected";
-    http.begin(productDetectionUrl);
-    http.addHeader("Content-Type", "application/json");
-
-    String detectionPayload = "{\"orderId\":\"" + currentOrderId +
-                             "\",\"couloir\":\"" + String(currentOrder[0].couloir) + "\"," +
-                             "\"quantity\":" + String(totalDispensed) + "}";
-    Serial.print("Sending product detection notification to: ");
-    Serial.println(productDetectionUrl);
-    Serial.print("With payload: ");
-    Serial.println(detectionPayload);
-
-    int detectionResponseCode = http.POST(detectionPayload);
-    String detectionResponse = http.getString();
-    if (detectionResponseCode == 200) {
-      Serial.println("✓ Product detection notification sent successfully!");
-      Serial.println("Response: " + detectionResponse);
-    } else {
-      Serial.println("⚠ Failed to send product detection notification: " + String(detectionResponseCode));
-      Serial.println("Response: " + detectionResponse);
-    }
-
     resetOrderState();
-    Serial.println("Order state reset after completion");
   } else {
-    Serial.println("✗ Error completing order. HTTP code: " + String(httpResponseCode));
-    Serial.println("Error response: " + response);
-    failOrder("Failed to complete order due to HTTP error");
+    Serial.println("Error completing order: " + String(httpResponseCode));
+    failOrder("HTTP error");
   }
   http.end();
 }
 
 void processKeypadOrder() {
-  if (!isAuthenticated) {
-    Serial.println("Cannot process keypad order: User not authenticated");
-    return;
-  }
-  if (selectedCouloir < 1 || selectedCouloir > NUM_CHARIOTS) {
-    Serial.println("Invalid couloir selected: " + String(selectedCouloir));
-    return;
-  }
-  if (selectedQuantity < 1) {
-    Serial.println("Invalid quantity selected: " + String(selectedQuantity));
-    return;
-  }
+  if (!isAuthenticated || selectedCouloir < 1 || selectedCouloir > NUM_CHARIOTS || selectedQuantity < 1) return;
 
   HTTPClient http;
   String url = String(serverUrl) + "/order/keypad";
@@ -881,30 +553,19 @@ void processKeypadOrder() {
   Serial.println(jsonPayload);
 
   int httpResponseCode = http.POST(jsonPayload);
-
   if (httpResponseCode == 201) {
     String response = http.getString();
     DynamicJsonDocument doc(1024);
     DeserializationError error = deserializeJson(doc, response);
     if (!error) {
-      String orderId = doc["orderId"].as<String>();
-      currentOrderId = orderId;
+      currentOrderId = doc["orderId"].as<String>();
       totalItemsInOrder = 1;
-      currentOrder[0].couloir = selectedCouloir;
-      currentOrder[0].quantity = selectedQuantity;
-      currentOrder[0].detectedCount = 0;
+      currentOrder[0] = {selectedCouloir, selectedQuantity, 0};
       orderInProgress = true;
       orderFailed = false;
       orderStartTime = millis();
-      Serial.println("Keypad order accepted. Starting processing for order ID: " + orderId);
       processActiveOrder();
-    } else {
-      Serial.println("Failed to parse keypad order response: " + response);
     }
-  } else {
-    String response = http.getString();
-    Serial.println("Failed to create keypad order. HTTP code: " + String(httpResponseCode));
-    Serial.println("Response: " + response);
   }
   http.end();
 }
@@ -922,114 +583,23 @@ void showQuantityPrompt() {
 void handleKeypadInput(char key) {
   switch (lcdState) {
     case LcdState::WELCOME:
-      if (key == 'A') {
-        if (isAuthenticated) {
-          showCouloirPrompt();
-        }
-      } else if (key == '*') { // Manual reset via keypad for testing
-        Serial.println("Manual order state reset triggered via keypad");
-        resetOrderState();
-        showWelcomeScreen();
-      }
+      if (key == 'A' && isAuthenticated) showCouloirPrompt();
+      else if (key == '*') resetOrderState(), showWelcomeScreen();
       break;
     case LcdState::ENTER_COULOIR:
-      if (key >= '1' && key <= '3') { // Updated for 3 couloirs
-        selectedCouloir = key - '0';
-        showQuantityPrompt();
-      } else if (key == '#') {
-        showWelcomeScreen();
-      }
+      if (key >= '1' && key <= '3') selectedCouloir = key - '0', showQuantityPrompt();
+      else if (key == '#') showWelcomeScreen();
       break;
     case LcdState::ENTER_QUANTITY:
-      if (key >= '0' && key <= '9') {
-        keypadBuffer += key;
-      } else if (key == 'A') {
-        if (keypadBuffer.length() > 0) {
-          selectedQuantity = keypadBuffer.toInt();
-          if (selectedQuantity > 0) {
-            processKeypadOrder();
-          } else {
-            showQuantityPrompt();
-          }
-        }
-      } else if (key == '#') {
-        showCouloirPrompt();
-      } else if (key == '*') {
-        if (keypadBuffer.length() > 0) {
-          keypadBuffer = keypadBuffer.substring(0, keypadBuffer.length() - 1);
-        }
-      }
-      break;
-    default:
+      if (key >= '0' && key <= '9') keypadBuffer += key;
+      else if (key == 'A' && keypadBuffer.length() > 0) {
+        selectedQuantity = keypadBuffer.toInt();
+        if (selectedQuantity > 0) processKeypadOrder();
+        else showQuantityPrompt();
+      } else if (key == '#') showCouloirPrompt();
+      else if (key == '*' && keypadBuffer.length() > 0) keypadBuffer = keypadBuffer.substring(0, keypadBuffer.length() - 1);
       break;
   }
-}
-
-void testRelays() {
-  Serial.println("\nTesting Relays...");
-  for (int i = 1; i <= NUM_CHARIOTS; i++) {
-    int relayPin = getRelayPinForChariot("CHARIOT" + String(i));
-    unsigned long activationTimeMs = getActivationTimeForChariot("CHARIOT" + String(i));
-    Serial.print("Testing Relay for CHARIOT");
-    Serial.print(i);
-    Serial.print(" (Pin ");
-    Serial.print(relayPin);
-    Serial.print(") for ");
-    Serial.print(activationTimeMs);
-    Serial.println("ms");
-    digitalWrite(relayPin, LOW);
-    delay(activationTimeMs);
-    digitalWrite(relayPin, HIGH);
-    delay(1000); // Delay between tests
-  }
-}
-
-void testVL53L0X() {
-  Serial.println("\nTesting VL53L0X...");
-  VL53L0X_RangingMeasurementData_t measure;
-  lox.rangingTest(&measure, false);
-  if (measure.RangeStatus != 4) {
-    Serial.print("Distance: ");
-    Serial.print(measure.RangeMilliMeter);
-    Serial.println(" mm");
-  } else {
-    Serial.println("Out of range");
-  }
-}
-
-void testDHT11() {
-  Serial.println("\nTesting DHT11...");
-  float h = dht.readHumidity();
-  float t = dht.readTemperature();
-  if (isnan(h) || isnan(t)) {
-    Serial.println("Failed to read from DHT11!");
-    return;
-  }
-  Serial.print("Humidity: ");
-  Serial.print(h);
-  Serial.print(" %\t");
-  Serial.print("Temperature: ");
-  Serial.print(t);
-  Serial.println(" °C");
-}
-
-void testRFID() {
-  Serial.println("\nTesting RFID...");
-  if (!rfid.PICC_IsNewCardPresent()) {
-    Serial.println("No card detected.");
-    return;
-  }
-  if (!rfid.PICC_ReadCardSerial()) {
-    Serial.println("Failed to read card.");
-    return;
-  }
-  Serial.print("Card UID: ");
-  for (byte i = 0; i < rfid.uid.size; i++) {
-    Serial.print(rfid.uid.uidByte[i] < 0x10 ? " 0" : " ");
-    Serial.print(rfid.uid.uidByte[i], HEX);
-  }
-  Serial.println();
-  rfid.PICC_HaltA();
 }
 
 char getKey() {
@@ -1048,242 +618,137 @@ char getKey() {
 }
 
 void checkProductUpdates() {
-  if (WiFi.status() != WL_CONNECTED) {
-    Serial.println("Cannot check updates - WiFi not connected");
-    return;
-  }
+  if (WiFi.status() != WL_CONNECTED) return;
 
   HTTPClient http;
   DynamicJsonDocument doc(2048);
-
   String productUrl = String(serverUrl) + "/product/with-stock";
-  Serial.println("\n=== Checking Products with Stock ===");
-  Serial.print("GET request to: ");
-  Serial.println(productUrl);
-
   http.begin(productUrl);
   int productResponseCode = http.GET();
-  Serial.print("Product response code: ");
-  Serial.println(productResponseCode);
-
   if (productResponseCode == 200) {
     String productResponse = http.getString();
-    Serial.print("Raw product response: ");
-    Serial.println(productResponse);
-
     DeserializationError error = deserializeJson(doc, productResponse);
     if (!error) {
       JsonArray products = doc.as<JsonArray>();
-      for (JsonVariant product : products) {
-        Serial.println("\n--- Product Info ---");
-        Serial.println("Name: " + product["name"].as<String>());
-        Serial.println("Price: " + String(product["price"].as<float>()));
-        Serial.println("Stock: " + String(product["stock"].as<int>()));
-        if (product.containsKey("chariotId")) {
-          Serial.println("Assigned to Chariot: " + product["chariotId"].as<String>());
-        } else {
-          Serial.println("Not assigned to any chariot");
-        }
-      }
+      for (JsonVariant product : products) {}
     }
   }
   http.end();
 
   String chariotUrl = String(serverUrl) + "/chariot";
-  Serial.println("\n=== Checking Chariots ===");
-  Serial.print("GET request to: ");
-  Serial.println(chariotUrl);
-
   http.begin(chariotUrl);
   int chariotResponseCode = http.GET();
-  Serial.print("Chariot response code: ");
-  Serial.println(chariotResponseCode);
-
   if (chariotResponseCode == 200) {
     String chariotResponse = http.getString();
-    Serial.print("Raw chariot response: ");
-    Serial.println(chariotResponse);
-
     doc.clear();
     DeserializationError error = deserializeJson(doc, chariotResponse);
     if (!error) {
       JsonArray chariots = doc.as<JsonArray>();
-      for (JsonVariant chariot : chariots) {
-        Serial.println("\n--- Chariot Info ---");
-        Serial.println("ID: " + chariot["idd"].as<String>());
-        Serial.println("Name: " + chariot["name"].as<String>());
-        Serial.println("Status: " + chariot["status"].as<String>());
-        if (chariot.containsKey("productType")) {
-          Serial.println("Product Type: " + chariot["productType"].as<String>());
-        }
-      }
+      for (JsonVariant chariot : chariots) {}
     }
   }
   http.end();
-  Serial.println("\n=== Update Check Complete ===\n");
 }
 
 void resetOrderState() {
-  Serial.println("\n=== Resetting Order State ===");
   orderInProgress = false;
   orderFailed = false;
   currentOrderId = "";
   currentUserId = "";
   totalItemsInOrder = 0;
   orderStartTime = 0;
-  for (int i = 0; i < NUM_CHARIOTS; i++) {
-    currentOrder[i].couloir = 0;
-    currentOrder[i].quantity = 0;
-    currentOrder[i].detectedCount = 0;
-  }
-  Serial.println("Order state fully reset");
+  for (int i = 0; i < NUM_CHARIOTS; i++) currentOrder[i] = {0, 0, 0};
 }
 
 void checkForRfidRegistration() {
-  if (rfidRegistrationMode) {
-    // Check if we've timed out waiting for an RFID card
-    if (millis() - rfidRegistrationStartTime > RFID_REGISTRATION_TIMEOUT) {
-      Serial.println("RFID registration timed out");
-      rfidRegistrationMode = false;
-      return;
-    }
-    
-    // Continue in registration mode - the RFID card reading will be handled in loop()
+  if (rfidRegistrationMode && millis() - rfidRegistrationStartTime > RFID_REGISTRATION_TIMEOUT) {
+    rfidRegistrationMode = false;
     return;
   }
-  
-  // Not in registration mode, check if there are any pending registrations
-  if (WiFi.status() != WL_CONNECTED) {
-    return; // Can't check without WiFi
-  }
-  
+  if (WiFi.status() != WL_CONNECTED) return;
+
   static unsigned long lastRegistrationCheck = 0;
-  if (millis() - lastRegistrationCheck < 5000) {
-    return; // Don't check too frequently
-  }
-  
+  if (millis() - lastRegistrationCheck < 5000) return;
   lastRegistrationCheck = millis();
-  
+
   HTTPClient http;
   String url = String(serverUrl) + "/user/rfid/check-pending";
   http.begin(url);
-  
   int httpCode = http.GET();
   if (httpCode == 200) {
     String response = http.getString();
-    Serial.println("Pending RFID registration response: " + response);
-    
     DynamicJsonDocument doc(1024);
     DeserializationError error = deserializeJson(doc, response);
-    if (!error) {
-      if (doc.containsKey("pendingRegistrations") && doc["pendingRegistrations"].size() > 0) {
-        // Get the first pending registration
-        String userId = doc["pendingRegistrations"][0]["userId"];
-        Serial.println("Found pending RFID registration for user: " + userId);
-        
-        // Enter registration mode
-        rfidRegistrationMode = true;
-        rfidRegistrationStartTime = millis();
-        
-        // Store the user ID we're registering for
-        currentUserId = userId;
-        
-        Serial.println("Entered RFID registration mode. Please scan card within 2 minutes.");
-      }
+    if (!error && doc.containsKey("pendingRegistrations") && doc["pendingRegistrations"].size() > 0) {
+      currentUserId = doc["pendingRegistrations"][0]["userId"].as<String>();
+      rfidRegistrationMode = true;
+      rfidRegistrationStartTime = millis();
     }
   }
   http.end();
 }
 
 void processRfidRegistration(String cardUID) {
-  Serial.println("Processing RFID registration for card: " + cardUID);
-  
-  if (!rfidRegistrationMode || currentUserId.isEmpty()) {
-    Serial.println("Not in registration mode or missing user ID");
-    return;
-  }
-  
-  if (WiFi.status() != WL_CONNECTED) {
-    Serial.println("Cannot register RFID - WiFi not connected");
-    return;
-  }
-  
+  if (!rfidRegistrationMode || currentUserId.isEmpty() || WiFi.status() != WL_CONNECTED) return;
+
   HTTPClient http;
   String url = String(serverUrl) + "/user/rfid/complete";
   http.begin(url);
   http.addHeader("Content-Type", "application/json");
-  
-  String jsonPayload = "{\"userId\":\"" + currentUserId + 
-                     "\",\"rfidUID\":\"" + cardUID + "\"}";
-  
+  String jsonPayload = "{\"userId\":\"" + currentUserId + "\",\"rfidUID\":\"" + cardUID + "\"}";
   Serial.println("Sending RFID registration request: " + jsonPayload);
-  
+
   int httpCode = http.POST(jsonPayload);
   String response = http.getString();
-  
   Serial.println("RFID registration response code: " + String(httpCode));
   Serial.println("Response: " + response);
-  
-  if (httpCode == 200) {
-    Serial.println("RFID registration successful!");
-    // Flash LEDs or display success message on LCD if available
-  } else {
-    Serial.println("RFID registration failed!");
-    // Flash error pattern on LEDs or display error on LCD if available
-  }
-  
-  // Exit registration mode
+
   rfidRegistrationMode = false;
   currentUserId = "";
-  
   http.end();
 }
 
 void loop() {
-  static unsigned long lastOrderCheck = 0;
-  static unsigned long lastProductCheck = 0;
+  static unsigned long lastOrderCheck = 0, lastProductCheck = 0, lastEnvironmentUpdate = 0;
 
-  // Check for RFID registration requests
   checkForRfidRegistration();
-  
-  // Check for stuck order
+
   if (orderInProgress && millis() - orderStartTime > ORDER_TIMEOUT_MS) {
-    Serial.println("\n=== ERROR: Order stuck for over " + String(ORDER_TIMEOUT_MS / 1000) + " seconds ===");
-    Serial.println("Order ID: " + currentOrderId);
-    failOrder("Order timed out after " + String(ORDER_TIMEOUT_MS / 1000) + " seconds");
+    failOrder("Order timed out");
   }
 
   if (WiFi.status() == WL_CONNECTED) {
-    if (millis() - lastOrderCheck > 2000) {
-      if (!orderInProgress && millis() >= orderCooldownUntil) {
-        Serial.println("\n=== Checking for new orders to dispense ===");
-        checkForApiOrders();
-      } else if (orderInProgress) {
-        Serial.println("Order in progress - skipping order check");
-      } else if (millis() < orderCooldownUntil) {
-        unsigned long remainingCooldown = (orderCooldownUntil - millis()) / 1000;
-        Serial.println("In cooldown period - " + String(remainingCooldown) + " seconds remaining");
-      }
+    if (millis() - lastOrderCheck > 2000 && !orderInProgress && millis() >= orderCooldownUntil) {
+      checkForApiOrders();
       lastOrderCheck = millis();
     }
     if (millis() - lastProductCheck > 5000) {
       checkProductUpdates();
       lastProductCheck = millis();
     }
+    if (millis() - lastEnvironmentUpdate > 60000) {
+      sendEnvironmentData();
+      lastEnvironmentUpdate = millis();
+    }
   }
-
-  static unsigned long lastEnvironmentUpdate = 0;
-  if (WiFi.status() == WL_CONNECTED && millis() - lastEnvironmentUpdate > 60000) {
-    sendEnvironmentData();
-    lastEnvironmentUpdate = millis();
-  }
-
-  char key = getKey();
+  // Handle keypad input for both legacy keypad ordering and new RFID ordering
+  char key = keypad.getKey(); // Use new Keypad library
   if (key != '\0') {
     Serial.print("Key pressed: ");
     Serial.println(key);
-    handleKeypadInput(key);
+    
+    // Check session timeout for RFID ordering
+    checkSessionTimeout();
+    
+    // Route input to appropriate handler based on current LCD state
+    if (lcdState == LcdState::WELCOME || lcdState == LcdState::ENTER_COULOIR || lcdState == LcdState::ENTER_QUANTITY) {
+      handleKeypadInput(key); // Legacy keypad ordering
+    } else {
+      handleRfidOrderInput(key); // New RFID ordering system
+    }
   }
+
+  // Handle RFID card detection
   if (rfid.PICC_IsNewCardPresent() && rfid.PICC_ReadCardSerial()) {
     String cardUID = "";
     for (byte i = 0; i < rfid.uid.size; i++) {
@@ -1297,8 +762,16 @@ void loop() {
       if (rfidRegistrationMode) {
         // Handle RFID registration
         processRfidRegistration(cardUID);
+      } else if (lcdState == LcdState::SCAN_RFID) {
+        // RFID ordering system - store UID and move to PIN entry
+        scannedRfidUID = cardUID;
+        lcdState = LcdState::ENTER_PIN;
+        pinBuffer = "";
+        pinAttempts = 0;
+        updateLCDDisplay();
+        Serial.println("RFID card scanned for ordering, waiting for PIN");
       } else {
-        // Normal authentication flow
+        // Legacy authentication flow
         if (authenticateCard(cardUID)) {
           isAuthenticated = true;
         }
@@ -1307,33 +780,27 @@ void loop() {
     rfid.PICC_HaltA();
   }
 
-  static unsigned long lastProductUpdateCheck = 0;
-  if (WiFi.status() == WL_CONNECTED && millis() - lastProductUpdateCheck > 30000) {
-    checkProductUpdates();
-    lastProductUpdateCheck = millis();
-  }
-  // Periodically reset VL53L0X to prevent drift
-  if (millis() - lastSensorReset > SENSOR_RESET_INTERVAL || unexpectedDetectionCount >= MAX_UNEXPECTED_DETECTIONS) {
-    Serial.println("Reinitializing VL53L0X sensor to prevent drift...");
-    if (!lox.begin()) {
-      Serial.println("Failed to reinitialize VL53L0X!");
-    } else {
-      Serial.println("VL53L0X reinitialized successfully.");
-      lastSensorReset = millis();
-      unexpectedDetectionCount = 0;
+  // Update LCD display regularly and check for session timeout
+  static unsigned long lastLcdUpdate = 0;
+  if (millis() - lastLcdUpdate > 1000) { // Update LCD every second
+    if (lcdState != LcdState::MAIN_MENU) {
+      checkSessionTimeout();
     }
+    lastLcdUpdate = millis();
   }
 
-  // Monitor for unexpected detections outside dispensing
+  if (millis() - lastSensorReset > SENSOR_RESET_INTERVAL || unexpectedDetectionCount >= MAX_UNEXPECTED_DETECTIONS) {
+    if (!lox.begin()) Serial.println("Failed to reinitialize VL53L0X!");
+    else lastSensorReset = millis(), unexpectedDetectionCount = 0;
+  }
+
   if (!orderInProgress) {
     VL53L0X_RangingMeasurementData_t measure;
     lox.rangingTest(&measure, false);
     if (measure.RangeStatus != 4 && measure.RangeMilliMeter > 50 && measure.RangeMilliMeter < 800) {
       unexpectedDetectionCount++;
-      Serial.println("Unexpected detection #" + String(unexpectedDetectionCount) + " outside order!");
     }
   }
 
   delay(1000);
 }
-  

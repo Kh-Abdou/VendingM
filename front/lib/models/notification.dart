@@ -87,12 +87,10 @@ class Notification {
         return 'warning';
     }
   }
-
   // Retourne true si la notification est une notification de stock
   bool get isStockNotification => type == 'STOCK';
-
   // Retourne true si la notification est une notification technique/maintenance
-  bool get isTechnicalNotification => type == 'MAINTENANCE';
+  bool get isTechnicalNotification => type == 'MAINTENANCE' || type == 'ERROR' || type == 'ENVIRONMENT' || metadata?['isEnvironmentAlert'] == true;
 
   // Retourne true si la notification est liée à une commande avec problème
   bool get isOrderNotification => type == 'ORDER';

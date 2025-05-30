@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_screenutil/flutter_screenutil.dart';
 import '../Login/login_page.dart';
 import '../services/user_service.dart';
+import '../services/machine_status_service.dart';
 import '../theme/app_design_system.dart'; // Import our design system
 import 'dart:developer' as developer;
 
@@ -29,6 +30,7 @@ class ProfilePage extends StatefulWidget {
 
 class _ProfilePageState extends State<ProfilePage> {
   late UserService _userService;
+  late MachineStatusService _machineStatusService;
   bool _isLoading = true;
   String _errorMessage = '';
 
@@ -37,11 +39,17 @@ class _ProfilePageState extends State<ProfilePage> {
   String _userEmail = '';
   double _userBalance = 0.0;
 
+  // Machine status data
+  Map<String, dynamic>? _machineStatusData;
+  bool _machineStatusLoading = true;
+
   @override
   void initState() {
     super.initState();
     _userService = UserService(baseUrl: widget.baseUrl);
+    _machineStatusService = MachineStatusService(baseUrl: widget.baseUrl);
     _fetchUserData();
+    _fetchMachineStatus();
   }
 
   // Récupérer les données de l'utilisateur
@@ -86,6 +94,37 @@ class _ProfilePageState extends State<ProfilePage> {
         setState(() {
           _errorMessage = 'Impossible de récupérer les informations du profil';
           _isLoading = false;
+        });
+      }
+    }
+  }
+
+  // Fetch machine status data
+  Future<void> _fetchMachineStatus() async {
+    try {
+      setState(() {
+        _machineStatusLoading = true;
+      });
+
+      final statusData = await _machineStatusService.getMachineStatusForClient();
+      
+      if (mounted) {
+        setState(() {
+          _machineStatusData = statusData;
+          _machineStatusLoading = false;
+        });
+      }
+    } catch (e) {
+      developer.log('Error fetching machine status: $e', name: 'ProfilePage');
+      if (mounted) {
+        setState(() {
+          _machineStatusData = {
+            'status': 'OFFLINE',
+            'isOperational': false,
+            'message': 'Erreur de connexion',
+            'lastUpdated': null,
+          };
+          _machineStatusLoading = false;
         });
       }
     }
@@ -262,30 +301,8 @@ class _ProfilePageState extends State<ProfilePage> {
                       _showSupportDialog();
                     },
                   ),
-                  Divider(thickness: 1.h, color: AppColors.divider),
-
-                  // Status of the distributor
-                  ListTile(
-                    leading: Icon(
-                      widget.isInMaintenance
-                          ? Icons.warning_amber_rounded
-                          : Icons.check_circle,
-                      color: widget.isInMaintenance
-                          ? AppColors.warning
-                          : AppColors.success,
-                      size: 24.sp,
-                    ),
-                    title: Text('Statut du distributeur',
-                        style: AppTextStyles.bodyLarge),
-                    subtitle: Text(
-                      widget.isInMaintenance ? 'En maintenance' : 'Disponible',
-                      style: AppTextStyles.bodySmall,
-                    ),
-                    trailing: Icon(Icons.chevron_right, size: 22.sp),
-                    onTap: () {
-                      _showStatusDialog();
-                    },
-                  ),
+                  Divider(thickness: 1.h, color: AppColors.divider),                  // Status of the distributor - dynamic machine status
+                  _buildMachineStatusTile(),
                   Divider(thickness: 1.h, color: AppColors.divider),
 
                   // Logout button
@@ -629,58 +646,347 @@ class _ProfilePageState extends State<ProfilePage> {
     );
   }
 
-  void _showStatusDialog() {
+  // Build machine status tile with dynamic data
+  Widget _buildMachineStatusTile() {
+    if (_machineStatusLoading) {
+      return ListTile(
+        leading: SizedBox(
+          width: 24.w,
+          height: 24.h,
+          child: CircularProgressIndicator(
+            strokeWidth: 2,
+            valueColor: AlwaysStoppedAnimation<Color>(AppColors.primary),
+          ),
+        ),
+        title: Text('Statut du distributeur', style: AppTextStyles.bodyLarge),
+        subtitle: Text('Vérification...', style: AppTextStyles.bodySmall),
+        trailing: Icon(Icons.chevron_right, size: 22.sp),
+      );
+    }
+
+    if (_machineStatusData == null) {
+      return ListTile(
+        leading: Icon(
+          Icons.wifi_off,
+          color: AppColors.error,
+          size: 24.sp,
+        ),
+        title: Text('Statut du distributeur', style: AppTextStyles.bodyLarge),
+        subtitle: Text('Hors ligne', style: AppTextStyles.bodySmall),
+        trailing: Icon(Icons.chevron_right, size: 22.sp),
+        onTap: () => _showMachineStatusDialog(),
+      );
+    }    final status = _machineStatusData!['status'] ?? 'OFFLINE';
+    final statusColor = _getMachineStatusColor(status);
+    final statusIcon = _getMachineStatusIcon(status);
+    final displayText = MachineStatusService.getStatusDisplayText(status);
+
+    return ListTile(
+      leading: Icon(
+        statusIcon,
+        color: statusColor,
+        size: 24.sp,
+      ),
+      title: Text('Statut du distributeur', style: AppTextStyles.bodyLarge),
+      subtitle: Text(displayText, style: AppTextStyles.bodySmall),
+      trailing: Icon(Icons.chevron_right, size: 22.sp),
+      onTap: () => _showMachineStatusDialog(),
+    );
+  }
+
+  // Get status color for machine status
+  Color _getMachineStatusColor(String status) {
+    final colorString = MachineStatusService.getStatusColor(status);
+    switch (colorString) {
+      case 'green':
+        return AppColors.success;
+      case 'orange':
+        return AppColors.warning;
+      case 'red':
+        return AppColors.error;
+      case 'yellow':
+        return AppColors.warning;
+      case 'grey':
+      default:
+        return AppColors.textSecondary;
+    }
+  }
+
+  // Get status icon for machine status
+  IconData _getMachineStatusIcon(String status) {
+    switch (status.toUpperCase()) {
+      case 'OPERATIONAL':
+        return Icons.check_circle;
+      case 'MAINTENANCE':
+        return Icons.build;
+      case 'ERROR':
+        return Icons.error;
+      case 'OFFLINE':
+        return Icons.wifi_off;
+      case 'OUT_OF_SERVICE':
+        return Icons.block;
+      case 'NEEDS_RESTOCKING':
+        return Icons.inventory;
+      default:
+        return Icons.help;
+    }
+  }
+
+  // Show detailed machine status dialog
+  void _showMachineStatusDialog() {
+    if (_machineStatusData == null) {
+      _showDefaultStatusDialog();
+      return;
+    }    final status = _machineStatusData!['status'] ?? 'OFFLINE';
+    final isOperational = _machineStatusData!['isOperational'] ?? false;
+    final message = _machineStatusData!['message'];
+    final lastUpdated = _machineStatusData!['lastUpdated'];
+    final statusColor = _getMachineStatusColor(status);
+    final statusIcon = _getMachineStatusIcon(status);
+    final displayText = MachineStatusService.getStatusDisplayText(status);
+
     showDialog(
       context: context,
-      builder: (BuildContext context) {
-        return AlertDialog(
-          title: Text(
-            'Statut du Distributeur',
-            style: AppTextStyles.h4,
-          ),
-          content: Column(
-            mainAxisSize: MainAxisSize.min,
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Row(
-                children: [
-                  Icon(
-                    widget.isInMaintenance ? Icons.warning : Icons.check_circle,
-                    color: widget.isInMaintenance
-                        ? AppColors.warning
-                        : AppColors.success,
-                    size: 24.sp,
+      builder: (context) => AlertDialog(
+        title: Row(
+          children: [
+            Icon(
+              statusIcon,
+              color: statusColor,
+              size: 24.sp,
+            ),
+            SizedBox(width: AppSpacing.sm),
+            Text(
+              'Statut du Distributeur',
+              style: AppTextStyles.h4,
+            ),
+          ],
+        ),
+        content: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            // Status
+            Row(
+              children: [
+                Text(
+                  'Statut: ',
+                  style: AppTextStyles.bodyMedium.copyWith(
+                    fontWeight: FontWeight.bold,
+                  ),
+                ),
+                Text(
+                  displayText,
+                  style: AppTextStyles.bodyMedium.copyWith(
+                    color: statusColor,
+                    fontWeight: FontWeight.w600,
+                  ),
+                ),
+              ],
+            ),
+            SizedBox(height: AppSpacing.sm),
+
+            // Message if available
+            if (message != null && message.isNotEmpty) ...[
+              Text(
+                'Message: ',
+                style: AppTextStyles.bodyMedium.copyWith(
+                  fontWeight: FontWeight.bold,
+                ),
+              ),
+              Text(
+                message,
+                style: AppTextStyles.bodyMedium,
+              ),
+              SizedBox(height: AppSpacing.sm),
+            ],
+
+            // Last updated
+            if (lastUpdated != null) ...[
+              Text(
+                'Dernière mise à jour: ',
+                style: AppTextStyles.bodyMedium.copyWith(
+                  fontWeight: FontWeight.bold,
+                ),
+              ),
+              Text(
+                _formatDateTime(lastUpdated),
+                style: AppTextStyles.bodySmall.copyWith(
+                  color: AppColors.textSecondary,
+                ),
+              ),
+            ] else ...[
+              Text(
+                'Aucune information de mise à jour disponible',
+                style: AppTextStyles.bodySmall.copyWith(
+                  color: AppColors.textSecondary,
+                ),
+              ),
+            ],
+
+            SizedBox(height: AppSpacing.md),
+
+            // Status indicator
+            Container(
+              padding: EdgeInsets.all(AppSpacing.sm),
+              decoration: BoxDecoration(
+                color: statusColor.withOpacity(0.1),
+                borderRadius: BorderRadius.circular(AppSpacing.chipRadius),
+                border: Border.all(color: statusColor.withOpacity(0.3)),
+              ),
+              child: Row(
+                children: [                  Icon(
+                    isOperational
+                        ? Icons.check_circle
+                        : Icons.warning,
+                    color: statusColor,
+                    size: 20.sp,
                   ),
                   SizedBox(width: AppSpacing.sm),
-                  Text(
-                    widget.isInMaintenance ? 'En maintenance' : 'Disponible',
-                    style: AppTextStyles.bodyLarge.copyWith(
-                      fontWeight: FontWeight.bold,
+                  Expanded(
+                    child: Text(
+                      isOperational
+                          ? 'Le distributeur est disponible pour les commandes'
+                          : 'Le distributeur n\'est pas disponible pour les commandes',
+                      style: AppTextStyles.bodySmall.copyWith(
+                        color: statusColor,
+                      ),
                     ),
                   ),
                 ],
               ),
-              SizedBox(height: AppSpacing.md),
-              Text(
-                'ID Distributeur: DIS-42501',
-                style: AppTextStyles.bodyMedium,
-              ),
-              Text(
-                'Dernière mise à jour: 16/03/2025',
-                style: AppTextStyles.bodySmall,
-              ),
-            ],
-          ),
-          actions: [
-            TextButton(
-              child: Text('Fermer', style: AppTextStyles.buttonMedium),
-              onPressed: () {
-                Navigator.of(context).pop();
-              },
+            ),
+
+            SizedBox(height: AppSpacing.md),
+
+            // Machine info
+            Text(
+              'ID Distributeur: DIS-42501',
+              style: AppTextStyles.bodyMedium,
             ),
           ],
-        );
-      },
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.of(context).pop(),
+            child: Text(
+              'Fermer',
+              style: AppTextStyles.buttonMedium,
+            ),
+          ),
+          TextButton(
+            onPressed: () {
+              Navigator.of(context).pop();
+              _fetchMachineStatus();
+            },
+            child: Text(
+              'Actualiser',
+              style: AppTextStyles.buttonMedium,
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  // Format date time for display
+  String _formatDateTime(String? dateTimeString) {
+    if (dateTimeString == null) return 'Non disponible';
+    
+    try {
+      final dateTime = DateTime.parse(dateTimeString);
+      final now = DateTime.now();
+      final difference = now.difference(dateTime);
+
+      if (difference.inMinutes < 1) {
+        return 'À l\'instant';
+      } else if (difference.inMinutes < 60) {
+        return 'Il y a ${difference.inMinutes} minute${difference.inMinutes > 1 ? 's' : ''}';
+      } else if (difference.inHours < 24) {
+        return 'Il y a ${difference.inHours} heure${difference.inHours > 1 ? 's' : ''}';
+      } else {
+        return 'Il y a ${difference.inDays} jour${difference.inDays > 1 ? 's' : ''}';
+      }
+    } catch (e) {
+      return 'Non disponible';
+    }
+  }
+  // Show default status dialog (fallback)
+  void _showDefaultStatusDialog() {
+    showDialog(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: Row(
+          children: [
+            Icon(
+              Icons.wifi_off,
+              color: AppColors.error,
+              size: 24.sp,
+            ),
+            SizedBox(width: AppSpacing.sm),
+            Text(
+              'Statut du Distributeur',
+              style: AppTextStyles.h4,
+            ),
+          ],
+        ),
+        content: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text(
+              'Impossible de récupérer les informations du statut. Veuillez vérifier la connexion ou contacter le support.',
+              style: AppTextStyles.bodyMedium,
+            ),
+            SizedBox(height: AppSpacing.md),
+            Container(
+              padding: EdgeInsets.all(AppSpacing.sm),
+              decoration: BoxDecoration(
+                color: AppColors.error.withOpacity(0.1),
+                borderRadius: BorderRadius.circular(AppSpacing.chipRadius),
+                border: Border.all(color: AppColors.error.withOpacity(0.3)),
+              ),
+              child: Row(
+                children: [
+                  Icon(
+                    Icons.warning,
+                    color: AppColors.error,
+                    size: 20.sp,
+                  ),
+                  SizedBox(width: AppSpacing.sm),
+                  Expanded(
+                    child: Text(
+                      'Le distributeur pourrait ne pas être disponible',
+                      style: AppTextStyles.bodySmall.copyWith(
+                        color: AppColors.error,
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ],
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.of(context).pop(),
+            child: Text(
+              'Fermer',
+              style: AppTextStyles.buttonMedium,
+            ),
+          ),
+          TextButton(
+            onPressed: () {
+              Navigator.of(context).pop();
+              _fetchMachineStatus();
+            },
+            child: Text(
+              'Réessayer',
+              style: AppTextStyles.buttonMedium,
+            ),
+          ),
+        ],
+      ),
     );
   }
 }

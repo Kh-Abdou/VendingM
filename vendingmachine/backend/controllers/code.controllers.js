@@ -1,11 +1,30 @@
 const CodeModel = require("../models/code.model");
 const NotificationModel = require("../models/notification.model");
 const OrderModel = require("../models/order.model");
+const Hardware = require("../models/hardware.model"); // Add hardware model for machine status check
 
 // Generate a new code
 module.exports.generateCode = async (req, res) => {
   try {
     const { userId, products, totalAmount } = req.body;
+    
+    // Check machine status before generating code
+    const machine = await Hardware.findOne();
+    if (!machine) {
+      return res.status(404).json({
+        message: "Machine not found",
+      });
+    }
+
+    // Prevent code generation if machine is in restricted status
+    if (machine.status === 'NEEDS_RESTOCKING' || machine.status === 'MAINTENANCE') {
+      const statusMessage = machine.status === 'NEEDS_RESTOCKING' ? 'réapprovisionnement' : 'maintenance';
+      return res.status(403).json({
+        message: `Génération de code temporairement indisponible - Machine en ${statusMessage}`,
+        machineStatus: machine.status,
+        statusMessage: machine.statusMessage
+      });
+    }
     
     // Generate a random 6-digit code
     const code = Math.floor(100000 + Math.random() * 900000).toString();

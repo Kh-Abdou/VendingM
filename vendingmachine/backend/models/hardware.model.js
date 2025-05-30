@@ -13,11 +13,23 @@ const hardwareSchema = new mongoose.Schema({
   location: {
     type: String,
     default: 'Main Building'
-  },
-  status: {
+  },  status: {
     type: String,
-    enum: ['OPERATIONAL', 'MAINTENANCE', 'ERROR', 'OFFLINE'],
+    enum: ['OPERATIONAL', 'MAINTENANCE', 'ERROR', 'OFFLINE', 'OUT_OF_SERVICE', 'NEEDS_RESTOCKING'],
     default: 'OPERATIONAL'
+  },
+  statusUpdatedBy: {
+    type: mongoose.Schema.Types.ObjectId,
+    ref: 'User',
+    default: null
+  },
+  statusUpdatedAt: {
+    type: Date,
+    default: Date.now
+  },
+  statusMessage: {
+    type: String,
+    default: ''
   },
   temperature: {
     type: Number,

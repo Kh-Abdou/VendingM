@@ -2,6 +2,8 @@ import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import 'dart:async';
 import '../providers/hardware_provider.dart'; // For temperature and humidity data
+import '../services/machine_status_service.dart';
+import '../providers/user_provider.dart';
 
 class MachineStatusPage extends StatefulWidget {
   final Color primaryColor;
@@ -20,83 +22,115 @@ class MachineStatusPage extends StatefulWidget {
 }
 
 class _MachineStatusPageState extends State<MachineStatusPage> {
+  late MachineStatusService _machineStatusService;
   bool _isRefreshing = false;
-
-  // Environment data state
+  bool _isLoadingStatus = false;
   bool _isLoadingEnvironment = false;
   String? _environmentError;
+  String? _statusError;
 
-  // Timer for auto-refreshing environment data
-  Timer? _environmentRefreshTimer; // Données du distributeur
-  Map<String, dynamic> _machine = {
-    'id': 1,
-    'status': 'Opérationnel',
-  };
-  // Liste des statuts possibles
-  final List<String> _machineStatuses = [
-    'Opérationnel',
-    'En maintenance',
-    'En panne',
-    'Hors service',
-    'Nécessite réapprovisionnement'
+  // Timer for auto-refreshing data
+  Timer? _refreshTimer;
+
+  // Machine status data
+  Map<String, dynamic>? _machineStatus;
+  // Available status options for technicians
+  final List<Map<String, String>> _statusOptions = [
+    {'value': 'OPERATIONAL', 'label': 'Opérationnel'},
+    {'value': 'MAINTENANCE', 'label': 'En maintenance'},
+    {'value': 'ERROR', 'label': 'En panne'},
+    {'value': 'OFFLINE', 'label': 'Hors ligne'},
+    {'value': 'OUT_OF_SERVICE', 'label': 'Hors service'},
+    {'value': 'NEEDS_RESTOCKING', 'label': 'Nécessite réapprovisionnement'},
   ];
+  // Update machine status with backend
+  Future<void> _updateMachineStatus(String status, String? message) async {
+    try {
+      final userProvider = Provider.of<UserProvider>(context, listen: false);
+      await _machineStatusService.updateMachineStatus(
+        status: status,
+        statusMessage: message,
+        technicianId: userProvider.userId,
+      );
+
+      // Reload status after update
+      await _loadMachineStatus();
+
+      if (mounted) {
+        ScaffoldMessenger.of(context).hideCurrentSnackBar();
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('État du distributeur mis à jour avec succès'),
+            backgroundColor: Colors.green,
+          ),
+        );
+      }
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).hideCurrentSnackBar();
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('Erreur lors de la mise à jour: $e'),
+            backgroundColor: Colors.red,
+          ),
+        );
+      }
+    }
+  }
+
   @override
   void initState() {
     super.initState();
 
-    // Load environment data on startup
+    // Initialize the machine status service
+    _machineStatusService =
+        MachineStatusService(baseUrl: 'http://192.168.1.8:5000');
+
+    // Load initial data
+    _loadMachineStatus();
     _loadEnvironmentData();
 
-    // Set up a timer to refresh environment data every 30 seconds
-    _environmentRefreshTimer =
-        Timer.periodic(const Duration(seconds: 30), (timer) {
+    // Set up auto-refresh timer
+    _refreshTimer = Timer.periodic(const Duration(seconds: 30), (timer) {
       if (mounted) {
+        _loadMachineStatus();
         _loadEnvironmentData();
       }
     });
-
-    // Update machine data from the first environment data entry
-    WidgetsBinding.instance.addPostFrameCallback((_) {
-      _updateMachineDataFromProvider();
-    });
-  }
-
-  // Update machine data from environment data provider
-  void _updateMachineDataFromProvider() {
-    final hardwareProvider =
-        Provider.of<HardwareProvider>(context, listen: false);
-    if (hardwareProvider.environmentData.isNotEmpty) {
-      final envData = hardwareProvider.environmentData[0];
-      setState(() {
-        _machine = {
-          'id': envData['vendingMachineId'] ?? 1,
-          'status': _convertHardwareStatus(envData['status'] ?? 'UNKNOWN'),
-          'lastSensorUpdate': envData['lastCommunication'],
-        };
-      });
-    }
-  }
-
-  // Convert hardware status from backend format to UI format
-  String _convertHardwareStatus(String backendStatus) {
-    switch (backendStatus) {
-      case 'OPERATIONAL':
-        return 'Opérationnel';
-      case 'MAINTENANCE':
-        return 'En maintenance';
-      case 'ERROR':
-        return 'En panne';
-      case 'OFFLINE':
-        return 'Hors service';
-      default:
-        return 'Opérationnel';
-    }
   }
 
   @override
   void dispose() {
-    _environmentRefreshTimer?.cancel();
+    _refreshTimer?.cancel();
     super.dispose();
+  }
+
+  // Load machine status from backend
+  Future<void> _loadMachineStatus() async {
+    if (!mounted) return;
+
+    setState(() {
+      _isLoadingStatus = true;
+      _statusError = null;
+    });
+
+    try {
+      final status = await _machineStatusService.getMachineStatus();
+
+      if (!mounted) return;
+
+      setState(() {
+        _machineStatus = status;
+        _isLoadingStatus = false;
+      });
+    } catch (e) {
+      if (!mounted) return;
+
+      setState(() {
+        _isLoadingStatus = false;
+        _statusError = e.toString();
+      });
+    }
   }
 
   // Load environment data from hardware provider
@@ -109,7 +143,6 @@ class _MachineStatusPageState extends State<MachineStatusPage> {
     });
 
     try {
-      print('🔄 Loading environment data...');
       final hardwareProvider =
           Provider.of<HardwareProvider>(context, listen: false);
       await hardwareProvider.loadEnvironmentData();
@@ -119,12 +152,7 @@ class _MachineStatusPageState extends State<MachineStatusPage> {
       setState(() {
         _isLoadingEnvironment = false;
       });
-
-      // Update machine data when environment data is loaded
-      _updateMachineDataFromProvider();
     } catch (e) {
-      print('❌ Error loading environment data: $e');
-
       if (!mounted) return;
 
       setState(() {
@@ -194,65 +222,7 @@ class _MachineStatusPageState extends State<MachineStatusPage> {
                   margin: const EdgeInsets.only(bottom: 16),
                   child: Padding(
                     padding: const EdgeInsets.all(16),
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Row(
-                          children: [
-                            getMachineStatusIcon(_machine['status']),
-                            const SizedBox(width: 10),
-                            Text(
-                              _machine['status'],
-                              style: TextStyle(
-                                fontSize: 18,
-                                fontWeight: FontWeight.bold,
-                                color:
-                                    getMachineStatusColor(_machine['status']),
-                              ),
-                            ),
-                          ],
-                        ),
-                        const Divider(),
-                        const Divider(),
-                        Padding(
-                          padding: const EdgeInsets.only(top: 4.0),
-                          child: Text(
-                            'Dernière mise à jour: ${_formatLastUpdate(_machine['lastSensorUpdate'] as String?)}',
-                            style: TextStyle(
-                              fontSize: 12,
-                              color: Colors.grey[600],
-                            ),
-                          ),
-                        ),
-                        const SizedBox(height: 16),
-                        Center(
-                          child: ElevatedButton.icon(
-                            icon: const Icon(Icons.edit, color: Colors.white),
-                            label: const Text(
-                              'Mettre à jour le statut',
-                              style: TextStyle(
-                                  color: Colors.white,
-                                  fontWeight: FontWeight.bold),
-                            ),
-                            onPressed: () {
-                              _showEditMachineStatusDialog(_machine);
-                            },
-                            style: ElevatedButton.styleFrom(
-                              backgroundColor: widget.buttonColor,
-                              foregroundColor: widget.buttonTextColor,
-                              elevation: 2,
-                              padding: const EdgeInsets.symmetric(
-                                horizontal: 24,
-                                vertical: 15,
-                              ),
-                              shape: RoundedRectangleBorder(
-                                borderRadius: BorderRadius.circular(10),
-                              ),
-                            ),
-                          ),
-                        ),
-                      ],
-                    ),
+                    child: _buildMachineStatusCard(),
                   ),
                 ),
 
@@ -281,20 +251,47 @@ class _MachineStatusPageState extends State<MachineStatusPage> {
       _isRefreshing = true;
     });
 
-    // Refresh environment data (which will also update machine data)
-    _loadEnvironmentData().then((_) {
+    // Refresh both machine status and environment data
+    Future.wait([
+      _loadMachineStatus(),
+      _loadEnvironmentData(),
+    ]).then((_) {
       // Delay slightly to give time for data to update
       Future.delayed(const Duration(seconds: 1), () {
+        if (mounted) {
+          setState(() {
+            _isRefreshing = false;
+          });
+
+          // Show success message
+          ScaffoldMessenger.of(context).hideCurrentSnackBar();
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(
+              content: const Text('Données actualisées avec succès'),
+              backgroundColor: Colors.green,
+              action: SnackBarAction(
+                label: 'OK',
+                textColor: Colors.white,
+                onPressed: () {
+                  ScaffoldMessenger.of(context).hideCurrentSnackBar();
+                },
+              ),
+            ),
+          );
+        }
+      });
+    }).catchError((e) {
+      if (mounted) {
         setState(() {
           _isRefreshing = false;
         });
 
-        // Show success message
+        // Show error message
         ScaffoldMessenger.of(context).hideCurrentSnackBar();
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
-            content: const Text('Données actualisées avec succès'),
-            backgroundColor: Colors.green,
+            content: Text('Erreur lors de l\'actualisation: ${e.toString()}'),
+            backgroundColor: Colors.red,
             action: SnackBarAction(
               label: 'OK',
               textColor: Colors.white,
@@ -304,28 +301,160 @@ class _MachineStatusPageState extends State<MachineStatusPage> {
             ),
           ),
         );
-      });
-    }).catchError((e) {
-      setState(() {
-        _isRefreshing = false;
-      });
+      }
+    });
+  }
 
-      // Show error message
-      ScaffoldMessenger.of(context).hideCurrentSnackBar();
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Text('Erreur lors de l\'actualisation: ${e.toString()}'),
-          backgroundColor: Colors.red,
-          action: SnackBarAction(
-            label: 'OK',
-            textColor: Colors.white,
-            onPressed: () {
-              ScaffoldMessenger.of(context).hideCurrentSnackBar();
-            },
+  // Build machine status card widget
+  Widget _buildMachineStatusCard() {
+    if (_isLoadingStatus) {
+      return Center(
+        child: Padding(
+          padding: const EdgeInsets.all(20),
+          child: Column(
+            children: [
+              CircularProgressIndicator(
+                color: widget.primaryColor,
+              ),
+              const SizedBox(height: 16),
+              const Text('Chargement du statut...'),
+            ],
           ),
         ),
       );
-    });
+    }
+
+    if (_statusError != null) {
+      return Center(
+        child: Padding(
+          padding: const EdgeInsets.all(20),
+          child: Column(
+            children: [
+              const Icon(Icons.error_outline, size: 48, color: Colors.red),
+              const SizedBox(height: 16),
+              Text('Erreur: $_statusError'),
+              const SizedBox(height: 16),
+              ElevatedButton.icon(
+                onPressed: _loadMachineStatus,
+                icon: const Icon(Icons.refresh),
+                label: const Text('Réessayer'),
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: widget.buttonColor,
+                  foregroundColor: Colors.white,
+                ),
+              ),
+            ],
+          ),
+        ),
+      );
+    }
+
+    if (_machineStatus == null) {
+      return const Center(
+        child: Text('Aucune donnée disponible'),
+      );
+    }
+    final status = _machineStatus!['status'] ?? 'UNKNOWN';
+    final statusText = MachineStatusService.getStatusDisplayText(status);
+    final message = _machineStatus!['statusMessage'];
+    final updatedAt = _machineStatus!['statusUpdatedAt'];
+    final updatedBy = _machineStatus!['statusUpdatedBy'];
+
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Row(
+          children: [
+            _getMachineStatusIcon(status),
+            const SizedBox(width: 10),
+            Text(
+              statusText,
+              style: TextStyle(
+                fontSize: 18,
+                fontWeight: FontWeight.bold,
+                color: _getColorFromString(
+                    MachineStatusService.getStatusColor(status)),
+              ),
+            ),
+          ],
+        ),
+        if (message != null && message.isNotEmpty) ...[
+          const SizedBox(height: 8),
+          Container(
+            padding: const EdgeInsets.all(8),
+            decoration: BoxDecoration(
+              color: Colors.grey[100],
+              borderRadius: BorderRadius.circular(8),
+            ),
+            child: Row(
+              children: [
+                const Icon(Icons.info_outline, size: 16, color: Colors.grey),
+                const SizedBox(width: 8),
+                Expanded(
+                  child: Text(
+                    message,
+                    style: const TextStyle(fontSize: 14),
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ],
+        const Divider(),
+        if (updatedAt != null) ...[
+          Padding(
+            padding: const EdgeInsets.only(top: 4.0),
+            child: Text(
+              'Dernière mise à jour: ${_formatLastUpdate(updatedAt)}',
+              style: TextStyle(
+                fontSize: 12,
+                color: Colors.grey[600],
+              ),
+            ),
+          ),
+        ],
+        if (updatedBy != null) ...[
+          Padding(
+            padding: const EdgeInsets.only(top: 2.0),
+            child: Text(
+              'Mis à jour par: $updatedBy',
+              style: TextStyle(
+                fontSize: 12,
+                color: Colors.grey[600],
+              ),
+            ),
+          ),
+        ],
+        const SizedBox(height: 16),
+        Center(
+          child: ElevatedButton.icon(
+            icon: const Icon(Icons.edit, color: Colors.white),
+            label: const Text(
+              'Mettre à jour le statut',
+              style: TextStyle(
+                color: Colors.white,
+                fontWeight: FontWeight.bold,
+              ),
+            ),
+            onPressed: () {
+              _showEditMachineStatusDialog();
+            },
+            style: ElevatedButton.styleFrom(
+              backgroundColor: widget.buttonColor,
+              foregroundColor: widget.buttonTextColor,
+              elevation: 2,
+              padding: const EdgeInsets.symmetric(
+                horizontal: 24,
+                vertical: 15,
+              ),
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(10),
+              ),
+            ),
+          ),
+        ),
+      ],
+    );
   }
 
   String _formatLastUpdate(String? timestamp) {
@@ -351,40 +480,48 @@ class _MachineStatusPageState extends State<MachineStatusPage> {
   }
 
   Color getMachineStatusColor(String status) {
-    switch (status) {
-      case 'Opérationnel':
+    return _getColorFromString(MachineStatusService.getStatusColor(status));
+  }
+
+  Color _getColorFromString(String colorName) {
+    switch (colorName.toLowerCase()) {
+      case 'green':
         return Colors.green;
-      case 'En maintenance':
-        return Colors.blue;
-      case 'En panne':
+      case 'orange':
+        return Colors.orange;
+      case 'red':
         return Colors.red;
-      case 'Hors service':
+      case 'grey':
         return Colors.grey;
-      case 'Nécessite réapprovisionnement':
+      case 'yellow':
         return Colors.amber;
       default:
         return Colors.grey;
     }
   }
 
-  Widget getMachineStatusIcon(String status) {
-    IconData iconData = Icons.help; // Default value
-    Color iconColor = getMachineStatusColor(status);
+  Widget _getMachineStatusIcon(String status) {
+    IconData iconData;
+    Color iconColor =
+        _getColorFromString(MachineStatusService.getStatusColor(status));
 
     switch (status) {
-      case 'Opérationnel':
+      case 'OPERATIONAL':
         iconData = Icons.check_circle;
         break;
-      case 'En maintenance':
+      case 'MAINTENANCE':
         iconData = Icons.build_circle;
         break;
-      case 'En panne':
+      case 'ERROR':
         iconData = Icons.error;
         break;
-      case 'Hors service':
+      case 'OFFLINE':
+        iconData = Icons.wifi_off;
+        break;
+      case 'OUT_OF_SERVICE':
         iconData = Icons.cancel;
         break;
-      case 'Nécessite réapprovisionnement':
+      case 'NEEDS_RESTOCKING':
         iconData = Icons.inventory;
         break;
       default:
@@ -394,46 +531,65 @@ class _MachineStatusPageState extends State<MachineStatusPage> {
     return Icon(iconData, color: iconColor, size: 30);
   }
 
-  void _showEditMachineStatusDialog(Map<String, dynamic> machine) {
-    String currentStatus = machine['status'];
-    String? issue = machine['issue'];
-    final issueController = TextEditingController(text: issue);
+  Widget getMachineStatusIcon(String status) {
+    return _getMachineStatusIcon(status);
+  }
+
+  void _showEditMachineStatusDialog() {
+    final currentStatus = _machineStatus?['status'] ?? 'OPERATIONAL';
+    final currentMessage = _machineStatus?['statusMessage'] ?? '';
+
+    String selectedStatus = currentStatus;
+    final messageController = TextEditingController(text: currentMessage);
+    bool isUpdating = false;
 
     showDialog(
       context: context,
       builder: (context) {
         return StatefulBuilder(
-          builder: (context, setState) {
+          builder: (context, setDialogState) {
             return AlertDialog(
               title: const Text('Mettre à jour le statut du distributeur'),
               content: Column(
                 mainAxisSize: MainAxisSize.min,
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  const Text('État actuel:'),
+                  const Text('Nouvel état:'),
+                  const SizedBox(height: 8),
                   DropdownButton<String>(
-                    value: currentStatus,
+                    value: selectedStatus,
                     isExpanded: true,
-                    items: _machineStatuses.map((String status) {
+                    items: _statusOptions.map((option) {
                       return DropdownMenuItem<String>(
-                        value: status,
-                        child: Text(status),
+                        value: option['value'],
+                        child: Row(
+                          children: [
+                            _getMachineStatusIcon(option['value']!),
+                            const SizedBox(width: 8),
+                            Text(option['label']!),
+                          ],
+                        ),
                       );
                     }).toList(),
-                    onChanged: (String? newValue) {
-                      if (newValue != null) {
-                        setState(() {
-                          currentStatus = newValue;
-                        });
-                      }
-                    },
+                    onChanged: isUpdating
+                        ? null
+                        : (String? newValue) {
+                            if (newValue != null) {
+                              setDialogState(() {
+                                selectedStatus = newValue;
+                              });
+                            }
+                          },
                   ),
                   const SizedBox(height: 16),
-                  const Text('Description du problème (si applicable):'),
+                  const Text('Message (optionnel):'),
+                  const SizedBox(height: 8),
                   TextField(
-                    controller: issueController,
+                    controller: messageController,
+                    enabled: !isUpdating,
                     decoration: const InputDecoration(
-                      hintText: 'Décrivez le problème...',
+                      hintText:
+                          'Décrivez le problème ou ajoutez des détails...',
                       border: OutlineInputBorder(),
                     ),
                     maxLines: 3,
@@ -442,35 +598,39 @@ class _MachineStatusPageState extends State<MachineStatusPage> {
               ),
               actions: [
                 TextButton(
-                  onPressed: () {
-                    Navigator.pop(context);
-                  },
+                  onPressed: isUpdating
+                      ? null
+                      : () {
+                          Navigator.pop(context);
+                        },
                   child: const Text('Annuler'),
                 ),
                 ElevatedButton(
-                  onPressed: () {
-                    setState(() {
-                      machine['status'] = currentStatus;
+                  onPressed: isUpdating
+                      ? null
+                      : () async {
+                          setDialogState(() {
+                            isUpdating = true;
+                          });
 
-                      // Ajouter ou supprimer le champ 'issue' en fonction de l'état
-                      if (currentStatus == 'Opérationnel') {
-                        machine.remove('issue');
-                      } else if (issueController.text.isNotEmpty) {
-                        machine['issue'] = issueController.text;
-                      }
-                    });
+                          try {
+                            await _updateMachineStatus(
+                              selectedStatus,
+                              messageController.text.trim().isEmpty
+                                  ? null
+                                  : messageController.text.trim(),
+                            );
 
-                    Navigator.pop(context);
-                    // Hide any existing SnackBar before showing a new one
-                    ScaffoldMessenger.of(context).hideCurrentSnackBar();
-                    ScaffoldMessenger.of(context).showSnackBar(
-                      const SnackBar(
-                        content:
-                            Text('État du distributeur mis à jour avec succès'),
-                        backgroundColor: Colors.green,
-                      ),
-                    );
-                  },
+                            if (context.mounted) {
+                              Navigator.pop(context);
+                            }
+                          } catch (e) {
+                            setDialogState(() {
+                              isUpdating = false;
+                            });
+                            // Error is already handled in _updateMachineStatus
+                          }
+                        },
                   style: ElevatedButton.styleFrom(
                     backgroundColor: widget.buttonColor,
                     foregroundColor: Colors.white,
@@ -479,10 +639,19 @@ class _MachineStatusPageState extends State<MachineStatusPage> {
                       borderRadius: BorderRadius.circular(8),
                     ),
                   ),
-                  child: const Text(
-                    'Mettre à jour',
-                    style: TextStyle(fontWeight: FontWeight.bold),
-                  ),
+                  child: isUpdating
+                      ? const SizedBox(
+                          width: 20,
+                          height: 20,
+                          child: CircularProgressIndicator(
+                            strokeWidth: 2,
+                            color: Colors.white,
+                          ),
+                        )
+                      : const Text(
+                          'Mettre à jour',
+                          style: TextStyle(fontWeight: FontWeight.bold),
+                        ),
                 ),
               ],
             );

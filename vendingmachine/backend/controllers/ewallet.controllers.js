@@ -2,6 +2,7 @@ const EWalletModel = require("../models/ewallet.model");
 const UserModel = require("../models/user.model");
 const NotificationModel = require("../models/notification.model");
 const OrderModel = require("../models/order.model"); // Add this import
+const Hardware = require("../models/hardware.model"); // Add hardware model for machine status check
 
 // This function might be missing or not exported
 module.exports.getBalance = async (req, res) => {
@@ -91,6 +92,24 @@ module.exports.processPayment = async (req, res) => {
     if (!userId || !amount || amount <= 0) {
       return res.status(400).json({
         message: "User ID and positive amount are required",
+      });
+    }
+
+    // Check machine status before processing payment
+    const machine = await Hardware.findOne();
+    if (!machine) {
+      return res.status(404).json({
+        message: "Machine not found",
+      });
+    }
+
+    // Prevent orders if machine is in restricted status
+    if (machine.status === 'NEEDS_RESTOCKING' || machine.status === 'MAINTENANCE') {
+      const statusMessage = machine.status === 'NEEDS_RESTOCKING' ? 'réapprovisionnement' : 'maintenance';
+      return res.status(403).json({
+        message: `Commandes temporairement indisponibles - Machine en ${statusMessage}`,
+        machineStatus: machine.status,
+        statusMessage: machine.statusMessage
       });
     }
     
