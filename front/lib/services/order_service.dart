@@ -22,12 +22,14 @@ class OrderService {
           'amount': amount,
           'products': products,
         }),
-      );      if (response.statusCode == 200) {
+      );
+      if (response.statusCode == 200) {
         return json.decode(response.body);
       } else if (response.statusCode == 403) {
         // Handle machine status restrictions
         final errorData = json.decode(response.body);
-        throw Exception(errorData['message'] ?? 'Machine non disponible pour les commandes');
+        throw Exception(errorData['message'] ??
+            'Machine non disponible pour les commandes');
       } else {
         final errorData = json.decode(response.body);
         throw Exception(errorData['message'] ?? 'Erreur lors du paiement');
@@ -36,6 +38,7 @@ class OrderService {
       throw Exception('Erreur lors du traitement du paiement: $e');
     }
   }
+
   // Générer un code pour un paiement différé
   Future<Map<String, dynamic>> generateCode({
     required String userId,
@@ -58,7 +61,8 @@ class OrderService {
       } else if (response.statusCode == 403) {
         // Handle machine status restrictions
         final errorData = json.decode(response.body);
-        throw Exception(errorData['message'] ?? 'Machine non disponible pour les commandes');
+        throw Exception(errorData['message'] ??
+            'Machine non disponible pour les commandes');
       } else {
         final errorData = json.decode(response.body);
         throw Exception(

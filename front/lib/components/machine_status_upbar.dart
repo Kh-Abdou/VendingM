@@ -20,8 +20,9 @@ class MachineStatusUpbar extends StatefulWidget {
 }
 
 class _MachineStatusUpbarState extends State<MachineStatusUpbar> {
-  final MachineStatusService _machineStatusService = MachineStatusService(baseUrl: apiBaseUrl);
-  
+  final MachineStatusService _machineStatusService =
+      MachineStatusService(baseUrl: apiBaseUrl);
+
   Map<String, dynamic>? _statusData;
   bool _isLoading = true;
 
@@ -44,7 +45,8 @@ class _MachineStatusUpbarState extends State<MachineStatusUpbar> {
 
   Future<void> _loadMachineStatus() async {
     try {
-      final statusData = await _machineStatusService.getMachineStatusForClient();
+      final statusData =
+          await _machineStatusService.getMachineStatusForClient();
       if (mounted) {
         setState(() {
           _statusData = statusData;
@@ -52,7 +54,8 @@ class _MachineStatusUpbarState extends State<MachineStatusUpbar> {
         });
       }
     } catch (e) {
-      developer.log('Error loading machine status for upbar: $e', name: 'MachineStatusUpbar');
+      developer.log('Error loading machine status for upbar: $e',
+          name: 'MachineStatusUpbar');
       if (mounted) {
         setState(() {
           _statusData = {
@@ -162,7 +165,8 @@ class _MachineStatusUpbarState extends State<MachineStatusUpbar> {
           ],
         ),
       );
-    }    final status = _statusData!['status'] ?? 'OFFLINE';
+    }
+    final status = _statusData!['status'] ?? 'OFFLINE';
     final statusColor = _getStatusColor(status);
     final statusIcon = _getStatusIcon(status);
     final displayText = MachineStatusService.getStatusDisplayText(status);
@@ -199,7 +203,8 @@ class _MachineStatusUpbarState extends State<MachineStatusUpbar> {
   }
 
   void _showStatusDetails() {
-    if (_statusData == null) return;    final status = _statusData!['status'] ?? 'OFFLINE';
+    if (_statusData == null) return;
+    final status = _statusData!['status'] ?? 'OFFLINE';
     final isOperational = _statusData!['isOperational'] ?? false;
     final message = _statusData!['message'];
     final lastUpdated = _statusData!['lastUpdated'];
@@ -297,10 +302,9 @@ class _MachineStatusUpbarState extends State<MachineStatusUpbar> {
                 border: Border.all(color: statusColor.withOpacity(0.3)),
               ),
               child: Row(
-                children: [                  Icon(
-                    isOperational
-                        ? Icons.check_circle
-                        : Icons.warning,
+                children: [
+                  Icon(
+                    isOperational ? Icons.check_circle : Icons.warning,
                     color: statusColor,
                     size: 20.sp,
                   ),
@@ -349,7 +353,7 @@ class _MachineStatusUpbarState extends State<MachineStatusUpbar> {
 
   String _formatDateTime(String? dateTimeString) {
     if (dateTimeString == null) return 'Non disponible';
-    
+
     try {
       final dateTime = DateTime.parse(dateTimeString);
       final now = DateTime.now();

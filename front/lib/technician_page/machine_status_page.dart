@@ -52,10 +52,10 @@ class _MachineStatusPageState extends State<MachineStatusPage> {
         statusMessage: message,
         technicianId: userProvider.userId,
       );
-      
+
       // Reload status after update
       await _loadMachineStatus();
-      
+
       if (mounted) {
         ScaffoldMessenger.of(context).hideCurrentSnackBar();
         ScaffoldMessenger.of(context).showSnackBar(
@@ -81,10 +81,11 @@ class _MachineStatusPageState extends State<MachineStatusPage> {
   @override
   void initState() {
     super.initState();
-    
+
     // Initialize the machine status service
-    _machineStatusService = MachineStatusService(baseUrl: 'http://192.168.1.8:5000');
-    
+    _machineStatusService =
+        MachineStatusService(baseUrl: 'http://192.168.1.8:5000');
+
     // Load initial data
     _loadMachineStatus();
     _loadEnvironmentData();
@@ -97,6 +98,7 @@ class _MachineStatusPageState extends State<MachineStatusPage> {
       }
     });
   }
+
   @override
   void dispose() {
     _refreshTimer?.cancel();
@@ -114,7 +116,7 @@ class _MachineStatusPageState extends State<MachineStatusPage> {
 
     try {
       final status = await _machineStatusService.getMachineStatus();
-      
+
       if (!mounted) return;
 
       setState(() {
@@ -141,7 +143,8 @@ class _MachineStatusPageState extends State<MachineStatusPage> {
     });
 
     try {
-      final hardwareProvider = Provider.of<HardwareProvider>(context, listen: false);
+      final hardwareProvider =
+          Provider.of<HardwareProvider>(context, listen: false);
       await hardwareProvider.loadEnvironmentData();
 
       if (!mounted) return;
@@ -213,7 +216,8 @@ class _MachineStatusPageState extends State<MachineStatusPage> {
             padding: const EdgeInsets.all(16),
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
-              children: [                // Machine status card
+              children: [
+                // Machine status card
                 Card(
                   margin: const EdgeInsets.only(bottom: 16),
                   child: Padding(
@@ -241,6 +245,7 @@ class _MachineStatusPageState extends State<MachineStatusPage> {
       ],
     );
   }
+
   void _refreshMachineStatus() {
     setState(() {
       _isRefreshing = true;
@@ -348,7 +353,8 @@ class _MachineStatusPageState extends State<MachineStatusPage> {
       return const Center(
         child: Text('Aucune donnée disponible'),
       );
-    }    final status = _machineStatus!['status'] ?? 'UNKNOWN';
+    }
+    final status = _machineStatus!['status'] ?? 'UNKNOWN';
     final statusText = MachineStatusService.getStatusDisplayText(status);
     final message = _machineStatus!['statusMessage'];
     final updatedAt = _machineStatus!['statusUpdatedAt'];
@@ -366,7 +372,8 @@ class _MachineStatusPageState extends State<MachineStatusPage> {
               style: TextStyle(
                 fontSize: 18,
                 fontWeight: FontWeight.bold,
-                color: _getColorFromString(MachineStatusService.getStatusColor(status)),
+                color: _getColorFromString(
+                    MachineStatusService.getStatusColor(status)),
               ),
             ),
           ],
@@ -470,7 +477,9 @@ class _MachineStatusPageState extends State<MachineStatusPage> {
     } catch (e) {
       return 'Format invalide';
     }
-  }  Color getMachineStatusColor(String status) {
+  }
+
+  Color getMachineStatusColor(String status) {
     return _getColorFromString(MachineStatusService.getStatusColor(status));
   }
 
@@ -493,7 +502,8 @@ class _MachineStatusPageState extends State<MachineStatusPage> {
 
   Widget _getMachineStatusIcon(String status) {
     IconData iconData;
-    Color iconColor = _getColorFromString(MachineStatusService.getStatusColor(status));
+    Color iconColor =
+        _getColorFromString(MachineStatusService.getStatusColor(status));
 
     switch (status) {
       case 'OPERATIONAL':
@@ -528,7 +538,7 @@ class _MachineStatusPageState extends State<MachineStatusPage> {
   void _showEditMachineStatusDialog() {
     final currentStatus = _machineStatus?['status'] ?? 'OPERATIONAL';
     final currentMessage = _machineStatus?['statusMessage'] ?? '';
-    
+
     String selectedStatus = currentStatus;
     final messageController = TextEditingController(text: currentMessage);
     bool isUpdating = false;
@@ -561,13 +571,15 @@ class _MachineStatusPageState extends State<MachineStatusPage> {
                         ),
                       );
                     }).toList(),
-                    onChanged: isUpdating ? null : (String? newValue) {
-                      if (newValue != null) {
-                        setDialogState(() {
-                          selectedStatus = newValue;
-                        });
-                      }
-                    },
+                    onChanged: isUpdating
+                        ? null
+                        : (String? newValue) {
+                            if (newValue != null) {
+                              setDialogState(() {
+                                selectedStatus = newValue;
+                              });
+                            }
+                          },
                   ),
                   const SizedBox(height: 16),
                   const Text('Message (optionnel):'),
@@ -576,7 +588,8 @@ class _MachineStatusPageState extends State<MachineStatusPage> {
                     controller: messageController,
                     enabled: !isUpdating,
                     decoration: const InputDecoration(
-                      hintText: 'Décrivez le problème ou ajoutez des détails...',
+                      hintText:
+                          'Décrivez le problème ou ajoutez des détails...',
                       border: OutlineInputBorder(),
                     ),
                     maxLines: 3,
@@ -585,35 +598,39 @@ class _MachineStatusPageState extends State<MachineStatusPage> {
               ),
               actions: [
                 TextButton(
-                  onPressed: isUpdating ? null : () {
-                    Navigator.pop(context);
-                  },
+                  onPressed: isUpdating
+                      ? null
+                      : () {
+                          Navigator.pop(context);
+                        },
                   child: const Text('Annuler'),
                 ),
                 ElevatedButton(
-                  onPressed: isUpdating ? null : () async {
-                    setDialogState(() {
-                      isUpdating = true;
-                    });
+                  onPressed: isUpdating
+                      ? null
+                      : () async {
+                          setDialogState(() {
+                            isUpdating = true;
+                          });
 
-                    try {
-                      await _updateMachineStatus(
-                        selectedStatus,
-                        messageController.text.trim().isEmpty 
-                          ? null 
-                          : messageController.text.trim(),
-                      );
-                      
-                      if (context.mounted) {
-                        Navigator.pop(context);
-                      }
-                    } catch (e) {
-                      setDialogState(() {
-                        isUpdating = false;
-                      });
-                      // Error is already handled in _updateMachineStatus
-                    }
-                  },
+                          try {
+                            await _updateMachineStatus(
+                              selectedStatus,
+                              messageController.text.trim().isEmpty
+                                  ? null
+                                  : messageController.text.trim(),
+                            );
+
+                            if (context.mounted) {
+                              Navigator.pop(context);
+                            }
+                          } catch (e) {
+                            setDialogState(() {
+                              isUpdating = false;
+                            });
+                            // Error is already handled in _updateMachineStatus
+                          }
+                        },
                   style: ElevatedButton.styleFrom(
                     backgroundColor: widget.buttonColor,
                     foregroundColor: Colors.white,
@@ -623,18 +640,18 @@ class _MachineStatusPageState extends State<MachineStatusPage> {
                     ),
                   ),
                   child: isUpdating
-                    ? const SizedBox(
-                        width: 20,
-                        height: 20,
-                        child: CircularProgressIndicator(
-                          strokeWidth: 2,
-                          color: Colors.white,
+                      ? const SizedBox(
+                          width: 20,
+                          height: 20,
+                          child: CircularProgressIndicator(
+                            strokeWidth: 2,
+                            color: Colors.white,
+                          ),
+                        )
+                      : const Text(
+                          'Mettre à jour',
+                          style: TextStyle(fontWeight: FontWeight.bold),
                         ),
-                      )
-                    : const Text(
-                        'Mettre à jour',
-                        style: TextStyle(fontWeight: FontWeight.bold),
-                      ),
                 ),
               ],
             );
@@ -642,7 +659,7 @@ class _MachineStatusPageState extends State<MachineStatusPage> {
         );
       },
     );
-  }// Widget to display environment data
+  } // Widget to display environment data
 
   Widget _buildEnvironmentDataCard() {
     return Consumer<HardwareProvider>(

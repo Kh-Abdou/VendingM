@@ -106,8 +106,9 @@ class _ProfilePageState extends State<ProfilePage> {
         _machineStatusLoading = true;
       });
 
-      final statusData = await _machineStatusService.getMachineStatusForClient();
-      
+      final statusData =
+          await _machineStatusService.getMachineStatusForClient();
+
       if (mounted) {
         setState(() {
           _machineStatusData = statusData;
@@ -301,7 +302,10 @@ class _ProfilePageState extends State<ProfilePage> {
                       _showSupportDialog();
                     },
                   ),
-                  Divider(thickness: 1.h, color: AppColors.divider),                  // Status of the distributor - dynamic machine status
+                  Divider(
+                      thickness: 1.h,
+                      color: AppColors
+                          .divider), // Status of the distributor - dynamic machine status
                   _buildMachineStatusTile(),
                   Divider(thickness: 1.h, color: AppColors.divider),
 
@@ -676,7 +680,8 @@ class _ProfilePageState extends State<ProfilePage> {
         trailing: Icon(Icons.chevron_right, size: 22.sp),
         onTap: () => _showMachineStatusDialog(),
       );
-    }    final status = _machineStatusData!['status'] ?? 'OFFLINE';
+    }
+    final status = _machineStatusData!['status'] ?? 'OFFLINE';
     final statusColor = _getMachineStatusColor(status);
     final statusIcon = _getMachineStatusIcon(status);
     final displayText = MachineStatusService.getStatusDisplayText(status);
@@ -737,7 +742,8 @@ class _ProfilePageState extends State<ProfilePage> {
     if (_machineStatusData == null) {
       _showDefaultStatusDialog();
       return;
-    }    final status = _machineStatusData!['status'] ?? 'OFFLINE';
+    }
+    final status = _machineStatusData!['status'] ?? 'OFFLINE';
     final isOperational = _machineStatusData!['isOperational'] ?? false;
     final message = _machineStatusData!['message'];
     final lastUpdated = _machineStatusData!['lastUpdated'];
@@ -835,10 +841,9 @@ class _ProfilePageState extends State<ProfilePage> {
                 border: Border.all(color: statusColor.withOpacity(0.3)),
               ),
               child: Row(
-                children: [                  Icon(
-                    isOperational
-                        ? Icons.check_circle
-                        : Icons.warning,
+                children: [
+                  Icon(
+                    isOperational ? Icons.check_circle : Icons.warning,
                     color: statusColor,
                     size: 20.sp,
                   ),
@@ -892,7 +897,7 @@ class _ProfilePageState extends State<ProfilePage> {
   // Format date time for display
   String _formatDateTime(String? dateTimeString) {
     if (dateTimeString == null) return 'Non disponible';
-    
+
     try {
       final dateTime = DateTime.parse(dateTimeString);
       final now = DateTime.now();
@@ -911,6 +916,7 @@ class _ProfilePageState extends State<ProfilePage> {
       return 'Non disponible';
     }
   }
+
   // Show default status dialog (fallback)
   void _showDefaultStatusDialog() {
     showDialog(
