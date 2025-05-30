@@ -175,7 +175,6 @@ class _HomePageState extends State<HomePage> {
         return 'Distributeur Automatique';
     }
   }
-
   @override
   Widget build(BuildContext context) {
     return Scaffold(

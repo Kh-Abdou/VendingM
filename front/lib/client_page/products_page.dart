@@ -4,6 +4,7 @@ import 'package:flutter_screenutil/flutter_screenutil.dart'; // Import flutter_s
 import '../models/produit.dart';
 import '../services/produit_service.dart';
 import '../services/order_service.dart'; // Ajout de l'import manquant
+import '../services/machine_status_service.dart'; // Import machine status service
 import '../theme/app_design_system.dart'; // Import our design system
 import '../theme/app_spacing.dart';
 import '../theme/app_text_styles.dart';
@@ -43,17 +44,49 @@ class ProductsPage extends StatefulWidget {
 
 class _ProductsPageState extends State<ProductsPage> {
   late ProduitService _produitService;
+  late MachineStatusService _machineStatusService;
   List<Produit> _produits = [];
   bool _isLoading = true;
   String _error = '';
-
+    // Machine status state
+  String _machineStatus = 'OPERATIONAL';
+  String _machineStatusMessage = '';
+  bool _isLoadingMachineStatus = true;
   @override
   void initState() {
     super.initState();
     _produitService = ProduitService(baseUrl: widget.baseUrl);
-    _fetchProducts();
+    _machineStatusService = MachineStatusService(baseUrl: widget.baseUrl);
+    _initializeData();
   }
 
+  Future<void> _initializeData() async {
+    await Future.wait([
+      _fetchProducts(),
+      _fetchMachineStatus(),
+    ]);
+  }
+
+  Future<void> _fetchMachineStatus() async {
+    try {
+      setState(() {
+        _isLoadingMachineStatus = true;
+      });
+
+      final statusData = await _machineStatusService.getMachineStatusForClient();
+        setState(() {
+        _machineStatus = statusData['status'] ?? 'OPERATIONAL';
+        _machineStatusMessage = statusData['message'] ?? '';
+        _isLoadingMachineStatus = false;
+      });
+    } catch (e) {      setState(() {
+        _machineStatus = 'OFFLINE';
+        _machineStatusMessage = 'Impossible de vérifier le statut de la machine';
+        _isLoadingMachineStatus = false;
+      });
+      print('Erreur lors de la récupération du statut de la machine: $e');
+    }
+  }
   Future<void> _fetchProducts() async {
     try {
       setState(() {
@@ -76,9 +109,12 @@ class _ProductsPageState extends State<ProductsPage> {
     }
   }
 
+  bool get _isOrderingRestricted {
+    return _machineStatus == 'MAINTENANCE' || _machineStatus == 'NEEDS_RESTOCKING';
+  }
   @override
   Widget build(BuildContext context) {
-    if (_isLoading) {
+    if (_isLoading || _isLoadingMachineStatus) {
       return Center(
         child: CircularProgressIndicator(
           strokeWidth: 2.w,
@@ -114,7 +150,7 @@ class _ProductsPageState extends State<ProductsPage> {
             ),
             SizedBox(height: AppSpacing.lg),
             ElevatedButton.icon(
-              onPressed: _fetchProducts,
+              onPressed: _initializeData,
               icon: Icon(Icons.refresh, size: 18.sp),
               label: Text('Réessayer', style: AppTextStyles.buttonMedium),
             ),
@@ -140,7 +176,7 @@ class _ProductsPageState extends State<ProductsPage> {
             ),
             SizedBox(height: AppSpacing.lg),
             ElevatedButton.icon(
-              onPressed: _fetchProducts,
+              onPressed: _initializeData,
               icon: Icon(Icons.refresh, size: 18.sp),
               label: Text('Actualiser', style: AppTextStyles.buttonMedium),
             ),
@@ -149,31 +185,128 @@ class _ProductsPageState extends State<ProductsPage> {
       );
     }
 
-    return RefreshIndicator(
-      onRefresh: _fetchProducts,
-      color: AppColors.primary,
-      child: AnimationLimiter(
-        child: GridView.builder(
-          padding: EdgeInsets.all(AppSpacing.sm),
-          gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
-            crossAxisCount: 2,
-            childAspectRatio: 0.75,
-            crossAxisSpacing: AppSpacing.sm,
-            mainAxisSpacing: AppSpacing.sm,
+    return Stack(
+      children: [
+        RefreshIndicator(
+          onRefresh: _initializeData,
+          color: AppColors.primary,
+          child: AnimationLimiter(
+            child: GridView.builder(
+              padding: EdgeInsets.all(AppSpacing.sm),
+              gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
+                crossAxisCount: 2,
+                childAspectRatio: 0.75,
+                crossAxisSpacing: AppSpacing.sm,
+                mainAxisSpacing: AppSpacing.sm,
+              ),
+              itemCount: _produits.length,
+              itemBuilder: (context, index) {
+                return AnimationConfiguration.staggeredGrid(
+                  position: index,
+                  duration: const Duration(milliseconds: 375),
+                  columnCount: 2,
+                  child: ScaleAnimation(
+                    child: FadeInAnimation(
+                      child: _buildProduitCard(_produits[index]),
+                    ),
+                  ),
+                );
+              },
+            ),
           ),
-          itemCount: _produits.length,
-          itemBuilder: (context, index) {
-            return AnimationConfiguration.staggeredGrid(
-              position: index,
-              duration: const Duration(milliseconds: 375),
-              columnCount: 2,
-              child: ScaleAnimation(
-                child: FadeInAnimation(
-                  child: _buildProduitCard(_produits[index]),
+        ),
+        // Overlay for restricted machine status
+        if (_isOrderingRestricted)
+          _buildRestrictedOverlay(),
+      ],
+    );  }
+
+  Widget _buildRestrictedOverlay() {
+    return Container(
+      color: Colors.black.withOpacity(0.85),
+      child: Center(
+        child: Container(
+          margin: EdgeInsets.symmetric(horizontal: AppSpacing.xl),
+          padding: EdgeInsets.all(AppSpacing.xl),
+          decoration: BoxDecoration(
+            color: AppColors.surfaceLight,
+            borderRadius: BorderRadius.circular(AppSpacing.cardRadius),
+            boxShadow: [
+              BoxShadow(
+                color: Colors.black.withOpacity(0.1),
+                blurRadius: 10,
+                offset: const Offset(0, 5),
+              ),
+            ],
+          ),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Icon(
+                _machineStatus == 'MAINTENANCE' ? Icons.build : Icons.inventory_2,
+                size: 80.sp,
+                color: _machineStatus == 'MAINTENANCE' 
+                    ? Colors.orange 
+                    : Colors.amber,
+              ),
+              SizedBox(height: AppSpacing.lg),
+              Text(
+                MachineStatusService.getStatusDisplayText(_machineStatus),
+                style: AppTextStyles.h3.copyWith(
+                  color: _machineStatus == 'MAINTENANCE' 
+                      ? Colors.orange 
+                      : Colors.amber,
+                ),
+                textAlign: TextAlign.center,
+              ),
+              SizedBox(height: AppSpacing.md),
+              Text(
+                _machineStatus == 'MAINTENANCE'
+                    ? 'Le distributeur est actuellement en maintenance.\nLes commandes sont temporairement indisponibles.'
+                    : 'Le distributeur nécessite un réapprovisionnement.\nLes commandes sont temporairement indisponibles.',
+                style: AppTextStyles.bodyMedium.copyWith(
+                  color: AppColors.textSecondary,
+                ),
+                textAlign: TextAlign.center,
+              ),
+              if (_machineStatusMessage.isNotEmpty) ...[
+                SizedBox(height: AppSpacing.sm),
+                Text(
+                  _machineStatusMessage,
+                  style: AppTextStyles.bodySmall.copyWith(
+                    color: AppColors.textSecondary,
+                    fontStyle: FontStyle.italic,
+                  ),
+                  textAlign: TextAlign.center,
+                ),
+              ],
+              SizedBox(height: AppSpacing.lg),
+              Text(
+                'Vous pouvez continuer à consulter les produits disponibles',
+                style: AppTextStyles.caption.copyWith(
+                  color: AppColors.textSecondary,
+                ),
+                textAlign: TextAlign.center,
+              ),
+              SizedBox(height: AppSpacing.lg),
+              ElevatedButton.icon(
+                onPressed: _fetchMachineStatus,
+                icon: Icon(Icons.refresh, size: 18.sp),
+                label: Text('Vérifier le statut', style: AppTextStyles.buttonMedium),
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: AppColors.primary,
+                  foregroundColor: AppColors.onPrimary,
+                  padding: EdgeInsets.symmetric(
+                    horizontal: AppSpacing.lg,
+                    vertical: AppSpacing.sm,
+                  ),
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(AppSpacing.buttonRadius),
+                  ),
                 ),
               ),
-            );
-          },
+            ],
+          ),
         ),
       ),
     );
@@ -186,7 +319,9 @@ class _ProductsPageState extends State<ProductsPage> {
         borderRadius: BorderRadius.circular(AppSpacing.cardRadius),
       ),
       child: InkWell(
-        onTap: produit.disponible ? () => _showProduitDetails(produit) : null,
+        onTap: (produit.disponible && !_isOrderingRestricted) 
+            ? () => _showProduitDetails(produit) 
+            : null,
         borderRadius: BorderRadius.circular(AppSpacing.cardRadius),
         child: Container(
           padding: EdgeInsets.all(6.w), // Réduit le padding général
@@ -270,23 +405,28 @@ class _ProductsPageState extends State<ProductsPage> {
                 '${produit.prix.toStringAsFixed(2)} DA',
                 style: AppTextStyles.priceText,
               ),
-              SizedBox(height: 4.h), // Réduit l'espace avant le bouton
-              if (produit.disponible)
+              SizedBox(height: 4.h), // Réduit l'espace avant le bouton              if (produit.disponible)
                 SizedBox(
                   width: double.infinity,
                   child: ElevatedButton(
                     style: ElevatedButton.styleFrom(
-                      backgroundColor: AppColors.primary,
-                      foregroundColor: Colors.white,
+                      backgroundColor: _isOrderingRestricted 
+                          ? AppColors.textLight 
+                          : AppColors.primary,
+                      foregroundColor: _isOrderingRestricted 
+                          ? AppColors.textSecondary 
+                          : Colors.white,
                       padding: EdgeInsets.symmetric(vertical: 2.h), // Réduit le padding du bouton
                       minimumSize: Size(0, 28.h), // Réduit la hauteur minimale du bouton
                       shape: RoundedRectangleBorder(
                         borderRadius: BorderRadius.circular(AppSpacing.buttonRadius),
                       ),
                     ),
-                    onPressed: () => widget.onAjouterAuPanier(produit),
+                    onPressed: _isOrderingRestricted 
+                        ? null 
+                        : () => widget.onAjouterAuPanier(produit),
                     child: Text(
-                      'Ajouter',
+                      _isOrderingRestricted ? 'Indisponible' : 'Ajouter',
                       style: AppTextStyles.buttonMedium.copyWith(fontSize: 11.sp),
                     ),
                   ),
@@ -367,12 +507,15 @@ class _ProductsPageState extends State<ProductsPage> {
               ),
               const Spacer(),
               Row(
-                children: [
-                  Expanded(
+                children: [                  Expanded(
                     child: ElevatedButton(
                       style: ElevatedButton.styleFrom(
-                        backgroundColor: AppColors.primary,
-                        foregroundColor: AppColors.onPrimary,
+                        backgroundColor: _isOrderingRestricted 
+                            ? AppColors.textLight 
+                            : AppColors.primary,
+                        foregroundColor: _isOrderingRestricted 
+                            ? AppColors.textSecondary 
+                            : AppColors.onPrimary,
                         padding: EdgeInsets.symmetric(vertical: 15.h),
                         shape: RoundedRectangleBorder(
                           borderRadius:
@@ -380,13 +523,17 @@ class _ProductsPageState extends State<ProductsPage> {
                         ),
                       ),
                       child: Text(
-                        'Ajouter au panier',
+                        _isOrderingRestricted 
+                            ? 'Commande indisponible' 
+                            : 'Ajouter au panier',
                         style: AppTextStyles.buttonLarge,
                       ),
-                      onPressed: () {
-                        Navigator.pop(context);
-                        widget.onAjouterAuPanier(produit);
-                      },
+                      onPressed: _isOrderingRestricted 
+                          ? null 
+                          : () {
+                              Navigator.pop(context);
+                              widget.onAjouterAuPanier(produit);
+                            },
                     ),
                   ),
                 ],
